@@ -1,98 +1,1587 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Platform,
+  Dimensions,
+  ScrollView,
+  Animated,
+  Image,
+  Alert
+} from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
+import * as Linking from 'expo-linking';
+import { colors, typography, spacing, borderRadius } from '../../src/constants/theme';
+import useFonts from '../../src/hooks/useFonts';
+import LoadingScreen from '../../src/components/common/LoadingScreen';
+import { useOrder } from '../../src/context/OrderContext';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const fontsLoaded = useFonts();
+  const { setOrderType } = useOrder();
+  const animatedValue = useRef(new Animated.Value(0)).current;
+  const pulseValue = useRef(new Animated.Value(1)).current;
+  const [isRestaurantOpen, setIsRestaurantOpen] = useState(true);
+  
+  // Animations d'apparition pour les éléments
+  const headerOpacity = useRef(new Animated.Value(0)).current;
+  const headerTranslateY = useRef(new Animated.Value(-50)).current;
+  const heroOpacity = useRef(new Animated.Value(0)).current;
+  const heroScale = useRef(new Animated.Value(0.8)).current;
+  const buttonsOpacity = useRef(new Animated.Value(0)).current;
+  const buttonsTranslateY = useRef(new Animated.Value(50)).current;
+  const infoOpacity = useRef(new Animated.Value(0)).current;
+  const infoTranslateX = useRef(new Animated.Value(-100)).current;
+  
+  // Animations pour les emojis flottants (25 emojis)
+  const floatingEmojis = useRef(
+    Array.from({ length: 25 }, () => new Animated.Value(0))
+  ).current;
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  const navigateToMenu = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push('/menu');
+  };
+
+  const openNavigation = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const address = "23 Bis Avenue Du Président Roosevelt, Brive-La-Gaillarde, 19100";
+    const encodedAddress = encodeURIComponent(address);
+
+    if (Platform.OS === 'ios') {
+      // Sur iOS, proposer le choix entre Plans et Google Maps
+      Alert.alert(
+        'Ouvrir dans quelle app ?',
+        'Choisissez votre application de navigation préférée',
+        [
+          {
+            text: 'Plans (Apple)',
+            onPress: () => {
+              const appleUrl = `http://maps.apple.com/?q=${encodedAddress}`;
+              Linking.openURL(appleUrl);
+            }
+          },
+          {
+            text: 'Google Maps',
+            onPress: () => {
+              const googleUrl = `https://maps.google.com/maps?q=${encodedAddress}`;
+              Linking.openURL(googleUrl);
+            }
+          },
+          {
+            text: 'Annuler',
+            style: 'cancel'
+          }
+        ]
+      );
+    } else {
+      // Sur Android, ouvrir directement Google Maps
+      const googleUrl = `https://maps.google.com/maps?q=${encodedAddress}`;
+      Linking.openURL(googleUrl);
+    }
+  };
+
+  const callRestaurant = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const phoneNumber = "tel:0777881697";
+    Linking.openURL(phoneNumber);
+  };
+
+  const openFacebook = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const facebookUrl = "https://www.facebook.com/p/Brive-Food-100063692604285/?locale=fr_FR";
+    Linking.openURL(facebookUrl);
+  };
+
+  const openInstagram = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const instagramUrl = "https://www.instagram.com/brivefood/#";
+    Linking.openURL(instagramUrl);
+  };
+
+  const openSnapchat = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const snapchatUrl = "https://www.snapchat.com/add/brive-food";
+    Linking.openURL(snapchatUrl);
+  };
+
+  const checkRestaurantStatus = () => {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinutes = now.getMinutes();
+    const currentTime = currentHour * 60 + currentMinutes;
+    
+    // Horaires: 18h00 - 1h55 du matin (1080 minutes - 115 minutes le lendemain)
+    const openTime = 18 * 60; // 18h00 en minutes
+    const closeTime = 1 * 60 + 55; // 1h55 en minutes
+    
+    // Ouvert si c'est après 18h00 OU avant 1h55 du matin
+    const isOpen = currentTime >= openTime || currentTime <= closeTime;
+    
+    setIsRestaurantOpen(isOpen);
+  };
+
+  const getTimeUntilOpen = () => {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinutes = now.getMinutes();
+    const currentTime = currentHour * 60 + currentMinutes;
+    const openTime = 18 * 60; // 18h00
+    
+    if (currentTime < openTime) {
+      // Même jour
+      const minutesUntilOpen = openTime - currentTime;
+      const hoursUntil = Math.floor(minutesUntilOpen / 60);
+      const minsUntil = minutesUntilOpen % 60;
+      
+      if (hoursUntil > 0) {
+        return `dans ${hoursUntil}h${minsUntil > 0 ? minsUntil.toString().padStart(2, '0') : ''}`;
+      } else {
+        return `dans ${minsUntil} min`;
+      }
+    } else {
+      // Lendemain
+      const minutesUntilMidnight = 24 * 60 - currentTime;
+      const minutesFromMidnightToOpen = openTime;
+      const totalMinutes = minutesUntilMidnight + minutesFromMidnightToOpen;
+      const hoursUntil = Math.floor(totalMinutes / 60);
+      
+      return `dans ${hoursUntil}h`;
+    }
+  };
+
+  useEffect(() => {
+    // Animation continue en arrière-plan
+    const startBackgroundAnimation = () => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(animatedValue, {
+            toValue: 1,
+            duration: 6000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(animatedValue, {
+            toValue: 0,
+            duration: 6000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    };
+
+    // Animation de pulsation pour le statut
+    const startPulseAnimation = () => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseValue, {
+            toValue: 1.2,
+            duration: 1500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseValue, {
+            toValue: 1,
+            duration: 1500,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    };
+
+    // Animation des emojis flottants avec trajectoires aléatoires
+    const startFloatingEmojisAnimation = () => {
+      floatingEmojis.forEach((animValue, index) => {
+        // Délai plus rapide pour étaler les démarrages
+        const delay = Math.random() * 1000;
+        // Durée plus lente entre 15 et 30 secondes
+        const duration = 15000 + Math.random() * 15000;
+        
+        setTimeout(() => {
+          Animated.loop(
+            Animated.timing(animValue, {
+              toValue: 1,
+              duration: duration,
+              useNativeDriver: true,
+            })
+          ).start();
+        }, delay);
+      });
+    };
+
+    // Animations d'apparition séquentielles et originales
+    const startEntranceAnimations = () => {
+      // 1. Header avec effet de chute élégante
+      Animated.parallel([
+        Animated.timing(headerOpacity, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.spring(headerTranslateY, {
+          toValue: 0,
+          tension: 50,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // 2. Hero avec effet d'explosion douce (délai 300ms)
+      setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(heroOpacity, {
+            toValue: 1,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+          Animated.spring(heroScale, {
+            toValue: 1,
+            tension: 60,
+            friction: 10,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }, 300);
+
+      // 3. Boutons avec effet de glissement vers le haut (délai 600ms)
+      setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(buttonsOpacity, {
+            toValue: 1,
+            duration: 700,
+            useNativeDriver: true,
+          }),
+          Animated.spring(buttonsTranslateY, {
+            toValue: 0,
+            tension: 40,
+            friction: 8,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }, 600);
+
+      // 4. Infos avec effet de glissement latéral (délai 900ms)
+      setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(infoOpacity, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.spring(infoTranslateX, {
+            toValue: 0,
+            tension: 50,
+            friction: 9,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }, 900);
+    };
+
+    startBackgroundAnimation();
+    startPulseAnimation();
+    startFloatingEmojisAnimation();
+    startEntranceAnimations();
+    checkRestaurantStatus();
+    
+    // Vérifier le statut toutes les minutes
+    const statusInterval = setInterval(checkRestaurantStatus, 60000);
+    
+    return () => clearInterval(statusInterval);
+  }, []);
+
+  if (!fontsLoaded) {
+    return <LoadingScreen />;
+  }
+
+  // Animations interpolées
+  const rotateAnimation = animatedValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
+  const scaleAnimation = animatedValue.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [1, 1.1, 1],
+  });
+
+  const opacityAnimation = animatedValue.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0.3, 0.8, 0.3],
+  });
+
+  return (
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#000000', '#111111', '#222222']}
+        style={styles.gradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <StatusBar style="light" />
+        
+        {/* Animation d'arrière-plan */}
+        <Animated.View 
+          style={[
+            styles.backgroundAnimation1,
+            {
+              transform: [
+                { rotate: rotateAnimation },
+                { scale: scaleAnimation }
+              ],
+              opacity: opacityAnimation
+            }
+          ]}
+        />
+        <Animated.View 
+          style={[
+            styles.backgroundAnimation2,
+            {
+              transform: [
+                { rotate: rotateAnimation },
+                { scale: scaleAnimation }
+              ],
+              opacity: opacityAnimation
+            }
+          ]}
+        />
+        <Animated.View 
+          style={[
+            styles.backgroundAnimation3,
+            {
+              transform: [
+                { rotate: rotateAnimation },
+                { scale: scaleAnimation }
+              ],
+              opacity: opacityAnimation
+            }
+          ]}
+        />
+        
+        {/* Emojis flottants de fast food avec trajectoires variables et équilibrées */}
+        {floatingEmojis.map((animValue, index) => {
+          // Liste d'emojis de fast food uniquement
+          const fastFoodEmojis = ['🍔', '🍟', '🍕', '🌮', '🌭', '🥪', '🥙', '🍗', '🥓', '🍖', '🧀', '🥯', '🌯', '🧈', '🫓', '🧄', '🥒', '🍅', '🌶️', '🫒'];
+          const currentEmoji = fastFoodEmojis[index % fastFoodEmojis.length];
+          
+          // Distribution plus équilibrée sur l'écran
+          const trajectoryType = index % 6; // Plus de types de trajectoires
+          const screenWidth = 400;
+          const screenHeight = 900;
+          let startX, endX, startY, endY;
+          
+          // Distribution des emojis en zones pour une meilleure répartition
+          const zone = Math.floor(index / 4); // 4 emojis par zone
+          const zoneWidth = screenWidth / 3; // 3 zones horizontales
+          const baseX = (zone % 3) * zoneWidth;
+          
+          switch (trajectoryType) {
+            case 0: // Du bas vers le haut - zone gauche
+              startX = baseX + Math.random() * zoneWidth;
+              endX = startX + (Math.random() - 0.5) * 100;
+              startY = screenHeight + 100;
+              endY = -100;
+              break;
+            case 1: // De la gauche vers la droite - milieu de l'écran
+              startX = -100;
+              endX = screenWidth + 100;
+              startY = 300 + (index % 3) * 150;
+              endY = startY + (Math.random() - 0.5) * 200;
+              break;
+            case 2: // De la droite vers la gauche - milieu de l'écran
+              startX = screenWidth + 100;
+              endX = -100;
+              startY = 400 + (index % 3) * 100;
+              endY = startY + (Math.random() - 0.5) * 150;
+              break;
+            case 3: // Du haut vers le bas - zone droite
+              startX = baseX + Math.random() * zoneWidth;
+              endX = startX + (Math.random() - 0.5) * 80;
+              startY = -100;
+              endY = screenHeight + 100;
+              break;
+            case 4: // Diagonale montante
+              startX = Math.random() * screenWidth;
+              endX = (startX + screenWidth / 2) % screenWidth;
+              startY = screenHeight + 100;
+              endY = -100;
+              break;
+            case 5: // Diagonale descendante
+              startX = Math.random() * screenWidth;
+              endX = (startX + screenWidth / 3) % screenWidth;
+              startY = -100;
+              endY = screenHeight + 100;
+              break;
+          }
+          
+          // Trajectoire sinusoïdale plus variée
+          const amplitude = 15 + (index % 4) * 12;
+          const rotationSpeed = (index % 3 + 1) * 180; // Rotation différente pour chaque emoji
+          
+          return (
+            <Animated.View 
+              key={index}
+              style={[
+                styles.floatingEmoji,
+                {
+                  transform: [
+                    {
+                      translateY: animValue.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [startY, endY],
+                      }),
+                    },
+                    {
+                      translateX: animValue.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [startX, endX],
+                        extrapolate: 'clamp',
+                      }),
+                    },
+                    {
+                      translateX: animValue.interpolate({
+                        inputRange: [0, 0.2, 0.4, 0.6, 0.8, 1],
+                        outputRange: [0, amplitude, -amplitude/2, amplitude/2, -amplitude, 0],
+                        extrapolate: 'clamp',
+                      }),
+                    },
+                    {
+                      rotate: animValue.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['0deg', `${rotationSpeed}deg`],
+                      }),
+                    },
+                    {
+                      scale: animValue.interpolate({
+                        inputRange: [0, 0.5, 1],
+                        outputRange: [0.8, 1.2, 0.8],
+                      }),
+                    },
+                  ],
+                  opacity: animValue.interpolate({
+                    inputRange: [0, 0.1, 0.9, 1],
+                    outputRange: [0, 0.5, 0.5, 0],
+                  }),
+                },
+              ]}
+            >
+              <Text style={styles.emojiText}>{currentEmoji}</Text>
+            </Animated.View>
+          );
+        })}
+        
+        {/* Header fixe avec image BriveFood */}
+        <View style={styles.fixedHeader}>
+          <View style={styles.logoContainer}>
+            <Image 
+              source={require('../../assets/images/logoBrivefood.png')}
+              style={styles.logoImage}
+              resizeMode="cover"
+            />
+            
+            {/* Statut du restaurant */}
+            <View style={[styles.statusWrapper, isRestaurantOpen ? styles.statusWrapperOpen : styles.statusWrapperClosed]}>
+              <View style={styles.statusContainer}>
+                <Animated.View 
+                  style={[
+                    styles.statusIndicator,
+                    { 
+                      backgroundColor: isRestaurantOpen ? '#10B981' : '#EF4444',
+                      transform: [{ scale: pulseValue }]
+                    }
+                  ]}
+                />
+                <View style={styles.statusTextContainer}>
+                  <Text style={styles.statusText}>
+                    {isRestaurantOpen ? 'Ouvert maintenant' : 'Fermé'}
+                  </Text>
+                  <Text style={styles.statusSubtext}>
+                    {isRestaurantOpen ? 'Horaires: 18h00 - 1h55' : 'Ouvre à 18h00'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {!isRestaurantOpen && (
+            <Text style={styles.statusTimeUntil}>
+              Ouvre {getTimeUntilOpen()}
+            </Text>
+          )}
+
+        {/* Bandeau Promo - Design Simple et Élégant */}
+        <Animated.View
+          style={[
+            styles.promoBanner,
+            {
+              opacity: buttonsOpacity,
+              transform: [{ translateY: buttonsTranslateY }]
+            }
+          ]}
+        >
+          <View style={styles.promoBannerContainer}>
+            <LinearGradient
+              colors={['#FF6B6B', '#FF8E88', '#FFA4A4']}
+              style={styles.promoGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0.8 }}
+            >
+              <View style={styles.promoContent}>
+                <View style={styles.promoLeft}>
+                  <View style={styles.promoBadge}>
+                    <Text style={styles.promoBadgeText}>OFFRE SPÉCIALE</Text>
+                  </View>
+                  <Text style={styles.promoMainText}>Dessert offert</Text>
+                  <Text style={styles.promoCondition}>dès 20€ d'achat</Text>
+                </View>
+
+                <View style={styles.promoRight}>
+                  <View style={styles.promoIconContainer}>
+                    <Ionicons name="gift" size={32} color="#FFFFFF" />
+                  </View>
+                </View>
+              </View>
+            </LinearGradient>
+          </View>
+        </Animated.View>
+
+        {/* Action principale - Menu */}
+        <Animated.View
+          style={[
+            styles.heroSection,
+            {
+              opacity: heroOpacity,
+              transform: [{ scale: heroScale }]
+            }
+          ]}
+        >
+          <TouchableOpacity style={styles.heroAction} onPress={navigateToMenu}>
+            <View style={styles.heroCardContainer}>
+              {/* Couches multiples pour effet de profondeur */}
+              <View style={styles.heroLayer1} />
+              <View style={styles.heroLayer2} />
+              <View style={styles.heroLayer3} />
+              
+              {/* Contenu principal */}
+              <View style={styles.heroMainCard}>
+                <LinearGradient
+                  colors={['rgba(255,248,220,0.98)', 'rgba(255,239,213,0.95)']}
+                  style={styles.heroCardGradient}
+                >
+                  {/* Éléments décoratifs géométriques */}
+                  <View style={styles.heroGeometricPattern}>
+                    <View style={[styles.triangle, styles.triangle1]} />
+                    <View style={[styles.triangle, styles.triangle2]} />
+                    <View style={[styles.circle, styles.circle1]} />
+                    <View style={[styles.circle, styles.circle2]} />
+                    <View style={[styles.rectangle, styles.rectangle1]} />
+                  </View>
+                  
+                  <View style={styles.heroContent}>
+                    {/* Icône avec effet néon */}
+                    <View style={styles.heroIconContainer}>
+                      <View style={styles.neonGlow} />
+                      <LinearGradient
+                        colors={['#FF7F50', '#FF6347']}
+                        style={styles.heroIconGradient}
+                      >
+                        <Ionicons name="restaurant" size={20} color={colors.neutral.white} />
+                      </LinearGradient>
+                    </View>
+                    
+                    <Text style={styles.heroTitle} numberOfLines={2} adjustsFontSizeToFit>
+                      Passer votre commande
+                    </Text>
+                  </View>
+                </LinearGradient>
+              </View>
+            </View>
+          </TouchableOpacity>
+
+        </Animated.View>
+
+        {/* Informations pratiques */}
+        <Animated.View 
+          style={[
+            styles.infoSection,
+            {
+              opacity: infoOpacity,
+              transform: [{ translateX: infoTranslateX }]
+            }
+          ]}
+        >
+          <Text style={styles.sectionTitle}>Informations pratiques</Text>
+          
+          <View style={styles.infoCards}>
+            <TouchableOpacity style={styles.infoCard} onPress={openNavigation}>
+              <View style={styles.infoIconContainer}>
+                <Ionicons name="location-outline" size={24} color={colors.accent.main} />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoTitle}>Adresse</Text>
+                <Text style={styles.infoText}>23 Bis Avenue Du Président Roosevelt</Text>
+                <Text style={styles.infoText}>Brive-La-Gaillarde, 19100</Text>
+                <Text style={styles.navigationHint}>Appuyez pour ouvrir la navigation</Text>
+              </View>
+              <Ionicons name="arrow-forward" size={20} color={colors.accent.main} style={styles.navigationArrow} />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.infoCard} onPress={callRestaurant}>
+              <View style={styles.infoIconContainer}>
+                <Ionicons name="call-outline" size={24} color={colors.accent.main} />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoTitle}>Téléphone</Text>
+                <Text style={styles.infoText}>07 77 88 16 97</Text>
+                <Text style={styles.navigationHint}>Appuyez pour appeler BriveFood</Text>
+              </View>
+              <Ionicons name="arrow-forward" size={20} color={colors.accent.main} style={styles.navigationArrow} />
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+
+        {/* Réseaux sociaux */}
+        <Animated.View
+          style={[
+            styles.socialSection,
+            {
+              opacity: infoOpacity,
+              transform: [{ translateX: infoTranslateX }]
+            }
+          ]}
+        >
+          <Text style={styles.sectionTitle}>Suivez-nous</Text>
+
+          <View style={styles.socialCards}>
+            <TouchableOpacity style={styles.socialCard} onPress={openFacebook}>
+              <View style={styles.socialIconContainer}>
+                <Ionicons name="logo-facebook" size={24} color="#1877F2" />
+              </View>
+              <View style={styles.socialContent}>
+                <Text style={styles.socialTitle}>Facebook</Text>
+                <Text style={styles.socialText}>@Brive-Food</Text>
+              </View>
+              <Ionicons name="arrow-forward" size={20} color={colors.accent.main} style={styles.navigationArrow} />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.socialCard} onPress={openInstagram}>
+              <View style={styles.socialIconContainer}>
+                <Ionicons name="logo-instagram" size={24} color="#E4405F" />
+              </View>
+              <View style={styles.socialContent}>
+                <Text style={styles.socialTitle}>Instagram</Text>
+                <Text style={styles.socialText}>@brivefood</Text>
+              </View>
+              <Ionicons name="arrow-forward" size={20} color={colors.accent.main} style={styles.navigationArrow} />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.socialCard} onPress={openSnapchat}>
+              <View style={styles.socialIconContainer}>
+                <Ionicons name="logo-snapchat" size={24} color="#FFFC00" />
+              </View>
+              <View style={styles.socialContent}>
+                <Text style={styles.socialTitle}>Snapchat</Text>
+                <Text style={styles.socialText}>@brive-food</Text>
+              </View>
+              <Ionicons name="arrow-forward" size={20} color={colors.accent.main} style={styles.navigationArrow} />
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+
+      </ScrollView>
+    </LinearGradient>
+  </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  container: {
+    flex: 1,
+  },
+  gradient: {
+    flex: 1,
+  },
+  backgroundAnimation1: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    top: -50,
+    right: -50,
+  },
+  backgroundAnimation2: {
+    position: 'absolute',
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(255,191,36,0.1)',
+    top: '30%',
+    left: -75,
+  },
+  backgroundAnimation3: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    bottom: '20%',
+    right: -60,
+  },
+  scrollView: {
+    flex: 1,
+    marginTop: 200,
+  },
+  scrollContent: {
+    paddingTop: 80,
+    paddingBottom: spacing['3xl'],
+  },
+  header: {
+    paddingTop: 0,
+    paddingHorizontal: 0,
+    alignItems: 'center',
+    marginBottom: spacing.xl,
+  },
+  fixedHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    paddingTop: 0,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    width: '100%',
+    position: 'relative',
+  },
+  logoImage: {
+    width: '100%',
+    height: 200,
+    borderBottomLeftRadius: borderRadius.xl,
+    borderBottomRightRadius: borderRadius.xl,
+    marginBottom: spacing.lg,
+  },
+  statusWrapper: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  statusWrapperClosed: {
+    bottom: -20,
+  },
+  statusWrapperOpen: {
+    bottom: -10,
+  },
+  statusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.full,
+    elevation: 4,
+    shadowColor: colors.neutral.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    alignSelf: 'center',
+    minWidth: 0,
+    flexShrink: 1,
+    marginBottom: spacing.sm,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  statusIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: spacing.sm,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
+  statusText: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.gray800,
+    marginRight: spacing.xs,
+  },
+  statusTextContainer: {
+    flexShrink: 1,
+  },
+  statusSubtext: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray600,
+  },
+  statusTimeUntil: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.medium,
+    color: 'rgba(255,255,255,0.95)',
+    fontStyle: 'italic',
+    marginTop: -spacing.xl,
+    marginBottom: spacing.xl,
+    textAlign: 'center',
+  },
+  heroSection: {
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing['2xl'],
+  },
+  heroAction: {
+    position: 'relative',
+  },
+  heroCardContainer: {
+    position: 'relative',
+    borderRadius: borderRadius.xl,
+  },
+  // Couches pour effet de profondeur 3D
+  heroLayer1: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    right: -8,
+    bottom: -8,
+    backgroundColor: 'rgba(255, 165, 0, 0.25)',
+    borderRadius: borderRadius.xl,
+    transform: [{ rotate: '2deg' }],
+  },
+  heroLayer2: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    right: -4,
+    bottom: -4,
+    backgroundColor: 'rgba(255, 99, 71, 0.2)',
+    borderRadius: borderRadius.xl,
+    transform: [{ rotate: '-1deg' }],
+  },
+  heroLayer3: {
+    position: 'absolute',
+    top: 2,
+    left: 2,
+    right: -2,
+    bottom: -2,
+    backgroundColor: 'rgba(255, 215, 0, 0.15)',
+    borderRadius: borderRadius.xl,
+    transform: [{ rotate: '0.5deg' }],
+  },
+  heroMainCard: {
+    borderRadius: borderRadius.xl,
+    overflow: 'hidden',
+    elevation: 15,
+    shadowColor: colors.neutral.black,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    zIndex: 10,
+  },
+  heroCardGradient: {
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    minHeight: 80,
+    position: 'relative',
+  },
+  // Éléments géométriques décoratifs
+  heroGeometricPattern: {
+    position: 'absolute',
+    top: 0,
     left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  triangle: {
+    position: 'absolute',
+    width: 0,
+    height: 0,
+  },
+  triangle1: {
+    top: 20,
+    right: 30,
+    borderLeftWidth: 8,
+    borderRightWidth: 8,
+    borderBottomWidth: 12,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: 'rgba(255, 140, 0, 0.4)',
+  },
+  triangle2: {
+    bottom: 25,
+    left: 25,
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderBottomWidth: 9,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: 'rgba(255, 99, 71, 0.3)',
+  },
+  circle: {
+    position: 'absolute',
+    borderRadius: 50,
+  },
+  circle1: {
+    width: 12,
+    height: 12,
+    top: 35,
+    left: 40,
+    backgroundColor: 'rgba(255, 215, 0, 0.5)',
+  },
+  circle2: {
+    width: 8,
+    height: 8,
+    bottom: 40,
+    right: 50,
+    backgroundColor: 'rgba(255, 165, 0, 0.4)',
+  },
+  rectangle: {
     position: 'absolute',
   },
+  rectangle1: {
+    width: 10,
+    height: 16,
+    top: 50,
+    right: 60,
+    backgroundColor: 'rgba(255, 127, 80, 0.35)',
+    borderRadius: 2,
+  },
+  heroContent: {
+    alignItems: 'center',
+    zIndex: 5,
+    width: '100%',
+    paddingHorizontal: spacing.md,
+  },
+  heroIconContainer: {
+    position: 'relative',
+    marginBottom: spacing.sm,
+  },
+  neonGlow: {
+    position: 'absolute',
+    width: 35,
+    height: 35,
+    borderRadius: 17.5,
+    backgroundColor: 'rgba(255, 127, 80, 0.4)',
+    top: -3,
+    left: -3,
+  },
+  heroIconGradient: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  heroTitle: {
+    fontSize: typography.fontSizes.lg,
+    fontFamily: typography.fontFamily.title,
+    color: colors.neutral.gray800,
+    textAlign: 'center',
+    marginBottom: 0,
+    lineHeight: typography.fontSizes.lg * 1.2,
+    width: '100%',
+  },
+  heroActionButton: {
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    elevation: 6,
+    shadowColor: colors.neutral.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  heroButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
+  },
+  heroButtonText: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.white,
+  },
+  heroButtonIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  orderButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+    marginTop: spacing.lg,
+  },
+  // Styles pour le bouton À emporter (carte blanche avec effet glassmorphism)
+  takeawayCard: {
+    flex: 1,
+    minWidth: (width - spacing.lg * 2 - spacing.md) / 2,
+    maxWidth: (width - spacing.lg * 2 - spacing.md) / 2,
+    position: 'relative',
+  },
+  takeawayCardContainer: {
+    position: 'relative',
+    borderRadius: borderRadius.lg,
+  },
+  // Couches pour effet de profondeur 3D - À emporter (jaune)
+  takeawayLayer1: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    right: -6,
+    bottom: -6,
+    backgroundColor: 'rgba(252, 211, 77, 0.3)',
+    borderRadius: borderRadius.lg,
+    transform: [{ rotate: '1.5deg' }],
+  },
+  takeawayLayer2: {
+    position: 'absolute',
+    top: 3,
+    left: 3,
+    right: -3,
+    bottom: -3,
+    backgroundColor: 'rgba(251, 191, 36, 0.2)',
+    borderRadius: borderRadius.lg,
+    transform: [{ rotate: '-0.8deg' }],
+  },
+  takeawayLayer3: {
+    position: 'absolute',
+    top: 1,
+    left: 1,
+    right: -1,
+    bottom: -1,
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderRadius: borderRadius.lg,
+    transform: [{ rotate: '0.4deg' }],
+  },
+  cardBackground: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    position: 'relative',
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    elevation: 6,
+    shadowColor: colors.neutral.black,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    zIndex: 10,
+  },
+  cardGlassEffect: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  decorativePattern: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 50,
+    height: 50,
+  },
+  patternDot: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    top: 5,
+    right: 10,
+  },
+  cardContent: {
+    padding: spacing.md,
+    flex: 1,
+    zIndex: 5,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  iconBadge: {
+    marginRight: spacing.sm,
+  },
+  iconGradient: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cardTitle: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.gray800,
+  },
+  cardDescription: {
+    fontSize: typography.fontSizes.xs,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray600,
+    marginBottom: spacing.xs / 2,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cardAction: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.accent.main,
+  },
+  cardArrowContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: `${colors.accent.main}20`,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Styles pour le bouton Livraison (carte violette similaire)
+  deliveryCard: {
+    flex: 1,
+    minWidth: (width - spacing.lg * 2 - spacing.md) / 2,
+    maxWidth: (width - spacing.lg * 2 - spacing.md) / 2,
+    position: 'relative',
+  },
+  deliveryCardContainer: {
+    position: 'relative',
+    borderRadius: borderRadius.lg,
+  },
+  // Couches pour effet de profondeur 3D - Livraison (violet)
+  deliveryLayer1: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    right: -6,
+    bottom: -6,
+    backgroundColor: 'rgba(167, 139, 250, 0.3)',
+    borderRadius: borderRadius.lg,
+    transform: [{ rotate: '1.5deg' }],
+  },
+  deliveryLayer2: {
+    position: 'absolute',
+    top: 3,
+    left: 3,
+    right: -3,
+    bottom: -3,
+    backgroundColor: 'rgba(139, 92, 246, 0.2)',
+    borderRadius: borderRadius.lg,
+    transform: [{ rotate: '-0.8deg' }],
+  },
+  deliveryLayer3: {
+    position: 'absolute',
+    top: 1,
+    left: 1,
+    right: -1,
+    bottom: -1,
+    backgroundColor: 'rgba(236, 72, 153, 0.15)',
+    borderRadius: borderRadius.lg,
+    transform: [{ rotate: '0.4deg' }],
+  },
+  deliveryCardBackground: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    position: 'relative',
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    elevation: 6,
+    shadowColor: colors.neutral.black,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    zIndex: 10,
+  },
+  deliveryGlassEffect: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  deliveryDecorativePattern: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 50,
+    height: 50,
+  },
+  deliveryPatternDot: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    top: 5,
+    right: 10,
+  },
+  deliveryContent: {
+    padding: spacing.md,
+    flex: 1,
+    zIndex: 5,
+  },
+  deliveryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  deliveryIconBadge: {
+    marginRight: spacing.sm,
+  },
+  deliveryIconGradient: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deliveryTitle: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.gray800,
+  },
+  deliveryDescription: {
+    fontSize: typography.fontSizes.xs,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray600,
+    marginBottom: spacing.xs / 2,
+  },
+  deliveryFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  deliveryAction: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.primary.main,
+  },
+  deliveryArrowContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: `${colors.primary.main}20`,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Styles pour le bouton Sur place (carte orange)
+  dineInCard: {
+    flex: 1,
+    minWidth: '100%',
+    position: 'relative',
+    marginTop: spacing.sm,
+  },
+  dineInCardContainer: {
+    position: 'relative',
+    borderRadius: borderRadius.lg,
+  },
+  // Couches pour effet de profondeur 3D - Sur place (orange)
+  dineInLayer1: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    right: -6,
+    bottom: -6,
+    backgroundColor: 'rgba(247, 189, 79, 0.3)',
+    borderRadius: borderRadius.lg,
+    transform: [{ rotate: '1.5deg' }],
+  },
+  dineInLayer2: {
+    position: 'absolute',
+    top: 3,
+    left: 3,
+    right: -3,
+    bottom: -3,
+    backgroundColor: 'rgba(242, 184, 74, 0.2)',
+    borderRadius: borderRadius.lg,
+    transform: [{ rotate: '-0.8deg' }],
+  },
+  dineInLayer3: {
+    position: 'absolute',
+    top: 1,
+    left: 1,
+    right: -1,
+    bottom: -1,
+    backgroundColor: 'rgba(241, 171, 75, 0.15)',
+    borderRadius: borderRadius.lg,
+    transform: [{ rotate: '0.4deg' }],
+  },
+  dineInCardBackground: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    position: 'relative',
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    elevation: 6,
+    shadowColor: colors.neutral.black,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    zIndex: 10,
+  },
+  dineInGlassEffect: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  dineInDecorativePattern: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 50,
+    height: 50,
+  },
+  dineInPatternDot: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    top: 5,
+    right: 10,
+  },
+  dineInContent: {
+    padding: spacing.md,
+    flex: 1,
+    zIndex: 5,
+  },
+  dineInHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  dineInIconBadge: {
+    marginRight: spacing.sm,
+  },
+  dineInIconGradient: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dineInTitle: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.gray800,
+  },
+  dineInDescription: {
+    fontSize: typography.fontSizes.xs,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray600,
+    marginBottom: spacing.xs / 2,
+  },
+  dineInFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dineInAction: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.bold,
+    color: '#f7bd4f',
+  },
+  dineInArrowContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#f7bd4f20',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  infoSection: {
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing['2xl'],
+  },
+  sectionTitle: {
+    fontSize: typography.fontSizes.xl,
+    fontFamily: typography.fontFamily.title,
+    color: colors.neutral.white,
+    marginBottom: spacing.lg,
+    textAlign: 'center',
+  },
+  infoCards: {
+    gap: spacing.md,
+  },
+  infoCard: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: colors.neutral.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  infoIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(251, 191, 36, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  infoContent: {
+    flex: 1,
+  },
+  infoTitle: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.gray800,
+    marginBottom: spacing.xs / 2,
+  },
+  infoText: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray600,
+  },
+  
+  // Styles pour les emojis flottants
+  floatingEmoji: {
+    position: 'absolute',
+    zIndex: -1,
+  },
+  emojiText: {
+    fontSize: 30,
+  },
+  navigationHint: {
+    fontSize: typography.fontSizes.xs,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.accent.main,
+    fontStyle: 'italic',
+    marginTop: spacing.xs / 2,
+  },
+  navigationArrow: {
+    marginLeft: spacing.sm,
+  },
+
+  // Styles pour la promo simple et élégante
+  promoBanner: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
+  },
+  promoBannerContainer: {
+    borderRadius: borderRadius.xl,
+    overflow: 'hidden',
+    elevation: 8,
+    shadowColor: colors.neutral.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+  },
+  promoGradient: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
+  },
+  promoContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  promoLeft: {
+    flex: 1,
+  },
+  promoBadge: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+    marginBottom: spacing.sm,
+  },
+  promoBadgeText: {
+    fontSize: typography.fontSizes.xs,
+    fontFamily: typography.fontFamily.title,
+    color: colors.neutral.white,
+    letterSpacing: 0.5,
+  },
+  promoMainText: {
+    fontSize: typography.fontSizes.xl,
+    fontFamily: typography.fontFamily.title,
+    color: colors.neutral.white,
+    marginBottom: spacing.xs,
+  },
+  promoCondition: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.medium,
+    color: 'rgba(255,255,255,0.9)',
+  },
+  promoRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  promoIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  promoArrow: {
+    opacity: 0.8,
+  },
+
+  // Styles pour les réseaux sociaux
+  socialSection: {
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing['2xl'],
+  },
+  socialCards: {
+    gap: spacing.md,
+  },
+  socialCard: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: colors.neutral.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  socialIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  socialContent: {
+    flex: 1,
+  },
+  socialTitle: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.gray800,
+    marginBottom: spacing.xs / 2,
+  },
+  socialText: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray600,
+  },
+
 });

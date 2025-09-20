@@ -1,0 +1,532 @@
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword, signOut, getAuth, connectAuthEmulator, sendEmailVerification } from 'firebase/auth';
+import { doc, setDoc, collection, getDocs, deleteDoc, updateDoc, query, where, getDoc } from 'firebase/firestore';
+import { initializeApp } from 'firebase/app';
+import { auth, db } from '../../config/firebase';
+
+const DeliveryManagementContext = createContext();
+
+export const useDeliveryManagement = () => {
+  const context = useContext(DeliveryManagementContext);
+  if (!context) {
+    throw new Error('useDeliveryManagement must be used within a DeliveryManagementProvider');
+  }
+  return context;
+};
+
+export const DeliveryManagementProvider = ({ children }) => {
+  const [deliveryUsers, setDeliveryUsers] = useState([]);
+
+  useEffect(() => {
+    loadDeliveryUsers();
+  }, []);
+
+  // Charger les livreurs depuis Firestore
+  const loadDeliveryUsers = async () => {
+    try {
+      const q = query(collection(db, 'users'), where('role', '==', 'delivery'));
+      const querySnapshot = await getDocs(q);
+
+      const users = [];
+      querySnapshot.forEach((doc) => {
+        const userData = doc.data();
+        users.push({
+          id: doc.id,
+          name: userData.displayName || userData.name || userData.firstName + ' ' + userData.lastName,
+          email: userData.email,
+          phone: userData.phone || '',
+          isActive: userData.isActive !== false, // Par défaut true si non défini
+          createdAt: userData.createdAt,
+          createdBy: userData.createdBy || 'admin',
+          lastLogin: userData.lastLogin,
+          role: userData.role,
+          accountStatus: userData.accountStatus || 'activated', // Statut du compte
+        });
+      });
+
+      setDeliveryUsers(users);
+    } catch (error) {
+      console.error('Erreur chargement livreurs depuis Firestore:', error);
+      // Fallback vers AsyncStorage si erreur Firestore
+      try {
+        const stored = await AsyncStorage.getItem('@deliveryUsers');
+        if (stored) {
+          setDeliveryUsers(JSON.parse(stored));
+        }
+      } catch (asyncError) {
+        console.error('Erreur fallback AsyncStorage:', asyncError);
+      }
+    }
+  };
+
+  // Note: saveDeliveryUsers supprimé - on utilise maintenant Firestore directement
+
+  // Créer un nouveau livreur (par l'admin) SANS déconnecter l'admin
+  const createDeliveryUser = async (userData) => {
+    try {
+      console.log('Creating delivery user profile (no Firebase Auth):', userData);
+
+      // Vérifier si l'email existe déjà dans la liste locale
+      const existingUser = deliveryUsers.find(user => user.email.toLowerCase() === userData.email.toLowerCase());
+      if (existingUser) {
+        return { success: false, error: 'Un livreur avec cet email existe déjà' };
+      }
+
+      // Vérifier si l'admin est connecté
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        return { success: false, error: 'Aucun administrateur connecté' };
+      }
+
+      // Vérifier si l'email existe déjà dans Firestore
+      const emailQuery = query(collection(db, 'users'), where('email', '==', userData.email.toLowerCase()));
+      const emailSnapshot = await getDocs(emailQuery);
+
+      if (!emailSnapshot.empty) {
+        return { success: false, error: 'Un utilisateur avec cet email existe déjà dans le système' };
+      }
+
+      console.log('✨ Creating delivery profile in Firestore only...');
+
+      // Créer un ID unique pour le livreur (sans Firebase Auth)
+      const deliveryId = `delivery_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      // Créer le profil dans Firestore avec un statut "pending_activation"
+      const deliveryProfile = {
+        uid: deliveryId, // ID personnalisé jusqu'à l'activation
+        email: userData.email.toLowerCase(),
+        displayName: userData.name,
+        name: userData.name,
+        phone: userData.phone || '',
+        role: 'delivery',
+        isActive: true,
+        emailVerified: false,
+        createdAt: new Date(),
+        createdBy: 'admin',
+        lastLogin: null,
+        // Informations pour la première connexion
+        tempPassword: userData.password, // Stocké temporairement (sera supprimé à l'activation)
+        accountStatus: 'pending_activation', // Le livreur doit activer son compte
+        authMethod: 'pending', // Indique que le compte Firebase Auth n'est pas encore créé
+      };
+
+      // Utiliser l'email comme ID de document pour faciliter la recherche
+      const docId = userData.email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_');
+
+      await setDoc(doc(db, 'users', docId), deliveryProfile);
+
+      // Actualiser la liste locale
+      await loadDeliveryUsers();
+
+      console.log('✅ Delivery profile created successfully (Firebase Auth pending):', userData.name);
+
+      return {
+        success: true,
+        user: {
+          id: docId,
+          name: userData.name,
+          email: userData.email,
+          phone: userData.phone || '',
+          status: 'pending_activation'
+        }
+      };
+
+    } catch (error) {
+      console.error('❌ Error creating delivery profile:', error);
+
+      // Messages d'erreur plus spécifiques
+      if (error.code === 'permission-denied') {
+        return { success: false, error: 'Permissions insuffisantes pour créer un livreur' };
+      } else if (error.code === 'network-request-failed') {
+        return { success: false, error: 'Erreur de connexion réseau. Vérifiez votre connexion internet' };
+      }
+
+      return { success: false, error: 'Erreur lors de la création du profil: ' + (error.message || error.code) };
+    }
+  };
+
+  // Modifier un livreur dans Firestore
+  const updateDeliveryUser = async (userId, updateData) => {
+    try {
+      console.log('Updating delivery user:', userId, updateData);
+
+      // Mettre à jour le document dans Firestore
+      const userRef = doc(db, 'users', userId);
+      const updatePayload = {
+        ...updateData,
+        updatedAt: new Date(),
+      };
+
+      // Si on met à jour le nom, s'assurer que displayName est aussi mis à jour
+      if (updateData.name) {
+        updatePayload.displayName = updateData.name;
+      }
+
+      await updateDoc(userRef, updatePayload);
+
+      // Actualiser la liste locale
+      await loadDeliveryUsers();
+
+      console.log('✅ Delivery user updated successfully');
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Error updating delivery user:', error);
+      return { success: false, error: 'Erreur lors de la modification: ' + error.message };
+    }
+  };
+
+  // Supprimer un livreur de Firestore
+  const deleteDeliveryUser = async (userId) => {
+    try {
+      console.log('Deleting delivery user:', userId);
+
+      // Supprimer le document de Firestore
+      await deleteDoc(doc(db, 'users', userId));
+
+      // Note: L'utilisateur Firebase Auth reste mais sans profil Firestore
+      // En production, on pourrait aussi supprimer l'utilisateur Auth
+
+      // Actualiser la liste locale
+      await loadDeliveryUsers();
+
+      console.log('✅ Delivery user deleted successfully');
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Error deleting delivery user:', error);
+      return { success: false, error: 'Erreur lors de la suppression: ' + error.message };
+    }
+  };
+
+  // Activer/Désactiver un livreur dans Firestore
+  const toggleDeliveryUserStatus = async (userId) => {
+    try {
+      console.log('Toggling delivery user status:', userId);
+
+      // Trouver l'utilisateur dans la liste locale pour obtenir le statut actuel
+      const user = deliveryUsers.find(u => u.id === userId);
+      if (!user) {
+        return { success: false, error: 'Utilisateur non trouvé' };
+      }
+
+      const newStatus = !user.isActive;
+
+      // Mettre à jour dans Firestore
+      await updateDoc(doc(db, 'users', userId), {
+        isActive: newStatus,
+        updatedAt: new Date(),
+      });
+
+      // Actualiser la liste locale
+      await loadDeliveryUsers();
+
+      console.log(`✅ Delivery user status updated: ${newStatus ? 'activated' : 'deactivated'}`);
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Error toggling delivery user status:', error);
+      return { success: false, error: 'Erreur lors du changement de statut: ' + error.message };
+    }
+  };
+
+  // Fonction de débogage pour lister tous les documents livreurs
+  const debugListDeliveryDocs = async () => {
+    try {
+      const allDocs = await getDocs(collection(db, 'users'));
+      console.log('🔍 All user documents:');
+      allDocs.forEach(doc => {
+        const data = doc.data();
+        if (data.role === 'delivery') {
+          console.log(`📄 Doc ID: ${doc.id}`, {
+            email: data.email,
+            accountStatus: data.accountStatus,
+            role: data.role
+          });
+        }
+      });
+    } catch (error) {
+      console.error('Error listing docs:', error);
+    }
+  };
+
+  // Connexion livreur avec activation automatique si nécessaire
+  const loginDeliveryUser = async (email, password) => {
+    try {
+      console.log('🔐 Attempting delivery user login:', email);
+
+      // Déboggage : lister tous les documents livreurs
+      await debugListDeliveryDocs();
+
+      // 1. D'abord, vérifier si c'est un compte en attente d'activation
+      const docId = email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_');
+      console.log('🔍 Checking for pending account with docId:', docId);
+
+      const pendingDoc = await getDoc(doc(db, 'users', docId));
+
+      if (pendingDoc.exists()) {
+        const pendingData = pendingDoc.data();
+        console.log('📋 Found pending document:', {
+          accountStatus: pendingData.accountStatus,
+          role: pendingData.role,
+          email: pendingData.email,
+          hasPassword: !!pendingData.tempPassword
+        });
+
+        // Si c'est un compte en attente et que le mot de passe correspond
+        if (pendingData.accountStatus === 'pending_activation' &&
+            pendingData.tempPassword === password &&
+            pendingData.role === 'delivery') {
+
+          console.log('🔄 Activating pending delivery account...');
+
+          let firebaseUser;
+          try {
+            // Essayer de créer le compte Firebase Auth
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            firebaseUser = userCredential.user;
+            console.log('✅ New Firebase Auth account created for delivery user');
+
+            // Mettre à jour le profil avec les bonnes informations
+            await updateProfile(firebaseUser, {
+              displayName: pendingData.name,
+            });
+
+            // Envoyer l'email de vérification automatiquement
+            try {
+              await sendEmailVerification(firebaseUser);
+              console.log('📧 Email verification sent for new delivery account');
+            } catch (emailError) {
+              console.error('⚠️ Failed to send verification email:', emailError);
+            }
+
+            // Mettre à jour le document Firestore
+            const activatedProfile = {
+              ...pendingData,
+              uid: firebaseUser.uid, // Remplacer par l'UID Firebase Auth
+              accountStatus: 'activated',
+              authMethod: 'firebase',
+              lastLogin: new Date(),
+              // Supprimer le mot de passe temporaire pour la sécurité
+              tempPassword: null,
+            };
+
+            // Supprimer l'ancien document et créer le nouveau avec l'UID Firebase
+            await deleteDoc(doc(db, 'users', docId));
+            await setDoc(doc(db, 'users', firebaseUser.uid), activatedProfile);
+
+            console.log('✅ Delivery account activated and logged in successfully:', pendingData.name);
+
+            // Actualiser la liste locale
+            await loadDeliveryUsers();
+
+            // Vérifier si l'email doit être vérifié
+            if (!firebaseUser.emailVerified) {
+              console.log('📧 New delivery account needs email verification');
+              return {
+                success: true,
+                user: {
+                  id: firebaseUser.uid,
+                  name: pendingData.name,
+                  email: pendingData.email,
+                  phone: pendingData.phone || '',
+                  role: pendingData.role,
+                },
+                isNewActivation: true,
+                needsEmailVerification: true
+              };
+            }
+
+            return {
+              success: true,
+              user: {
+                id: firebaseUser.uid,
+                name: pendingData.name,
+                email: pendingData.email,
+                phone: pendingData.phone || '',
+                role: pendingData.role,
+              },
+              isNewActivation: true
+            };
+
+          } catch (authError) {
+            console.error('❌ Error creating Firebase Auth account:', authError);
+            if (authError.code === 'auth/email-already-in-use') {
+              // L'email existe déjà dans Firebase Auth
+              console.log('⚠️ Email already exists in Firebase Auth. This happens during testing.');
+              console.log('💡 SOLUTION: Use a different email or delete the existing account from Firebase Console');
+              return {
+                success: false,
+                error: 'Cet email est déjà utilisé. Pour les tests, utilisez un nouvel email ou supprimez l\'ancien compte depuis la console Firebase.'
+              };
+            } else {
+              return { success: false, error: 'Erreur lors de la création du compte Firebase: ' + authError.message };
+            }
+          }
+
+        } else {
+          console.log('❌ Pending account found but conditions not met:', {
+            accountStatus: pendingData.accountStatus,
+            passwordMatch: pendingData.tempPassword === password,
+            isDelivery: pendingData.role === 'delivery'
+          });
+        }
+      } else {
+        console.log('❌ No pending document found for docId:', docId);
+      }
+
+      // 2. Connexion normale via Firebase Auth
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
+
+      // 3. Récupérer le profil depuis Firestore
+      const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+
+      if (!userDoc.exists()) {
+        await signOut(auth);
+        return {
+          success: false,
+          error: 'Profil utilisateur non trouvé'
+        };
+      }
+
+      const userData = userDoc.data();
+
+      // 4. Vérifier que c'est bien un livreur et qu'il est actif
+      if (userData.role !== 'delivery') {
+        await signOut(auth);
+        return {
+          success: false,
+          error: 'Accès refusé: compte non autorisé pour les livraisons'
+        };
+      }
+
+      if (userData.isActive === false) {
+        await signOut(auth);
+        return {
+          success: false,
+          error: 'Compte désactivé. Contactez l\'administrateur'
+        };
+      }
+
+      // 5. Mettre à jour la dernière connexion
+      await updateDoc(doc(db, 'users', firebaseUser.uid), {
+        lastLogin: new Date(),
+      });
+
+      // 6. Actualiser la liste locale
+      await loadDeliveryUsers();
+
+      console.log('✅ Delivery user logged in successfully:', userData.displayName || userData.name);
+
+      // Vérifier si l'email doit être vérifié
+      if (!firebaseUser.emailVerified) {
+        console.log('📧 Delivery account needs email verification');
+        return {
+          success: true,
+          user: {
+            id: firebaseUser.uid,
+            name: userData.displayName || userData.name,
+            email: userData.email,
+            phone: userData.phone || '',
+            role: userData.role,
+          },
+          needsEmailVerification: true
+        };
+      }
+
+      return {
+        success: true,
+        user: {
+          id: firebaseUser.uid,
+          name: userData.displayName || userData.name,
+          email: userData.email,
+          phone: userData.phone || '',
+          role: userData.role,
+        }
+      };
+
+    } catch (error) {
+      console.error('❌ Delivery login error:', error);
+
+      // Messages d'erreur spécifiques
+      if (error.code === 'auth/user-not-found') {
+        return { success: false, error: 'Aucun compte trouvé avec cet email' };
+      } else if (error.code === 'auth/wrong-password') {
+        return { success: false, error: 'Mot de passe incorrect' };
+      } else if (error.code === 'auth/invalid-email') {
+        return { success: false, error: 'Adresse email invalide' };
+      } else if (error.code === 'auth/user-disabled') {
+        return { success: false, error: 'Ce compte a été désactivé' };
+      }
+
+      return {
+        success: false,
+        error: 'Erreur de connexion: ' + (error.message || 'Vérifiez vos identifiants')
+      };
+    }
+  };
+
+  // Obtenir un livreur par ID
+  const getDeliveryUserById = (userId) => {
+    return deliveryUsers.find(user => user.id === userId);
+  };
+
+  // Obtenir les livreurs actifs
+  const getActiveDeliveryUsers = () => {
+    return deliveryUsers.filter(user => user.isActive);
+  };
+
+  // Statistiques des livreurs
+  const getDeliveryStats = () => {
+    const totalUsers = deliveryUsers.length;
+    const activeUsers = deliveryUsers.filter(u => u.isActive).length;
+    const inactiveUsers = totalUsers - activeUsers;
+    
+    const recentLogins = deliveryUsers.filter(u => {
+      if (!u.lastLogin) return false;
+      const lastLogin = new Date(u.lastLogin);
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      return lastLogin > oneDayAgo;
+    }).length;
+
+    return {
+      total: totalUsers,
+      active: activeUsers,
+      inactive: inactiveUsers,
+      recentLogins,
+    };
+  };
+
+  // Réinitialiser le mot de passe
+  const resetDeliveryPassword = async (userId, newPassword) => {
+    try {
+      const result = await updateDeliveryUser(userId, { 
+        password: newPassword,
+        passwordResetAt: new Date().toISOString(),
+      });
+      return result;
+    } catch (error) {
+      console.error('Erreur reset mot de passe:', error);
+      return { success: false, error: 'Erreur lors de la réinitialisation' };
+    }
+  };
+
+  const value = {
+    deliveryUsers,
+    createDeliveryUser,
+    updateDeliveryUser,
+    deleteDeliveryUser,
+    toggleDeliveryUserStatus,
+    loginDeliveryUser,
+    getDeliveryUserById,
+    getActiveDeliveryUsers,
+    getDeliveryStats,
+    resetDeliveryPassword,
+    refreshDeliveryUsers: loadDeliveryUsers,
+  };
+
+  return (
+    <DeliveryManagementContext.Provider value={value}>
+      {children}
+    </DeliveryManagementContext.Provider>
+  );
+};

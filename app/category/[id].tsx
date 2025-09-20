@@ -1,0 +1,1307 @@
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  Platform,
+  Image,
+  Animated,
+  Dimensions,
+  Modal,
+  TextInput,
+  Keyboard,
+} from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import { router, useLocalSearchParams } from 'expo-router';
+import * as Haptics from 'expo-haptics';
+import { colors, typography, spacing, borderRadius } from '../../src/constants/theme';
+import { ProductCategory } from '../../src/types';
+import { useOrder } from '../../src/context/OrderContext';
+import productImages from '../../src/data/productImages';
+import productsByCategory from '../../src/data/products';
+import categoryInfo from '../../src/data/categories';
+import { calculateCustomizedPrice, isCustomizationComplete, getSizeDisplayText, getProductQuantity } from '../../src/utils/categoryUtils';
+import styles from '../../src/styles/CategoryScreen.styles';
+
+
+export default function CategoryScreen() {
+  const { id } = useLocalSearchParams();
+  const { addItem, orderItems, getItemCount } = useOrder();
+  const [selectedSizes, setSelectedSizes] = useState({});
+  const [customizations, setCustomizations] = useState({});
+  const [expandedCustomizations, setExpandedCustomizations] = useState({});
+
+  // Modal state for image zoom
+  const [imageModalVisible, setImageModalVisible] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+
+  // Modal state for comment
+  const [commentModalVisible, setCommentModalVisible] = useState(false);
+  const [currentComment, setCurrentComment] = useState('');
+  const [commentProduct, setCommentProduct] = useState(null);
+  const [commentSize, setCommentSize] = useState(null);
+
+  // Animation states
+  const [animatingItems, setAnimatingItems] = useState([]);
+  const { width, height } = Dimensions.get('window');
+
+  // Animations d'arrière-plan et emojis flottants
+  const floatingEmojis = useRef(
+    Array.from({ length: 18 }, () => new Animated.Value(0))
+  ).current;
+  const rotateAnimation = useRef(new Animated.Value(0)).current;
+  const scaleAnimation = useRef(new Animated.Value(1)).current;
+  const opacityAnimation = useRef(new Animated.Value(0.6)).current;
+
+  // Functions for image modal
+  const openImageModal = (image) => {
+    setSelectedImage(image);
+    setImageModalVisible(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const closeImageModal = () => {
+    setImageModalVisible(false);
+    setSelectedImage(null);
+  };
+
+  // Initialiser les animations d'arrière-plan et emojis
+  useEffect(() => {
+    // Animation des arrière-plans
+    const startBackgroundAnimation = () => {
+      Animated.loop(
+        Animated.parallel([
+          Animated.timing(rotateAnimation, {
+            toValue: 1,
+            duration: 20000,
+            useNativeDriver: true,
+          }),
+          Animated.sequence([
+            Animated.timing(scaleAnimation, {
+              toValue: 1.1,
+              duration: 8000,
+              useNativeDriver: true,
+            }),
+            Animated.timing(scaleAnimation, {
+              toValue: 0.9,
+              duration: 8000,
+              useNativeDriver: true,
+            }),
+            Animated.timing(scaleAnimation, {
+              toValue: 1,
+              duration: 4000,
+              useNativeDriver: true,
+            })
+          ]),
+          Animated.sequence([
+            Animated.timing(opacityAnimation, {
+              toValue: 0.8,
+              duration: 6000,
+              useNativeDriver: true,
+            }),
+            Animated.timing(opacityAnimation, {
+              toValue: 0.4,
+              duration: 6000,
+              useNativeDriver: true,
+            }),
+            Animated.timing(opacityAnimation, {
+              toValue: 0.6,
+              duration: 8000,
+              useNativeDriver: true,
+            })
+          ])
+        ])
+      ).start();
+    };
+
+    const startFloatingEmojisAnimation = () => {
+      floatingEmojis.forEach((animValue, index) => {
+        const delay = Math.random() * 2000;
+        const duration = 12000 + Math.random() * 10000;
+
+        setTimeout(() => {
+          Animated.loop(
+            Animated.timing(animValue, {
+              toValue: 1,
+              duration: duration,
+              useNativeDriver: true,
+            })
+          ).start();
+        }, delay);
+      });
+    };
+
+    startBackgroundAnimation();
+    startFloatingEmojisAnimation();
+  }, []);
+
+
+  // Obtenir les données pour cette catégorie
+  const currentCategory = categoryInfo[id] || categoryInfo[ProductCategory.PATES];
+  const products = productsByCategory[id] || [];
+
+  // Initialiser les tailles par défaut pour les bowls et tacos
+  useEffect(() => {
+    if ((id === ProductCategory.BOWLS || id === ProductCategory.TACOS) && products.length > 0) {
+      const product = products[0];
+      if (product.sizes && !selectedSizes[product.id]) {
+        const defaultSize = Object.keys(product.sizes)[0];
+        setSelectedSizes(prev => ({
+          ...prev,
+          [product.id]: defaultSize
+        }));
+      }
+    }
+  }, [id, products]);
+
+  // Animation d'ajout au panier
+  const triggerCartAnimation = (product, event) => {
+    const animationId = Date.now() + Math.random();
+    const animatedValue = new Animated.Value(0);
+
+    // Position de départ (centre de l'écran approximativement)
+    const startX = width * 0.5;
+    const startY = height * 0.6;
+
+    // Position de fin (bas de l'écran pour la miniature panier)
+    const endX = width * 0.5; // Centre horizontal pour la miniature
+    const endY = height - (Platform.OS === 'ios' ? 120 : 100); // Vers le bas
+
+    const newAnimatingItem = {
+      id: animationId,
+      product,
+      animatedValue,
+      startX,
+      startY,
+      endX,
+      endY,
+    };
+
+    setAnimatingItems(prev => [...prev, newAnimatingItem]);
+
+    // Animation avec courbe personnalisée pour un effet plus naturel
+    Animated.sequence([
+      Animated.timing(animatedValue, {
+        toValue: 0.8,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(animatedValue, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      // Retirer l'item animé après l'animation
+      setAnimatingItems(prev => prev.filter(item => item.id !== animationId));
+    });
+  };
+
+  // Fonction pour ouvrir la modal de commentaire
+  const openCommentModal = (product, selectedSize = 'M') => {
+    setCommentProduct(product);
+    setCommentSize(selectedSize);
+    setCurrentComment('');
+    setCommentModalVisible(true);
+  };
+
+  // Fonction pour confirmer l'ajout au panier avec commentaire
+  const confirmAddToCart = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    if (!commentProduct) return;
+
+    // Déclencher l'animation
+    triggerCartAnimation(commentProduct, null);
+
+    // Vérifier si c'est un produit personnalisé (tacos/bowls)
+    if (commentProduct.customizationOptions && customizations[commentProduct.id]) {
+      // Créer le produit personnalisé avec commentaire
+      const productCustomizations = customizations[commentProduct.id] || {};
+      const selectedSize = selectedSizes[commentProduct.id];
+
+      const customizedProduct = {
+        ...commentProduct,
+        price: calculateCustomizedPrice(commentProduct, selectedSizes, customizations),
+        customizations: productCustomizations,
+        customizationOptions: commentProduct.customizationOptions,
+        comment: currentComment || undefined,
+        // Ajouter la taille sélectionnée si applicable
+        ...(selectedSize && commentProduct.sizes && {
+          selectedSize: selectedSize,
+          id: `${commentProduct.id}_${selectedSize}`,
+          name: `${commentProduct.name} (${commentProduct.sizes[selectedSize].name})`
+        })
+      };
+
+      addItem(customizedProduct);
+
+      // Réinitialiser les personnalisations pour ce produit
+      setCustomizations(prev => {
+        const newCustomizations = { ...prev };
+        if (commentProduct.customizationOptions) {
+          newCustomizations[commentProduct.id] = {};
+          Object.keys(commentProduct.customizationOptions).forEach(categoryKey => {
+            newCustomizations[commentProduct.id][categoryKey] = [];
+          });
+        }
+        return newCustomizations;
+      });
+
+      // Réinitialiser l'état d'expansion
+      setExpandedCustomizations(prev => ({
+        ...prev,
+        [commentProduct.id]: false
+      }));
+    }
+    // Pour les autres produits avec tailles (comme les pâtes)
+    else if (commentProduct.sizes && commentProduct.sizes[commentSize]) {
+      const productWithSize = {
+        ...commentProduct,
+        id: `${commentProduct.id}_${commentSize}`,
+        price: commentProduct.sizes[commentSize].price,
+        selectedSize: commentSize,
+        name: `${commentProduct.name} (${commentProduct.sizes[commentSize].name})`,
+        comment: currentComment || undefined
+      };
+      addItem(productWithSize);
+    }
+    // Pour les produits simples
+    else {
+      const productWithComment = {
+        ...commentProduct,
+        comment: currentComment || undefined
+      };
+      addItem(productWithComment);
+    }
+
+    // Fermer la modal
+    setCommentModalVisible(false);
+    setCurrentComment('');
+    setCommentProduct(null);
+    setCommentSize(null);
+  };
+
+  // Fonction pour ajouter au panier (maintenant ouvre la modal)
+  const handleAddToCart = (product, selectedSize = 'M', event = null) => {
+    openCommentModal(product, selectedSize);
+  };
+
+  // Fonction pour ajouter au panier avec personnalisations
+  const handleAddCustomizedToCart = (product, event = null) => {
+    // Vérifier si la personnalisation est complète
+    if (!isCustomizationComplete(product, customizations)) {
+      return;
+    }
+
+    // Ouvrir le modal de commentaire au lieu d'ajouter directement
+    const selectedSize = selectedSizes[product.id];
+    openCommentModal(product, selectedSize);
+  };
+
+
+  // Gérer la sélection des tailles
+  const handleSizeSelection = (productId, sizeKey) => {
+    setSelectedSizes(prev => ({
+      ...prev,
+      [productId]: sizeKey
+    }));
+
+    // Recalculer le prix basé sur la taille
+    const product = products.find(p => p.id === productId);
+    if (product && product.sizes && product.sizes[sizeKey]) {
+      // Ajuster les sélections de viandes selon la nouvelle taille
+      setCustomizations(prev => {
+        const currentCustomizations = prev[productId] || {};
+        const viandesSelections = currentCustomizations.viandes || [];
+
+        // Déterminer le nombre max de viandes pour la nouvelle taille
+        let maxViandes = 4;
+        switch (sizeKey) {
+          case 'M': maxViandes = 1; break;
+          case 'L': maxViandes = 2; break;
+          case 'XL': maxViandes = 3; break;
+          case 'XXL': maxViandes = 4; break;
+        }
+
+        // Si on a trop de viandes sélectionnées, garder seulement les premières
+        const adjustedViandes = viandesSelections.slice(0, maxViandes);
+
+        return {
+          ...prev,
+          [productId]: {
+            ...currentCustomizations,
+            viandes: adjustedViandes
+          }
+        };
+      });
+    }
+  };
+
+  // Gérer les personnalisations
+  const handleCustomizationChange = (productId, categoryKey, optionId, isSelected) => {
+    setCustomizations(prev => {
+      const productCustomizations = prev[productId] || {};
+      const categorySelections = productCustomizations[categoryKey] || [];
+
+      // Gérer les sélections mutuellement exclusives pour certaines catégories
+      // Chercher le produit dans toutes les catégories
+      let product = null;
+      for (const categoryProducts of Object.values(productsByCategory)) {
+        const foundProduct = categoryProducts.find(p => p.id === productId);
+        if (foundProduct) {
+          product = foundProduct;
+          break;
+        }
+      }
+      const category = product?.customizationOptions?.[categoryKey];
+
+      // Pour les catégories avec multiSelect = false ou maxSelections/maxSelection = 1
+      const maxSelect = category?.maxSelections || category?.maxSelection;
+      const isSingleSelect = maxSelect === 1 || category?.multiSelect === false;
+
+      if (isSingleSelect) {
+        // Pour les sélections uniques : permettre de désélectionner une option déjà sélectionnée
+        const currentlySelected = categorySelections.includes(optionId);
+
+        if (currentlySelected) {
+          // Si l'option est déjà sélectionnée, la désélectionner
+          return {
+            ...prev,
+            [productId]: {
+              ...productCustomizations,
+              [categoryKey]: []
+            }
+          };
+        } else {
+          // Sinon, sélectionner cette option
+          return {
+            ...prev,
+            [productId]: {
+              ...productCustomizations,
+              [categoryKey]: [optionId]
+            }
+          };
+        }
+      } else {
+        // Pour les sélections multiples : comportement normal toggle
+        if (isSelected) {
+          // isSelected = true signifie qu'on veut sélectionner l'option
+          return {
+            ...prev,
+            [productId]: {
+              ...productCustomizations,
+              [categoryKey]: [...categorySelections, optionId]
+            }
+          };
+        } else {
+          // isSelected = false signifie qu'on veut désélectionner l'option
+          return {
+            ...prev,
+            [productId]: {
+              ...productCustomizations,
+              [categoryKey]: categorySelections.filter(id => id !== optionId)
+            }
+          };
+        }
+      }
+    });
+  };
+
+
+  // Rendu des options de personnalisation
+  const renderCustomizationOptions = (product) => {
+    if (!product.customizable || !product.customizationOptions) {
+      return null;
+    }
+
+    const isExpanded = expandedCustomizations[product.id];
+    const productCustomizations = customizations[product.id] || {};
+
+    return (
+      <View style={styles.customizationContainer}>
+        <TouchableOpacity
+          style={styles.customizationToggle}
+          onPress={() => {
+            setExpandedCustomizations(prev => ({
+              ...prev,
+              [product.id]: !prev[product.id]
+            }));
+          }}
+        >
+          <Text style={styles.customizationToggleText}>
+            Personnaliser votre {product.name}
+          </Text>
+          <Ionicons
+            name={isExpanded ? "chevron-up" : "chevron-down"}
+            size={20}
+            color={colors.neutral.gray600}
+          />
+        </TouchableOpacity>
+
+        {isExpanded && (
+          <View style={styles.customizationOptions}>
+            {Object.entries(product.customizationOptions).map(([categoryKey, category]) => {
+              const selectedOptions = productCustomizations[categoryKey] || [];
+
+              return (
+                <View key={categoryKey} style={styles.customizationCategory}>
+                  <View style={styles.customizationCategoryHeader}>
+                    <Text style={styles.customizationCategoryTitle}>
+                      {category.title}
+                    </Text>
+                    {category.required && (
+                      <Text style={styles.requiredLabel}>Obligatoire</Text>
+                    )}
+                  </View>
+                  <Text style={styles.customizationCategorySubtitle}>
+                    {category.subtitle}
+                  </Text>
+
+                  <View style={styles.customizationOptionsList}>
+                    {(category.options || [])
+                      .sort((a, b) => {
+                        // Trier les options populaires en premier
+                        if (a.popular && !b.popular) return -1;
+                        if (!a.popular && b.popular) return 1;
+                        return 0;
+                      })
+                      .map((option, optionIndex) => {
+                      const optionId = option.id || option.name;
+                      const isSelected = selectedOptions && selectedOptions.includes(optionId);
+                      const maxSelectLimit = category.maxSelections || category.maxSelection;
+                      const canSelect = !isSelected && (
+                        !maxSelectLimit ||
+                        (selectedOptions ? selectedOptions.length : 0) < maxSelectLimit
+                      );
+
+                      return (
+                        <TouchableOpacity
+                          key={optionId}
+                          style={[
+                            styles.customizationOption,
+                            isSelected && styles.customizationOptionSelected
+                          ]}
+                          onPress={() => {
+                            if (isSelected || canSelect) {
+                              handleCustomizationChange(product.id, categoryKey, optionId, !isSelected);
+                            }
+                          }}
+                          disabled={!isSelected && !canSelect}
+                        >
+                          <View style={styles.customizationOptionContent}>
+                            <View style={styles.customizationOptionInfo}>
+                              <Text style={[
+                                styles.customizationOptionName,
+                                isSelected && styles.customizationOptionNameSelected
+                              ]}>
+                                {option.name}
+                              </Text>
+                              {option.popular && (
+                                <Text style={styles.popularLabel}>Populaire</Text>
+                              )}
+                            </View>
+                            <View style={styles.customizationOptionRight}>
+                              {option.price > 0 && (
+                                <Text style={styles.customizationOptionPrice}>
+                                  +{option.price.toFixed(2)}€
+                                </Text>
+                              )}
+                              <View style={[
+                                styles.customizationCheckbox,
+                                isSelected && styles.customizationCheckboxSelected
+                              ]}>
+                                {isSelected && (
+                                  <Ionicons
+                                    name="checkmark"
+                                    size={16}
+                                    color={colors.neutral.white}
+                                  />
+                                )}
+                              </View>
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              );
+            })}
+
+            {/* Bouton d'ajout au panier personnalisé */}
+            <TouchableOpacity
+              style={[
+                styles.customizedAddToCartButton,
+                !isCustomizationComplete(product, customizations) && styles.customizedAddToCartButtonDisabled
+              ]}
+              onPress={() => handleAddCustomizedToCart(product)}
+              disabled={!isCustomizationComplete(product, customizations)}
+            >
+              <LinearGradient
+                colors={
+                  isCustomizationComplete(product, customizations)
+                    ? ['#000000', '#000000']
+                    : ['#ccc', '#aaa']
+                }
+                style={styles.customizedAddToCartGradient}
+              >
+                <Text style={styles.customizedAddToCartText}>
+                  Ajouter au panier - {calculateCustomizedPrice(product, selectedSizes, customizations).toFixed(2)}€
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  // Rendu d'un plat avec image
+  const renderProductWithImage = (product, selectedSize, currentPrice, productIdWithSize, quantity, isInCart) => (
+    <View key={product.id} style={styles.productCardWithImage}>
+      {/* Container avec image en fond et overlay gradient */}
+      <TouchableOpacity
+        onPress={() => openImageModal(product.image)}
+        style={styles.imageContainer}
+        activeOpacity={0.9}
+      >
+        <Image
+          source={product.image}
+          style={styles.productImageBg}
+          resizeMode="cover"
+        />
+        {/* Overlay gradient pour le texte */}
+        <LinearGradient
+          colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.7)']}
+          style={styles.imageOverlay}
+        />
+
+        {/* Prix en haut à droite */}
+        <View style={styles.priceOverlayContainer}>
+          <Text style={styles.productPriceOverlay}>{currentPrice.toFixed(2)} €</Text>
+        </View>
+
+        {/* Contenu sur l'image */}
+        <View style={styles.imageContentOverlay} pointerEvents="none">
+          <Text style={styles.productNameOverlay}>{product.name}</Text>
+
+          <Text style={styles.productDescriptionOverlay} numberOfLines={2}>
+            {product.description}
+          </Text>
+        </View>
+      </TouchableOpacity>
+      
+      {/* Section info détaillée */}
+      <View style={styles.productInfoDetailed}>
+        {/* Sélecteur de tailles */}
+        {product.sizes && (
+          <View style={styles.sizeSelector}>
+            <Text style={styles.sizeLabel}>Taille :</Text>
+            <View style={styles.sizeButtons}>
+              {Object.keys(product.sizes).map((size) => (
+                <TouchableOpacity
+                  key={size}
+                  style={[
+                    styles.sizeButton,
+                    selectedSize === size && styles.sizeButtonActive
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSelectedSizes(prev => ({
+                      ...prev,
+                      [product.id]: size
+                    }));
+                  }}
+                >
+                  <Text style={[
+                    styles.sizeButtonText,
+                    selectedSize === size && styles.sizeButtonTextActive
+                  ]}>
+{getSizeDisplayText(product, size)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+        
+        {/* Badge quantité */}
+        {isInCart && (
+          <View style={styles.quantityBadge}>
+            <Text style={styles.quantityBadgeText}>Dans le panier: {quantity}</Text>
+          </View>
+        )}
+
+        {/* Options de personnalisation ou bouton d'ajout standard */}
+        {product.customizable ? (
+          renderCustomizationOptions(product)
+        ) : (
+          /* Bouton d'ajout stylisé */
+          <TouchableOpacity
+            style={styles.addToCartButtonStyled}
+            onPress={() => handleAddToCart(product, selectedSize)}
+          >
+            <LinearGradient
+              colors={['#000000', '#000000']}
+              style={styles.addToCartGradientStyled}
+            >
+              <View style={styles.addToCartContentStyled}>
+                <Ionicons name="cart" size={18} color={colors.neutral.white} />
+                <Text style={styles.addToCartTextStyled}>
+                  {isInCart ? 'Ajouter encore' : 'Ajouter au panier'}
+                </Text>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
+
+  // Rendu d'un plat sans image (design actuel amélioré)
+  const renderProductWithoutImage = (product, selectedSize, currentPrice, productIdWithSize, quantity, isInCart) => (
+    <View key={product.id} style={styles.productCardNoImage}>
+      {/* Header avec emoji de catégorie et design coloré */}
+      <LinearGradient
+        colors={[currentCategory.gradient[0] + '20', currentCategory.gradient[1] + '10']}
+        style={styles.noImageHeader}
+      >
+        <View style={styles.noImageHeaderContent}>
+          <View style={styles.noImageEmojiContainer}>
+            <Text style={styles.noImageEmoji}>{currentCategory.emoji}</Text>
+          </View>
+          
+          <View style={styles.noImageTitleSection}>
+            <Text style={styles.productNameNoImage}>{product.name}</Text>
+          </View>
+          
+          <Text style={styles.productPriceNoImage}>{currentPrice.toFixed(2)} €</Text>
+        </View>
+      </LinearGradient>
+      
+      <View style={styles.productInfoNoImage}>
+        <Text style={styles.productDescriptionNoImage}>{product.description}</Text>
+        
+        {/* Sélecteur de tailles */}
+        {product.sizes && (
+          <View style={styles.sizeSelector}>
+            <Text style={styles.sizeLabel}>Taille :</Text>
+            <View style={styles.sizeButtons}>
+              {Object.keys(product.sizes).map((size) => (
+                <TouchableOpacity
+                  key={size}
+                  style={[
+                    styles.sizeButton,
+                    selectedSize === size && styles.sizeButtonActive
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSelectedSizes(prev => ({
+                      ...prev,
+                      [product.id]: size
+                    }));
+                  }}
+                >
+                  <Text style={[
+                    styles.sizeButtonText,
+                    selectedSize === size && styles.sizeButtonTextActive
+                  ]}>
+{getSizeDisplayText(product, size)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+        
+        {/* Badge quantité */}
+        {isInCart && (
+          <View style={styles.quantityBadge}>
+            <Text style={styles.quantityBadgeText}>Dans le panier: {quantity}</Text>
+          </View>
+        )}
+
+        {/* Options de personnalisation */}
+        {product.customizable ? (
+          renderCustomizationOptions(product)
+        ) : (
+          /* Bouton d'ajout standard */
+          <TouchableOpacity
+            style={styles.addToCartButton}
+            onPress={() => handleAddToCart(product, selectedSize)}
+          >
+            <LinearGradient
+              colors={['#000000', '#000000']}
+              style={styles.addToCartGradient}
+            >
+              <View style={styles.addToCartContent}>
+                <Ionicons name="cart" size={16} color={colors.neutral.white} />
+                <Text style={styles.addToCartText}>
+                  {isInCart ? 'Ajouter encore' : 'Ajouter au panier'}
+                </Text>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
+
+  // Rendu d'une carte unique pour bowls, tacos et milkshakes avec personnalisation
+  const renderSingleCardWithCustomization = (categoryType, specificProduct = null) => {
+    const product = specificProduct || products[0]; // Produit spécifique ou premier produit de la catégorie
+    if (!product) return null;
+
+    const productCustomizations = customizations[product.id] || {};
+    const isComplete = isCustomizationComplete(product, customizations);
+    const selectedSize = selectedSizes[product.id] || (product.sizes ? Object.keys(product.sizes)[0] : null);
+    const currentPrice = product.sizes && selectedSize ? product.sizes[selectedSize].price : product.price;
+    const finalPrice = calculateCustomizedPrice(product, selectedSizes, customizations);
+    const productIdWithSize = product.sizes ? `${product.id}_${selectedSize}` : product.id;
+    const quantity = getProductQuantity(orderItems, productIdWithSize);
+    const isInCart = quantity > 0;
+
+    return (
+      <View key={`${categoryType}-single-card`} style={styles.productCardWithImage}>
+        {/* Container avec image en fond et overlay gradient */}
+        <TouchableOpacity
+          onPress={() => {
+            // Pour les milkshakes, changer l'image selon la base sélectionnée
+            if (product.id === 'milkshake-custom' && productCustomizations.base) {
+              const selectedBase = productCustomizations.base[0];
+              const imageToShow = selectedBase === 'fraise' ? productImages.MilkshakeFraise : productImages.MilkshakeVanille;
+              openImageModal(imageToShow);
+            } else {
+              openImageModal(product.image);
+            }
+          }}
+          style={styles.imageContainer}
+          activeOpacity={0.9}
+        >
+          <Image
+            source={
+              // Changer l'image dynamiquement pour les milkshakes selon la base sélectionnée
+              product.id === 'milkshake-custom' && productCustomizations.base && productCustomizations.base[0] === 'fraise'
+                ? productImages.MilkshakeFraise
+                : product.image
+            }
+            style={styles.productImageBg}
+            resizeMode="cover"
+          />
+          {/* Overlay gradient pour le texte */}
+          <LinearGradient
+            colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.7)']}
+            style={styles.imageOverlay}
+          />
+
+          {/* Prix en haut à droite */}
+          <View style={styles.priceOverlayContainer}>
+            <Text style={styles.productPriceOverlay}>{finalPrice.toFixed(2)} €</Text>
+          </View>
+
+          {/* Contenu sur l'image */}
+          <View style={styles.imageContentOverlay} pointerEvents="none">
+            <Text style={styles.productNameOverlay}>{product.name}</Text>
+            <Text style={styles.productDescriptionOverlay} numberOfLines={2}>
+              {product.description}
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Section info détaillée */}
+        <View style={styles.productInfoDetailed}>
+          {/* Sélecteur de tailles */}
+          {product.sizes && (
+            <View style={styles.sizeSelector}>
+              <Text style={styles.sizeLabel}>Taille :</Text>
+              <View style={styles.sizeButtonsGrid}>
+                {/* Première ligne : M et L */}
+                <View style={styles.sizeButtonsRow}>
+                  {['M', 'L'].map((size) => (
+                    product.sizes[size] && (
+                      <TouchableOpacity
+                        key={size}
+                        style={[
+                          styles.sizeButton,
+                          selectedSize === size && styles.sizeButtonActive
+                        ]}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          setSelectedSizes(prev => ({
+                            ...prev,
+                            [product.id]: size
+                          }));
+                        }}
+                      >
+                        <Text style={[
+                          styles.sizeButtonText,
+                          selectedSize === size && styles.sizeButtonTextActive
+                        ]}>
+                          {getSizeDisplayText(product, size)}
+                        </Text>
+                      </TouchableOpacity>
+                    )
+                  ))}
+                </View>
+                {/* Deuxième ligne : XL et XXL */}
+                <View style={styles.sizeButtonsRow}>
+                  {['XL', 'XXL'].map((size) => (
+                    product.sizes[size] && (
+                      <TouchableOpacity
+                        key={size}
+                        style={[
+                          styles.sizeButton,
+                          selectedSize === size && styles.sizeButtonActive
+                        ]}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          setSelectedSizes(prev => ({
+                            ...prev,
+                            [product.id]: size
+                          }));
+                        }}
+                      >
+                        <Text style={[
+                          styles.sizeButtonText,
+                          selectedSize === size && styles.sizeButtonTextActive
+                        ]}>
+                          {getSizeDisplayText(product, size)}
+                        </Text>
+                      </TouchableOpacity>
+                    )
+                  ))}
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Badge quantité */}
+          {isInCart && (
+            <View style={styles.quantityBadge}>
+              <Text style={styles.quantityBadgeText}>Dans le panier: {quantity}</Text>
+            </View>
+          )}
+
+          {/* Options de personnalisation */}
+          {product.customizationOptions && (
+            renderCustomizationOptions(product)
+          )}
+        </View>
+      </View>
+    );
+  };
+
+  // Rendu d'un plat - fonction principale
+  const renderProduct = (product) => {
+    // Déterminer la taille par défaut basée sur les tailles disponibles du produit
+    const defaultSize = product.sizes ? Object.keys(product.sizes)[0] : null;
+    const selectedSize = selectedSizes[product.id] || defaultSize;
+    const currentPrice = product.sizes && selectedSize ? product.sizes[selectedSize].price : product.price;
+    const productIdWithSize = product.sizes ? `${product.id}_${selectedSize}` : product.id;
+    const quantity = getProductQuantity(orderItems, productIdWithSize);
+    const isInCart = quantity > 0;
+
+    // Vérification robuste de la présence d'image
+    const hasValidImage = product.image && product.image !== null && product.image !== undefined;
+
+    // Debug pour les sandwichs américains
+    if (product.id.includes('americain')) {
+      console.log('Sandwich américain:', product.name, 'hasImage:', hasValidImage, 'imageType:', typeof product.image, 'imageValue:', product.image);
+    }
+
+    // Rendu conditionnel selon la présence d'image
+    if (hasValidImage) {
+      return renderProductWithImage(product, selectedSize, currentPrice, productIdWithSize, quantity, isInCart);
+    } else {
+      return renderProductWithoutImage(product, selectedSize, currentPrice, productIdWithSize, quantity, isInCart);
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <StatusBar style="light" />
+
+      {/* Background gradient comme l'écran d'accueil */}
+      <LinearGradient
+        colors={['#000000', '#000000', '#000000']}
+        style={styles.backgroundGradient}
+      />
+
+      {/* Animation d'arrière-plan */}
+      <Animated.View
+        style={[
+          styles.backgroundAnimation1,
+          {
+            transform: [
+              {
+                rotate: rotateAnimation.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['0deg', '360deg'],
+                })
+              },
+              { scale: scaleAnimation }
+            ],
+            opacity: opacityAnimation
+          }
+        ]}
+      />
+      <Animated.View
+        style={[
+          styles.backgroundAnimation2,
+          {
+            transform: [
+              {
+                rotate: rotateAnimation.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['360deg', '0deg'],
+                })
+              },
+              { scale: scaleAnimation }
+            ],
+            opacity: opacityAnimation
+          }
+        ]}
+      />
+      <Animated.View
+        style={[
+          styles.backgroundAnimation3,
+          {
+            transform: [
+              {
+                rotate: rotateAnimation.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['0deg', '360deg'],
+                })
+              },
+              { scale: scaleAnimation }
+            ],
+            opacity: opacityAnimation
+          }
+        ]}
+      />
+
+      {/* Emojis flottants de fast food */}
+      {floatingEmojis.map((animValue, index) => {
+        const fastFoodEmojis = ['🍔', '🍟', '🍕', '🌮', '🌭', '🥪', '🥙', '🍗', '🥓', '🧀', '🥯', '🌯'];
+        const currentEmoji = fastFoodEmojis[index % fastFoodEmojis.length];
+
+        // Trajectoires variées
+        const trajectoryType = index % 4;
+        let startX, endX, startY, endY;
+
+        switch (trajectoryType) {
+          case 0: // Du bas vers le haut
+            startX = Math.random() * (width - 50);
+            endX = startX + (Math.random() - 0.5) * 150;
+            startY = height + 50;
+            endY = -100;
+            break;
+          case 1: // De la gauche vers la droite
+            startX = -100;
+            endX = width + 50;
+            startY = 150 + Math.random() * (height - 300);
+            endY = startY + (Math.random() - 0.5) * 200;
+            break;
+          case 2: // De la droite vers la gauche
+            startX = width + 50;
+            endX = -100;
+            startY = 200 + Math.random() * (height - 400);
+            endY = startY + (Math.random() - 0.5) * 150;
+            break;
+          case 3: // Du haut vers le bas
+            startX = Math.random() * (width - 50);
+            endX = startX + (Math.random() - 0.5) * 100;
+            startY = -100;
+            endY = height + 50;
+            break;
+        }
+
+        const amplitude = 15 + (index % 3) * 10;
+
+        return (
+          <Animated.View
+            key={index}
+            style={[
+              styles.floatingEmoji,
+              {
+                transform: [
+                  {
+                    translateY: animValue.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [startY, endY],
+                    }),
+                  },
+                  {
+                    translateX: animValue.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [startX, endX],
+                    }),
+                  },
+                  {
+                    translateX: animValue.interpolate({
+                      inputRange: [0, 0.25, 0.5, 0.75, 1],
+                      outputRange: [0, amplitude, 0, -amplitude, 0],
+                    }),
+                  },
+                ],
+                opacity: animValue.interpolate({
+                  inputRange: [0, 0.1, 0.9, 1],
+                  outputRange: [0, 0.7, 0.7, 0],
+                }),
+              },
+            ]}
+          >
+            <Text style={styles.emojiText}>{currentEmoji}</Text>
+          </Animated.View>
+        );
+      })}
+      
+      {/* Header avec gradient */}
+      <LinearGradient
+        colors={['#000000', '#000000', '#000000']}
+        style={styles.header}
+      >
+        <View style={styles.headerContent}>
+          <TouchableOpacity 
+            style={styles.backButton} 
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.back();
+            }}
+          >
+            <Ionicons name="arrow-back" size={24} color={colors.neutral.white} />
+          </TouchableOpacity>
+          
+          <View style={styles.headerTitle}>
+            <Text style={styles.categoryEmoji}>{currentCategory.emoji}</Text>
+            <Text style={styles.categoryName}>{currentCategory.name}</Text>
+          </View>
+          
+        </View>
+      </LinearGradient>
+
+      {/* Liste des produits */}
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.productsContainer}>
+          {products.length > 0 ? (
+            // Pour les bowls et tacos, afficher une seule carte avec personnalisation
+            (id === ProductCategory.BOWLS || id === ProductCategory.TACOS) ? (
+              renderSingleCardWithCustomization(id)
+            ) : id === ProductCategory.DESSERTS ? (
+              // Pour les desserts, traiter séparément les produits personnalisables et normaux
+              products.map(product => {
+                if (product.customizable && product.id === 'milkshake-custom') {
+                  return renderSingleCardWithCustomization(id, product);
+                } else {
+                  return renderProduct(product);
+                }
+              })
+            ) : (
+              // Pour les autres catégories, afficher tous les produits
+              products.map(renderProduct)
+            )
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>Aucun plat disponible pour cette catégorie</Text>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* Éléments animés pour l'ajout au panier */}
+      {animatingItems.map((animatedItem) => (
+        <Animated.View
+          key={animatedItem.id}
+          style={[
+            styles.animatedItem,
+            {
+              transform: [
+                {
+                  translateX: animatedItem.animatedValue.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [animatedItem.startX, animatedItem.endX],
+                  }),
+                },
+                {
+                  translateY: animatedItem.animatedValue.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [animatedItem.startY, animatedItem.endY],
+                  }),
+                },
+                {
+                  scale: animatedItem.animatedValue.interpolate({
+                    inputRange: [0, 0.1, 0.9, 1],
+                    outputRange: [1, 1.2, 0.8, 0.3],
+                  }),
+                },
+              ],
+              opacity: animatedItem.animatedValue.interpolate({
+                inputRange: [0, 0.1, 0.8, 1],
+                outputRange: [1, 1, 1, 0],
+              }),
+            },
+          ]}
+        >
+          <View style={styles.animatedItemContent}>
+            <View style={styles.animatedItemIcon}>
+              <Ionicons name="restaurant" size={16} color={colors.neutral.white} />
+            </View>
+            <Text style={styles.animatedItemText} numberOfLines={1}>
+              {animatedItem.product.name}
+            </Text>
+          </View>
+        </Animated.View>
+      ))}
+
+      {/* Modal d'affichage en grand de l'image */}
+      <Modal
+        visible={imageModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closeImageModal}
+      >
+        <View style={styles.modalContainer}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            onPress={closeImageModal}
+            activeOpacity={1}
+          >
+            <View style={styles.modalContent}>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={closeImageModal}
+              >
+                <Ionicons name="close" size={24} color={colors.neutral.white} />
+              </TouchableOpacity>
+
+              {selectedImage && (
+                <Image
+                  source={selectedImage}
+                  style={[styles.modalImage, {
+                    maxWidth: width - 40,
+                    maxHeight: height - 200,
+                  }]}
+                  resizeMode="contain"
+                />
+              )}
+            </View>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* Modal de commentaire */}
+      <Modal
+        visible={commentModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setCommentModalVisible(false)}
+      >
+        <TouchableWithoutFeedback
+          onPress={() => {
+            Keyboard.dismiss();
+            setCommentModalVisible(false);
+          }}
+        >
+          <View style={styles.commentModalOverlay}>
+            <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
+              <View style={styles.commentModalContainer}>
+            <View style={styles.commentModalHeader}>
+              <Text style={styles.commentModalTitle}>Ajouter un commentaire</Text>
+              <TouchableOpacity
+                onPress={() => setCommentModalVisible(false)}
+                style={styles.commentModalCloseButton}
+              >
+                <Ionicons name="close" size={24} color={colors.neutral.gray600} />
+              </TouchableOpacity>
+            </View>
+
+            {commentProduct && (
+              <View style={styles.commentProductInfo}>
+                <Image source={commentProduct.image} style={styles.commentProductImage} />
+                <View style={styles.commentProductDetails}>
+                  <Text style={styles.commentProductName}>
+                    {commentProduct.name}
+                    {commentProduct.sizes && commentSize && commentProduct.sizes[commentSize]?.name && ` (${commentProduct.sizes[commentSize].name})`}
+                  </Text>
+                  <Text style={styles.commentProductPrice}>
+                    {(() => {
+                      if (commentProduct.customizable) {
+                        const price = calculateCustomizedPrice(commentProduct, selectedSizes, customizations);
+                        return `${price.toFixed(2)}€`;
+                      } else if (commentProduct.sizes && commentSize) {
+                        return `${commentProduct.sizes[commentSize]?.price?.toFixed(2)}€`;
+                      } else {
+                        return `${commentProduct.price?.toFixed(2)}€`;
+                      }
+                    })()}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            <View style={styles.commentInputContainer}>
+              <Text style={styles.commentInputLabel}>
+                Commentaire (optionnel)
+              </Text>
+              <Text style={styles.commentInputSubtitle}>
+                Ajoutez des précisions : cuisson, allergies, préférences...
+              </Text>
+              <TextInput
+                style={styles.commentInput}
+                value={currentComment}
+                onChangeText={setCurrentComment}
+                placeholder="Ex: Bien cuit, sans oignons, sauce à part..."
+                placeholderTextColor={colors.neutral.gray400}
+                multiline={true}
+                numberOfLines={3}
+                maxLength={200}
+                textAlignVertical="top"
+              />
+              <Text style={styles.commentCharCount}>
+                {currentComment.length}/200
+              </Text>
+            </View>
+
+            <View style={styles.commentModalButtons}>
+              <TouchableOpacity
+                style={styles.commentCancelButton}
+                onPress={() => setCommentModalVisible(false)}
+              >
+                <Text style={styles.commentCancelText}>Annuler</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.commentConfirmButton}
+                onPress={confirmAddToCart}
+              >
+                <LinearGradient
+                  colors={[colors.primary.main, colors.primary.light]}
+                  style={styles.commentConfirmGradient}
+                >
+                  <Ionicons name="cart" size={18} color={colors.neutral.white} />
+                  <Text style={styles.commentConfirmText}>
+                    Ajouter au panier
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+    </View>
+  );
+}
+

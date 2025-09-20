@@ -1,15 +1,21 @@
 {
   "expo": {
-    "name": "brivefood-app",
+    "name": "Brive Food",
     "slug": "brivefood-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.jpg",
+    "icon": "./assets/images/logoBrivefood.png",
     "scheme": "brivefoodapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.brivefood.app",
+      "buildNumber": "3",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Cette application utilise l'appareil photo pour permettre aux utilisateurs de prendre des photos de leurs commandes et d'améliorer leur expérience."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -38,11 +44,21 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "assetBundlePatterns": [
+      "assets/fonts/*"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "316a1f39-22e9-4d20-92f0-ed9a36460c2e"
+      },
+      "router": {}
     }
   }
 }
