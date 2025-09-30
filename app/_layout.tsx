@@ -5,6 +5,7 @@ import { View, Text } from 'react-native';
 import 'react-native-reanimated';
 import 'react-native-gesture-handler';
 
+
 import { AuthProvider } from '../src/context/AuthContext';
 import { OrderProvider } from '../src/context/OrderContext';
 import { OrdersProvider } from '../src/context/OrdersContext';
@@ -12,8 +13,10 @@ import { LoyaltyProvider } from '../src/context/LoyaltyContext';
 import { AdminAuthProvider } from '../src/context/AdminAuthContext';
 import { DeliveryManagementProvider } from '../src/context/DeliveryManagementContext';
 import { DeliveryAuthProvider } from '../src/context/DeliveryAuthContext';
+import { ActiveOrderProvider } from '../src/context/ActiveOrderContext';
 import { colors } from '../src/constants/theme';
 import OrderThumbnail from '../src/components/common/OrderThumbnail';
+import ActiveOrderWidget from '../src/components/customer/ActiveOrderWidget';
 import useFonts from '../src/hooks/useFonts';
 
 
@@ -34,6 +37,7 @@ const BriveFoodTheme = {
 export default function RootLayout() {
   const fontsLoaded = useFonts();
 
+
   if (!fontsLoaded) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000000' }}>
@@ -49,7 +53,8 @@ export default function RootLayout() {
           <DeliveryAuthProvider>
             <OrderProvider>
               <OrdersProvider>
-                <LoyaltyProvider>
+                <ActiveOrderProvider>
+                  <LoyaltyProvider>
                 <ThemeProvider value={BriveFoodTheme}>
             <View style={{ flex: 1, backgroundColor: '#000000' }}>
               <Stack>
@@ -69,21 +74,30 @@ export default function RootLayout() {
               <Stack.Screen name="profile/add-address" options={{ headerShown: false, presentation: 'modal' }} />
               <Stack.Screen name="profile/orders" options={{ headerShown: false, presentation: 'modal' }} />
               <Stack.Screen name="profile/payment" options={{ headerShown: false, presentation: 'modal' }} />
-              <Stack.Screen 
-                name="cart" 
-                options={{ 
+              <Stack.Screen
+                name="cart"
+                options={{
                   title: 'Panier',
                   presentation: 'modal',
                   headerStyle: { backgroundColor: '#000000' },
                   headerTintColor: colors.neutral.white,
-                }} 
+                }}
+              />
+              <Stack.Screen
+                name="order-details"
+                options={{
+                  headerShown: false,
+                  presentation: 'modal',
+                }}
               />
             </Stack>
             <OrderThumbnail />
+            <ActiveOrderWidget />
             <StatusBar style="auto" />
             </View>
             </ThemeProvider>
-                </LoyaltyProvider>
+                  </LoyaltyProvider>
+                </ActiveOrderProvider>
               </OrdersProvider>
             </OrderProvider>
           </DeliveryAuthProvider>

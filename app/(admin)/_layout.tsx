@@ -1,15 +1,31 @@
 import { Tabs } from 'expo-router';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { colors, typography } from '../../src/constants/theme';
 import AdminProtectedRoute from '../../src/components/auth/AdminProtectedRoute';
+import { useNotifications } from '../../src/hooks/useNotifications';
 
 export default function AdminTabLayout() {
+  const { requestPermission, isPermissionGranted, isInitialized } = useNotifications();
+
+  useEffect(() => {
+    // Initialiser les notifications pour l'admin dès l'ouverture
+    const initNotifications = async () => {
+      if (!isPermissionGranted && isInitialized) {
+        await requestPermission();
+      }
+    };
+
+    initNotifications();
+  }, [isInitialized, isPermissionGranted]);
+
   return (
     <AdminProtectedRoute requiredType="admin">
       <Tabs
+      initialRouteName="dashboard"
+      id="admin-tabs"
       screenOptions={({ route }) => ({
         tabBarActiveTintColor: '#000000',
         tabBarInactiveTintColor: '#010101',
@@ -73,10 +89,10 @@ export default function AdminTabLayout() {
         options={{
           title: 'Dashboard',
           tabBarIcon: ({ color, focused, size }) => (
-            <Ionicons 
-              name={focused ? "grid" : "grid-outline"} 
-              size={focused ? size + 2 : size} 
-              color={color} 
+            <Ionicons
+              name={focused ? "speedometer" : "speedometer-outline"}
+              size={focused ? size + 2 : size}
+              color={color}
             />
           ),
         }}
@@ -84,7 +100,7 @@ export default function AdminTabLayout() {
       <Tabs.Screen
         name="products"
         options={{
-          title: 'Gestion des prix',
+          title: 'Gestion prix',
           tabBarIcon: ({ color, focused, size }) => (
             <Ionicons
               name={focused ? "pricetag" : "pricetag-outline"}
@@ -136,6 +152,24 @@ export default function AdminTabLayout() {
         name="delivery"
         options={{
           href: null, // Cache cet écran des tabs
+        }}
+      />
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          href: null, // Cache cet écran des tabs
+        }}
+      />
+      <Tabs.Screen
+        name="index"
+        options={{
+          href: null, // Cache cet écran des tabs - redirection automatique
+        }}
+      />
+      <Tabs.Screen
+        name="order-details"
+        options={{
+          href: null, // Cache cet écran des tabs - écran de détail
         }}
       />
       </Tabs>

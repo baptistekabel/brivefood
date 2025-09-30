@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 class TabletPrinterService {
   constructor() {
-    this.printerIP = '192.168.1.100'; // IP de votre Epson TM-M30III
+    this.printerIP = '192.168.10.110'; // IP de votre Epson TM-M30III
     this.isTabletMode = false; // Mode tablette restaurant
     this.pendingOrders = []; // Commandes en attente d'impression
   }

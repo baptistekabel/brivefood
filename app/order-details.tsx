@@ -1,0 +1,623 @@
+import React, { useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Animated,
+  FlatList,
+  Alert,
+} from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
+import { colors, typography, spacing, borderRadius } from '../src/constants/theme';
+import { useActiveOrder } from '../src/context/ActiveOrderContext';
+import useFonts from '../src/hooks/useFonts';
+import LoadingScreen from '../src/components/common/LoadingScreen';
+
+export default function OrderDetailsScreen() {
+  const fontsLoaded = useFonts();
+  const { activeOrder, getStatusText, getStatusColor, completeActiveOrder } = useActiveOrder();
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+
+  useEffect(() => {
+    // Animation d'apparition
+    Animated.spring(slideAnim, {
+      toValue: 0,
+      tension: 50,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+
+    // Animation de pulsation pour le statut
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  if (!fontsLoaded) {
+    return <LoadingScreen />;
+  }
+
+  if (!activeOrder) {
+    return (
+      <LinearGradient
+        colors={['#000000', '#111111', '#222222']}
+        style={styles.container}
+      >
+        <StatusBar style="light" />
+        <View style={styles.noOrderContainer}>
+          <Ionicons name="receipt-outline" size={64} color={colors.neutral.gray300} />
+          <Text style={styles.noOrderTitle}>Aucune commande active</Text>
+          <Text style={styles.noOrderMessage}>
+            Vous n'avez pas de commande en cours actuellement
+          </Text>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.back();
+            }}
+          >
+            <LinearGradient
+              colors={['#000000', '#000000']}
+              style={styles.backButtonGradient}
+            >
+              <Text style={styles.backButtonText}>Retour</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
+    );
+  }
+
+  const getModeIcon = (mode) => {
+    switch (mode) {
+      case 'dine_in':
+        return 'restaurant-outline';
+      case 'takeout':
+        return 'bag-outline';
+      case 'delivery':
+        return 'bicycle-outline';
+      default:
+        return 'receipt-outline';
+    }
+  };
+
+  const getModeText = (mode) => {
+    switch (mode) {
+      case 'dine_in':
+        return 'Sur place';
+      case 'takeout':
+        return 'À emporter';
+      case 'delivery':
+        return 'Livraison';
+      default:
+        return 'Commande';
+    }
+  };
+
+  const handleCompleteOrder = () => {
+    Alert.alert(
+      'Commande terminée',
+      'Voulez-vous marquer cette commande comme terminée ?',
+      [
+        {
+          text: 'Annuler',
+          style: 'cancel',
+        },
+        {
+          text: 'Confirmer',
+          onPress: async () => {
+            await completeActiveOrder();
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            router.back();
+          },
+        },
+      ]
+    );
+  };
+
+  const renderOrderItem = ({ item }) => (
+    <View style={styles.orderItem}>
+      <View style={styles.itemHeader}>
+        <Text style={styles.itemName}>{item.name}</Text>
+        <Text style={styles.itemPrice}>{item.price.toFixed(2)}€</Text>
+      </View>
+
+      <View style={styles.itemDetails}>
+        <Text style={styles.itemQuantity}>Quantité: {item.quantity}</Text>
+        {item.size && (
+          <Text style={styles.itemSize}>Taille: {item.size}</Text>
+        )}
+        {item.comment && (
+          <Text style={styles.itemComment}>Note: {item.comment}</Text>
+        )}
+      </View>
+
+      {item.customizations && (
+        <View style={styles.customizations}>
+          <Text style={styles.customizationsTitle}>Personnalisations:</Text>
+          {Object.entries(item.customizations).map(([category, options], index) => (
+            <Text key={index} style={styles.customizationText}>
+              • {options.join(', ')}
+            </Text>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+
+  return (
+    <LinearGradient
+      colors={['#000000', '#111111', '#222222']}
+      style={styles.container}
+    >
+      <StatusBar style="light" />
+
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.headerButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.back();
+          }}
+        >
+          <Ionicons name="arrow-back" size={24} color={colors.neutral.white} />
+        </TouchableOpacity>
+
+        <Text style={styles.headerTitle}>Détails de la commande</Text>
+
+        <TouchableOpacity
+          style={styles.headerButton}
+          onPress={handleCompleteOrder}
+        >
+          <Ionicons name="checkmark" size={24} color={colors.neutral.white} />
+        </TouchableOpacity>
+      </View>
+
+      <Animated.View
+        style={[
+          styles.scrollContainer,
+          {
+            transform: [{ translateY: slideAnim }],
+          },
+        ]}
+      >
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Statut et informations principales */}
+          <View style={styles.statusSection}>
+            <LinearGradient
+              colors={['rgba(255, 255, 255, 0.95)', 'rgba(250, 250, 250, 0.9)']}
+              style={styles.statusCard}
+            >
+              <View style={styles.statusHeader}>
+                <View style={styles.statusInfo}>
+                  <Text style={styles.orderNumber}>#{activeOrder.id}</Text>
+                  <View style={styles.modeContainer}>
+                    <Ionicons
+                      name={getModeIcon(activeOrder.mode)}
+                      size={20}
+                      color={colors.neutral.gray600}
+                    />
+                    <Text style={styles.modeText}>{getModeText(activeOrder.mode)}</Text>
+                  </View>
+                </View>
+
+                <Animated.View
+                  style={[
+                    styles.statusBadge,
+                    {
+                      backgroundColor: getStatusColor(activeOrder.status),
+                      transform: [{ scale: pulseAnim }],
+                    },
+                  ]}
+                >
+                  <Text style={styles.statusText}>{getStatusText(activeOrder.status)}</Text>
+                </Animated.View>
+              </View>
+
+              <View style={styles.orderInfo}>
+                <View style={styles.infoRow}>
+                  <Ionicons name="time-outline" size={18} color={colors.neutral.gray600} />
+                  <Text style={styles.infoText}>Temps estimé: ~{activeOrder.estimatedTime}</Text>
+                </View>
+
+                <View style={styles.infoRow}>
+                  <Ionicons name="calendar-outline" size={18} color={colors.neutral.gray600} />
+                  <Text style={styles.infoText}>
+                    {activeOrder.orderDate} à {activeOrder.orderTime}
+                  </Text>
+                </View>
+
+                {activeOrder.address && (
+                  <View style={styles.infoRow}>
+                    <Ionicons name="location-outline" size={18} color={colors.neutral.gray600} />
+                    <Text style={styles.infoText}>{activeOrder.address}</Text>
+                  </View>
+                )}
+
+                {activeOrder.phone && (
+                  <View style={styles.infoRow}>
+                    <Ionicons name="call-outline" size={18} color={colors.neutral.gray600} />
+                    <Text style={styles.infoText}>{activeOrder.phone}</Text>
+                  </View>
+                )}
+              </View>
+            </LinearGradient>
+          </View>
+
+          {/* Articles commandés */}
+          <View style={styles.itemsSection}>
+            <Text style={styles.sectionTitle}>Articles commandés</Text>
+            <View style={styles.itemsContainer}>
+              <FlatList
+                data={activeOrder.items}
+                renderItem={renderOrderItem}
+                keyExtractor={(item, index) => `${item.name}-${index}`}
+                scrollEnabled={false}
+                showsVerticalScrollIndicator={false}
+              />
+            </View>
+          </View>
+
+          {/* Total */}
+          <View style={styles.totalSection}>
+            <LinearGradient
+              colors={['rgba(255, 255, 255, 0.95)', 'rgba(250, 250, 250, 0.9)']}
+              style={styles.totalCard}
+            >
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>Total de la commande</Text>
+                <Text style={styles.totalValue}>{activeOrder.total.toFixed(2)}€</Text>
+              </View>
+
+              {activeOrder.paymentMethod && (
+                <View style={styles.paymentRow}>
+                  <Ionicons
+                    name={activeOrder.paymentMethod === 'cash' ? 'cash-outline' : 'card-outline'}
+                    size={18}
+                    color={colors.neutral.gray600}
+                  />
+                  <Text style={styles.paymentText}>
+                    {activeOrder.paymentMethod === 'cash' ? 'Espèces' : 'Carte bancaire'}
+                  </Text>
+                </View>
+              )}
+
+              {/* Action button directly in total card */}
+              <TouchableOpacity
+                style={styles.completeButtonInCard}
+                onPress={handleCompleteOrder}
+              >
+                <LinearGradient
+                  colors={['#22C55E', '#16A34A']}
+                  style={styles.completeButtonGradient}
+                >
+                  <Ionicons name="checkmark-circle" size={20} color={colors.neutral.white} />
+                  <Text style={styles.completeButtonText}>Marquer comme terminée</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </LinearGradient>
+          </View>
+        </ScrollView>
+      </Animated.View>
+    </LinearGradient>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 60,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: typography.fontSizes.xl,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.white,
+    textAlign: 'center',
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: spacing.lg,
+  },
+  statusSection: {
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
+  },
+  statusCard: {
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    elevation: 4,
+    shadowColor: colors.neutral.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  statusHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: spacing.lg,
+  },
+  statusInfo: {
+    flex: 1,
+  },
+  orderNumber: {
+    fontSize: typography.fontSizes['2xl'],
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.gray800,
+    marginBottom: spacing.xs,
+  },
+  modeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  modeText: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray600,
+  },
+  statusBadge: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    elevation: 2,
+    shadowColor: colors.neutral.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  statusText: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.white,
+  },
+  orderInfo: {
+    gap: spacing.sm,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  infoText: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray700,
+    flex: 1,
+  },
+  itemsSection: {
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
+  },
+  sectionTitle: {
+    fontSize: typography.fontSizes.xl,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.white,
+    marginBottom: spacing.lg,
+  },
+  itemsContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    elevation: 4,
+    shadowColor: colors.neutral.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  orderItem: {
+    marginBottom: spacing.lg,
+    paddingBottom: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutral.gray200,
+  },
+  itemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: spacing.sm,
+  },
+  itemName: {
+    fontSize: typography.fontSizes.lg,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.gray800,
+    flex: 1,
+    marginRight: spacing.sm,
+  },
+  itemPrice: {
+    fontSize: typography.fontSizes.lg,
+    fontFamily: typography.fontFamily.bold,
+    color: '#000000',
+  },
+  itemDetails: {
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  itemQuantity: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray600,
+  },
+  itemSize: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray600,
+  },
+  itemComment: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray600,
+    fontStyle: 'italic',
+  },
+  customizations: {
+    backgroundColor: colors.neutral.gray50,
+    padding: spacing.sm,
+    borderRadius: borderRadius.md,
+  },
+  customizationsTitle: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.gray800,
+    marginBottom: spacing.xs,
+  },
+  customizationText: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray700,
+  },
+  totalSection: {
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+  },
+  totalCard: {
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    elevation: 4,
+    shadowColor: colors.neutral.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  totalLabel: {
+    fontSize: typography.fontSizes.lg,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.gray800,
+  },
+  totalValue: {
+    fontSize: typography.fontSizes['2xl'],
+    fontFamily: typography.fontFamily.bold,
+    color: '#000000',
+  },
+  paymentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.neutral.gray200,
+  },
+  paymentText: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray600,
+  },
+  actionsSection: {
+    paddingHorizontal: spacing.lg,
+  },
+  completeButton: {
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    elevation: 4,
+    shadowColor: colors.neutral.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  completeButtonInCard: {
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    marginTop: spacing.lg,
+    elevation: 2,
+    shadowColor: colors.neutral.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  completeButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.lg,
+    gap: spacing.sm,
+  },
+  completeButtonText: {
+    fontSize: typography.fontSizes.lg,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.white,
+  },
+  noOrderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  noOrderTitle: {
+    fontSize: typography.fontSizes.xl,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.white,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  noOrderMessage: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray300,
+    textAlign: 'center',
+    lineHeight: typography.fontSizes.base * 1.5,
+    marginBottom: spacing.xl,
+  },
+  backButton: {
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+  },
+  backButtonGradient: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+  },
+  backButtonText: {
+    fontSize: typography.fontSizes.lg,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.white,
+  },
+});

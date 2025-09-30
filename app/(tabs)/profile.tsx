@@ -95,7 +95,7 @@ export default function ProfileScreen() {
   // Animation des emojis flottants
   useEffect(() => {
     const startFloatingEmojisAnimation = () => {
-      floatingEmojis.forEach((animValue, index) => {
+      floatingEmojis?.forEach((animValue, index) => {
         const delay = Math.random() * 1000;
         const duration = 15000 + Math.random() * 15000;
         
@@ -250,7 +250,7 @@ export default function ProfileScreen() {
       <StatusBar style="light" />
       
       {/* Emojis flottants de fast food */}
-      {floatingEmojis.map((animValue, index) => {
+      {floatingEmojis?.map((animValue, index) => {
         const fastFoodEmojis = ['🍔', '🍟', '🍕', '🌮', '🌭', '🥪', '🥙', '🍗', '🥓', '🍖'];
         const currentEmoji = fastFoodEmojis[index % fastFoodEmojis.length];
         

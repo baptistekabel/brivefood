@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   RefreshControl,
+  ScrollView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -125,6 +126,7 @@ export default function DeliveryDashboard() {
     setTimeout(() => setRefreshing(false), 1000);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
+
 
   const renderAvailableOrder = ({ item }) => (
     <View style={styles.orderCard}>
@@ -270,6 +272,9 @@ export default function DeliveryDashboard() {
                 renderItem={renderActiveOrder}
                 keyExtractor={(item) => item.id}
                 showsVerticalScrollIndicator={false}
+                refreshControl={
+                  <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                }
                 style={styles.ordersList}
               />
             </View>
@@ -279,13 +284,22 @@ export default function DeliveryDashboard() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>📦 Courses disponibles ({availableOrders.length})</Text>
             {availableOrders.length === 0 ? (
-              <View style={styles.emptyState}>
+              <ScrollView
+                contentContainerStyle={styles.emptyState}
+                refreshControl={
+                  <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                }
+                showsVerticalScrollIndicator={false}
+              >
                 <Ionicons name="bicycle-outline" size={64} color={colors.neutral.gray300} />
                 <Text style={styles.emptyStateTitle}>Aucune course disponible</Text>
                 <Text style={styles.emptyStateMessage}>
                   Les nouvelles courses apparaîtront ici dès qu'elles seront prêtes
                 </Text>
-              </View>
+                <Text style={styles.pullToRefreshHint}>
+                  👆 Tirez pour actualiser
+                </Text>
+              </ScrollView>
             ) : (
               <FlatList
                 data={availableOrders}
@@ -510,6 +524,13 @@ const styles = StyleSheet.create({
     color: colors.neutral.gray500,
     textAlign: 'center',
     lineHeight: typography.lineHeights.relaxed * typography.fontSizes.base,
+  },
+  pullToRefreshHint: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.neutral.gray400,
+    textAlign: 'center',
+    marginTop: spacing.lg,
+    fontStyle: 'italic',
   },
   errorText: {
     fontSize: typography.fontSizes.lg,

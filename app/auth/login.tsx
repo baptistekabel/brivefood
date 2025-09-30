@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Dimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,15 +20,21 @@ import { colors, typography, spacing, borderRadius } from '../../src/constants/t
 import { useAuth } from '../../src/context/AuthContext';
 import useFonts from '../../src/hooks/useFonts';
 import LoadingScreen from '../../src/components/common/LoadingScreen';
+import { isTablet, isLandscape, getResponsiveStyles } from '../../src/utils/deviceUtils';
 
 export default function LoginScreen() {
   const fontsLoaded = useFonts();
   const { login } = useAuth();
-  
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Détection de l'appareil et orientation
+  const isTabletDevice = isTablet();
+  const isLandscapeMode = isLandscape();
+  const responsiveStyles = getResponsiveStyles();
 
   if (!fontsLoaded) {
     return <LoadingScreen />;
@@ -93,133 +100,266 @@ export default function LoginScreen() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            isTabletDevice && isLandscapeMode && styles.scrollContentTabletLandscape
+          ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           bounces={false}
         >
-          {/* Header */}
-          <View style={styles.header}>
-            
-            {/* Logo/Brand */}
-            <View style={styles.brandContainer}>
-              <Text style={styles.brandName}>BRIVEFOOD</Text>
-            </View>
-            
-            <Text style={styles.title}>Connexion</Text>
-            <Text style={styles.subtitle}>Connectez-vous pour commander</Text>
-          </View>
+          {isTabletDevice && isLandscapeMode ? (
+            // Layout pour tablette en mode paysage - En colonnes
+            <View style={styles.tabletLandscapeContainer}>
+              {/* Colonne gauche - Branding */}
+              <View style={styles.leftColumn}>
+                <View style={styles.brandContainer}>
+                  <Text style={[styles.brandName, styles.brandNameTablet]}>BRIVEFOOD</Text>
+                  <Text style={[styles.title, styles.titleTablet]}>Connexion</Text>
+                  <Text style={[styles.subtitle, styles.subtitleTablet]}>
+                    Connectez-vous pour commander vos plats préférés
+                  </Text>
+                </View>
 
-          {/* Form */}
-          <View style={styles.formContainer}>
-            <View style={styles.form}>
-              {/* Email Input */}
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Email</Text>
-                <View style={styles.inputWrapper}>
-                  <Ionicons name="mail-outline" size={20} color={colors.neutral.gray400} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="votre@email.com"
-                    placeholderTextColor={colors.neutral.gray400}
-                    value={email}
-                    onChangeText={setEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                  />
+                {/* Administrative Areas pour tablette */}
+                <View style={styles.adminSectionTablet}>
+                  <Text style={styles.adminSectionTitle}>Autres accès</Text>
+                  <View style={styles.adminButtonsColumn}>
+                    <TouchableOpacity
+                      style={styles.adminButtonTablet}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        router.push('/auth/admin-login');
+                      }}
+                    >
+                      <View style={styles.adminButtonContentTablet}>
+                        <Ionicons name="business-outline" size={20} color="rgba(255, 255, 255, 0.8)" />
+                        <Text style={styles.adminButtonTextTablet}>Administration</Text>
+                      </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.adminButtonTablet}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        router.push('/auth/delivery-login');
+                      }}
+                    >
+                      <View style={styles.adminButtonContentTablet}>
+                        <Ionicons name="bicycle-outline" size={20} color="rgba(255, 255, 255, 0.8)" />
+                        <Text style={styles.adminButtonTextTablet}>Livraison</Text>
+                      </View>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
 
-              {/* Password Input */}
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Mot de passe</Text>
-                <View style={styles.inputWrapper}>
-                  <Ionicons name="lock-closed-outline" size={20} color={colors.neutral.gray400} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="••••••••"
-                    placeholderTextColor={colors.neutral.gray400}
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                  />
-                  <TouchableOpacity 
+              {/* Colonne droite - Formulaire */}
+              <View style={styles.rightColumn}>
+                <View style={styles.formTablet}>
+                  {/* Email Input */}
+                  <View style={[styles.inputContainer, styles.inputContainerTablet]}>
+                    <Text style={[styles.inputLabel, styles.inputLabelTablet]}>Email</Text>
+                    <View style={[styles.inputWrapper, styles.inputWrapperTablet]}>
+                      <Ionicons name="mail-outline" size={24} color={colors.neutral.gray400} />
+                      <TextInput
+                        style={[styles.input, styles.inputTablet]}
+                        placeholder="votre@email.com"
+                        placeholderTextColor={colors.neutral.gray400}
+                        value={email}
+                        onChangeText={setEmail}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                    </View>
+                  </View>
+
+                  {/* Password Input */}
+                  <View style={[styles.inputContainer, styles.inputContainerTablet]}>
+                    <Text style={[styles.inputLabel, styles.inputLabelTablet]}>Mot de passe</Text>
+                    <View style={[styles.inputWrapper, styles.inputWrapperTablet]}>
+                      <Ionicons name="lock-closed-outline" size={24} color={colors.neutral.gray400} />
+                      <TextInput
+                        style={[styles.input, styles.inputTablet]}
+                        placeholder="••••••••"
+                        placeholderTextColor={colors.neutral.gray400}
+                        value={password}
+                        onChangeText={setPassword}
+                        secureTextEntry={!showPassword}
+                      />
+                      <TouchableOpacity
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          setShowPassword(!showPassword);
+                        }}
+                      >
+                        <Ionicons
+                          name={showPassword ? "eye-off-outline" : "eye-outline"}
+                          size={24}
+                          color={colors.neutral.gray400}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* Forgot Password */}
+                  <TouchableOpacity style={[styles.forgotPassword, styles.forgotPasswordTablet]} onPress={handleForgotPassword}>
+                    <Text style={[styles.forgotPasswordText, styles.forgotPasswordTextTablet]}>Mot de passe oublié ?</Text>
+                  </TouchableOpacity>
+
+                  {/* Login Button */}
+                  <TouchableOpacity
+                    style={[styles.loginButton, styles.loginButtonTablet]}
+                    onPress={handleLogin}
+                    disabled={loading}
+                  >
+                    <LinearGradient
+                      colors={['#000000', '#000000', '#000000']}
+                      style={[styles.loginButtonGradient, styles.loginButtonGradientTablet]}
+                    >
+                      <Text style={[styles.loginButtonText, styles.loginButtonTextTablet]}>
+                        {loading ? 'Connexion...' : 'Se connecter'}
+                      </Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+
+                  {/* Register Link */}
+                  <View style={[styles.registerContainer, styles.registerContainerTablet]}>
+                    <Text style={[styles.registerText, styles.registerTextTablet]}>Pas encore de compte ? </Text>
+                    <TouchableOpacity onPress={handleGoToRegister}>
+                      <Text style={[styles.registerLink, styles.registerLinkTablet]}>S'inscrire</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </View>
+          ) : (
+            // Layout mobile/portrait standard
+            <>
+              {/* Header */}
+              <View style={styles.header}>
+                {/* Logo/Brand */}
+                <View style={styles.brandContainer}>
+                  <Text style={styles.brandName}>BRIVEFOOD</Text>
+                </View>
+
+                <Text style={styles.title}>Connexion</Text>
+                <Text style={styles.subtitle}>Connectez-vous pour commander</Text>
+              </View>
+
+              {/* Form */}
+              <View style={styles.formContainer}>
+                <View style={styles.form}>
+                  {/* Email Input */}
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Email</Text>
+                    <View style={styles.inputWrapper}>
+                      <Ionicons name="mail-outline" size={20} color={colors.neutral.gray400} />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="votre@email.com"
+                        placeholderTextColor={colors.neutral.gray400}
+                        value={email}
+                        onChangeText={setEmail}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                    </View>
+                  </View>
+
+                  {/* Password Input */}
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Mot de passe</Text>
+                    <View style={styles.inputWrapper}>
+                      <Ionicons name="lock-closed-outline" size={20} color={colors.neutral.gray400} />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="••••••••"
+                        placeholderTextColor={colors.neutral.gray400}
+                        value={password}
+                        onChangeText={setPassword}
+                        secureTextEntry={!showPassword}
+                      />
+                      <TouchableOpacity
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          setShowPassword(!showPassword);
+                        }}
+                      >
+                        <Ionicons
+                          name={showPassword ? "eye-off-outline" : "eye-outline"}
+                          size={20}
+                          color={colors.neutral.gray400}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* Forgot Password */}
+                  <TouchableOpacity style={styles.forgotPassword} onPress={handleForgotPassword}>
+                    <Text style={styles.forgotPasswordText}>Mot de passe oublié ?</Text>
+                  </TouchableOpacity>
+
+                  {/* Login Button */}
+                  <TouchableOpacity
+                    style={styles.loginButton}
+                    onPress={handleLogin}
+                    disabled={loading}
+                  >
+                    <LinearGradient
+                      colors={['#000000', '#000000', '#000000']}
+                      style={styles.loginButtonGradient}
+                    >
+                      <Text style={styles.loginButtonText}>
+                        {loading ? 'Connexion...' : 'Se connecter'}
+                      </Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+
+                  {/* Register Link */}
+                  <View style={styles.registerContainer}>
+                    <Text style={styles.registerText}>Pas encore de compte ? </Text>
+                    <TouchableOpacity onPress={handleGoToRegister}>
+                      <Text style={styles.registerLink}>S'inscrire</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+
+              {/* Administrative Areas */}
+              <View style={styles.adminSection}>
+                <View style={styles.adminButtonsRow}>
+                  <TouchableOpacity
+                    style={styles.adminButtonSmall}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setShowPassword(!showPassword);
+                      router.push('/auth/admin-login');
                     }}
                   >
-                    <Ionicons 
-                      name={showPassword ? "eye-off-outline" : "eye-outline"} 
-                      size={20} 
-                      color={colors.neutral.gray400} 
-                    />
+                    <View style={styles.adminButtonContentSmall}>
+                      <Ionicons name="business-outline" size={16} color="rgba(255, 255, 255, 0.7)" />
+                      <Text style={styles.adminButtonTextSmall}>Admin</Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.adminButtonSmall}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      router.push('/auth/delivery-login');
+                    }}
+                  >
+                    <View style={styles.adminButtonContentSmall}>
+                      <Ionicons name="bicycle-outline" size={16} color="rgba(255, 255, 255, 0.7)" />
+                      <Text style={styles.adminButtonTextSmall}>Livreur</Text>
+                    </View>
                   </TouchableOpacity>
                 </View>
               </View>
-
-              {/* Forgot Password */}
-              <TouchableOpacity style={styles.forgotPassword} onPress={handleForgotPassword}>
-                <Text style={styles.forgotPasswordText}>Mot de passe oublié ?</Text>
-              </TouchableOpacity>
-
-              {/* Login Button */}
-              <TouchableOpacity 
-                style={styles.loginButton} 
-                onPress={handleLogin}
-                disabled={loading}
-              >
-                <LinearGradient
-                  colors={['#000000', '#000000', '#000000']}
-                  style={styles.loginButtonGradient}
-                >
-                  <Text style={styles.loginButtonText}>
-                    {loading ? 'Connexion...' : 'Se connecter'}
-                  </Text>
-                </LinearGradient>
-              </TouchableOpacity>
-
-              {/* Register Link */}
-              <View style={styles.registerContainer}>
-                <Text style={styles.registerText}>Pas encore de compte ? </Text>
-                <TouchableOpacity onPress={handleGoToRegister}>
-                  <Text style={styles.registerLink}>S'inscrire</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-
-          {/* Administrative Areas */}
-          <View style={styles.adminSection}>
-            <View style={styles.adminButtonsRow}>
-              <TouchableOpacity 
-                style={styles.adminButtonSmall}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  router.push('/auth/admin-login');
-                }}
-              >
-                <View style={styles.adminButtonContentSmall}>
-                  <Ionicons name="business-outline" size={16} color="rgba(255, 255, 255, 0.7)" />
-                  <Text style={styles.adminButtonTextSmall}>Admin</Text>
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={styles.adminButtonSmall}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  router.push('/auth/delivery-login');
-                }}
-              >
-                <View style={styles.adminButtonContentSmall}>
-                  <Ionicons name="bicycle-outline" size={16} color="rgba(255, 255, 255, 0.7)" />
-                  <Text style={styles.adminButtonTextSmall}>Livreur</Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-          </View>
+            </>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </LinearGradient>
@@ -382,5 +522,184 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.sm,
     fontFamily: typography.fontFamily.medium,
     color: 'rgba(255, 255, 255, 0.7)',
+  },
+
+  // Styles spécifiques pour tablette en paysage
+  scrollContentTabletLandscape: {
+    paddingHorizontal: spacing['2xl'], // Réduit pour plus d'espace utilisable
+    paddingVertical: spacing.xl,
+    justifyContent: 'center',
+    minHeight: '100%',
+  },
+  tabletLandscapeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center', // Changé de 'stretch' à 'center' pour un meilleur alignement
+    justifyContent: 'space-between',
+    minHeight: '85%', // Réduit pour éviter l'étirement excessif
+    maxHeight: 800, // Limite la hauteur maximale
+    gap: spacing['3xl'], // Augmenté pour plus d'espace entre les colonnes
+  },
+  leftColumn: {
+    flex: 0.8, // Réduit légèrement pour donner plus d'espace au formulaire
+    justifyContent: 'space-between', // Distribue le contenu de façon équilibrée
+    alignItems: 'center',
+    paddingRight: spacing['2xl'],
+    paddingVertical: spacing.xl,
+    minHeight: 600, // Hauteur minimale pour une bonne structure
+  },
+  rightColumn: {
+    flex: 1.2, // Augmenté pour donner plus d'espace au formulaire
+    justifyContent: 'center',
+    maxWidth: 520, // Augmenté pour des formulaires plus spacieux
+    minWidth: 400, // Largeur minimale garantie
+  },
+
+  // Styles pour le branding sur tablette
+  brandNameTablet: {
+    fontSize: typography.fontSizes['5xl'], // Augmenté pour plus d'impact visuel
+    marginBottom: spacing.xl,
+    letterSpacing: 2,
+    textShadowColor: 'rgba(255, 255, 255, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  titleTablet: {
+    fontSize: typography.fontSizes['4xl'], // Augmenté pour l'harmonie
+    marginBottom: spacing.lg,
+    letterSpacing: 1,
+  },
+  subtitleTablet: {
+    fontSize: typography.fontSizes.xl, // Augmenté pour une meilleure lisibilité
+    textAlign: 'center',
+    lineHeight: typography.fontSizes.xl * 1.4,
+    paddingHorizontal: spacing.xl,
+    maxWidth: 400, // Limite la largeur pour une meilleure lecture
+    opacity: 0.9,
+  },
+
+  // Formulaire pour tablette
+  formTablet: {
+    backgroundColor: 'rgba(255, 255, 255, 0.97)', // Légèrement plus opaque
+    borderRadius: 28, // Légèrement réduit pour un look plus moderne
+    padding: spacing['3xl'], // Padding augmenté pour plus d'espace
+    shadowColor: colors.neutral.black,
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.35,
+    shadowRadius: 30,
+    elevation: 30,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    minHeight: 500, // Hauteur minimale pour cohérence
+    width: '100%',
+    maxWidth: 480, // Largeur maximale contrôlée
+  },
+
+  // Section admin pour tablette
+  adminSectionTablet: {
+    marginTop: spacing['3xl'], // Plus d'espace pour la séparation
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  adminSectionTitle: {
+    fontSize: typography.fontSizes.xl, // Augmenté pour plus de visibilité
+    fontFamily: typography.fontFamily.semibold, // Plus gras
+    color: 'rgba(255, 255, 255, 0.95)',
+    marginBottom: spacing.xl,
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  adminButtonsColumn: {
+    gap: spacing.lg, // Plus d'espace entre les boutons
+    alignItems: 'stretch',
+    minWidth: 280, // Largeur augmentée pour tablette
+    width: '100%',
+    maxWidth: 320,
+  },
+  adminButtonTablet: {
+    borderRadius: borderRadius.xl, // Plus arrondi
+    borderWidth: 2.5, // Border plus épaisse
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)', // Légèrement plus opaque
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg, // Plus de padding vertical
+    shadowColor: 'rgba(255, 255, 255, 0.2)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+    minHeight: 64, // Hauteur minimale pour accessibilité tactile
+  },
+  adminButtonContentTablet: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md, // Plus d'espace entre icône et texte
+  },
+  adminButtonTextTablet: {
+    fontSize: typography.fontSizes.lg, // Texte plus grand
+    fontFamily: typography.fontFamily.semibold, // Plus gras
+    color: 'rgba(255, 255, 255, 0.95)',
+    letterSpacing: 0.5,
+  },
+
+  // Styles pour les inputs tablette
+  inputContainerTablet: {
+    marginBottom: spacing.xl, // Plus d'espace entre les inputs
+  },
+  inputLabelTablet: {
+    fontSize: typography.fontSizes.lg, // Label plus grand
+    fontFamily: typography.fontFamily.semibold,
+    marginBottom: spacing.md,
+  },
+  inputWrapperTablet: {
+    height: 68, // Plus grand pour tablette
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.xl,
+    borderWidth: 2,
+    borderColor: colors.neutral.gray300,
+  },
+  inputTablet: {
+    fontSize: typography.fontSizes.lg, // Texte plus grand
+    fontFamily: typography.fontFamily.medium,
+    marginLeft: spacing.md,
+  },
+
+  // Styles pour les boutons tablette
+  forgotPasswordTablet: {
+    marginBottom: spacing['2xl'], // Plus d'espace
+    paddingVertical: spacing.sm,
+  },
+  forgotPasswordTextTablet: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.semibold,
+  },
+  loginButtonTablet: {
+    marginBottom: spacing.xl,
+    shadowColor: colors.neutral.black,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  loginButtonGradientTablet: {
+    paddingVertical: spacing.lg + 4, // Bouton plus haut
+    borderRadius: borderRadius.xl,
+  },
+  loginButtonTextTablet: {
+    fontSize: typography.fontSizes.xl, // Texte plus grand
+    fontFamily: typography.fontFamily.bold,
+    letterSpacing: 0.5,
+  },
+
+  // Styles pour le lien d'inscription tablette
+  registerContainerTablet: {
+    paddingTop: spacing.lg,
+  },
+  registerTextTablet: {
+    fontSize: typography.fontSizes.lg,
+  },
+  registerLinkTablet: {
+    fontSize: typography.fontSizes.lg,
+    fontFamily: typography.fontFamily.bold,
   },
 });

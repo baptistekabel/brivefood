@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
-  TextInput,
   Switch,
   ScrollView,
 } from 'react-native';
@@ -19,7 +18,6 @@ import tabletPrinterService from '../../src/services/TabletPrinterService';
 
 export default function TabletSetup() {
   const [isTabletMode, setIsTabletMode] = useState(false);
-  const [printerIP, setPrinterIP] = useState('192.168.1.100');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -29,10 +27,7 @@ export default function TabletSetup() {
   const loadSettings = async () => {
     try {
       const tabletMode = await tabletPrinterService.checkTabletMode();
-      const ip = await tabletPrinterService.getPrinterIP();
-      
       setIsTabletMode(tabletMode);
-      setPrinterIP(ip);
     } catch (error) {
       console.error('Erreur chargement paramètres:', error);
     }
@@ -73,55 +68,6 @@ export default function TabletSetup() {
     }
   };
 
-  const handleUpdatePrinterIP = async () => {
-    if (!printerIP.trim()) {
-      Alert.alert('Erreur', 'Veuillez entrer une adresse IP valide');
-      return;
-    }
-
-    try {
-      await tabletPrinterService.setPrinterIP(printerIP.trim());
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('✅ IP Mise à Jour', `Imprimante configurée sur ${printerIP}`);
-    } catch (error) {
-      Alert.alert('Erreur', 'Impossible de sauvegarder l\'IP');
-    }
-  };
-
-  const handleTestPrinter = async () => {
-    try {
-      setLoading(true);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      
-      const result = await tabletPrinterService.testTabletConnection();
-      
-      if (result.success) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert(
-          '✅ Test Réussi !',
-          'Un ticket de test a été imprimé. Le système fonctionne correctement.'
-        );
-      } else {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert(
-          '❌ Test Échoué',
-          result.error || 'Impossible d\'imprimer le ticket de test'
-        );
-      }
-    } catch (error) {
-      Alert.alert('Erreur', 'Test d\'impression échoué');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleFindPrinterIP = () => {
-    Alert.alert(
-      '🔍 Trouver l\'IP de l\'imprimante',
-      'Pour trouver l\'IP de votre Epson TM-M30III :\n\n1. Maintenez le bouton FEED sur l\'imprimante\n2. Un ticket avec les infos réseau s\'imprime\n3. Notez l\'adresse IP affichée\n4. Entrez cette IP dans le champ ci-dessus',
-      [{ text: 'Compris' }]
-    );
-  };
 
   return (
     <>
@@ -183,66 +129,7 @@ export default function TabletSetup() {
             </View>
           </View>
 
-          {/* Configuration Imprimante */}
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="print" size={24} color="#000000" />
-              <Text style={styles.cardTitle}>Imprimante Epson TM-M30III</Text>
-              <TouchableOpacity 
-                style={styles.helpButton}
-                onPress={handleFindPrinterIP}
-              >
-                <Ionicons name="help-circle" size={20} color="#666" />
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.ipInputContainer}>
-              <Text style={styles.inputLabel}>Adresse IP de l'imprimante</Text>
-              <View style={styles.ipRow}>
-                <TextInput
-                  style={styles.ipInput}
-                  value={printerIP}
-                  onChangeText={setPrinterIP}
-                  placeholder="192.168.1.100"
-                  keyboardType="numeric"
-                />
-                <TouchableOpacity 
-                  style={styles.updateButton}
-                  onPress={handleUpdatePrinterIP}
-                >
-                  <Text style={styles.updateButtonText}>Sauvegarder</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
 
-          {/* Test */}
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
-              <Text style={styles.cardTitle}>Test du Système</Text>
-            </View>
-            
-            <Text style={styles.cardDescription}>
-              Testez l'impression pour vérifier que tout fonctionne correctement.
-            </Text>
-            
-            <TouchableOpacity 
-              style={styles.testButton}
-              onPress={handleTestPrinter}
-              disabled={loading}
-            >
-              <LinearGradient
-                colors={['#4CAF50', '#45A049']}
-                style={styles.testButtonGradient}
-              >
-                <Ionicons name="print" size={20} color="white" />
-                <Text style={styles.testButtonText}>
-                  {loading ? 'Test en cours...' : 'Tester l\'impression'}
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
 
           {/* Instructions */}
           <View style={styles.card}>
@@ -255,28 +142,21 @@ export default function TabletSetup() {
               <View style={styles.instructionItem}>
                 <Text style={styles.stepNumber}>1</Text>
                 <Text style={styles.instructionText}>
-                  Placez cette tablette au restaurant (même WiFi que l'imprimante)
+                  Placez cette tablette au restaurant
                 </Text>
               </View>
-              
+
               <View style={styles.instructionItem}>
                 <Text style={styles.stepNumber}>2</Text>
-                <Text style={styles.instructionText}>
-                  Configurez l'IP de votre imprimante Epson TM-M30III
-                </Text>
-              </View>
-              
-              <View style={styles.instructionItem}>
-                <Text style={styles.stepNumber}>3</Text>
                 <Text style={styles.instructionText}>
                   Activez le "Mode Tablette Restaurant"
                 </Text>
               </View>
-              
+
               <View style={styles.instructionItem}>
-                <Text style={styles.stepNumber}>4</Text>
+                <Text style={styles.stepNumber}>3</Text>
                 <Text style={styles.instructionText}>
-                  Chaque nouvelle commande s'imprimera automatiquement !
+                  Chaque nouvelle commande s'affichera automatiquement !
                 </Text>
               </View>
             </View>
@@ -385,58 +265,6 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.base,
     fontFamily: typography.fontFamily.medium,
     color: colors.neutral.gray700,
-  },
-  ipInputContainer: {
-    marginTop: spacing.sm,
-  },
-  inputLabel: {
-    fontSize: typography.fontSizes.base,
-    fontFamily: typography.fontFamily.medium,
-    color: colors.neutral.gray700,
-    marginBottom: spacing.sm,
-  },
-  ipRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  ipInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.neutral.gray300,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    fontSize: typography.fontSizes.base,
-    backgroundColor: colors.neutral.gray50,
-  },
-  updateButton: {
-    backgroundColor: '#000000',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
-    justifyContent: 'center',
-  },
-  updateButtonText: {
-    color: colors.neutral.white,
-    fontFamily: typography.fontFamily.semibold,
-    fontSize: typography.fontSizes.sm,
-  },
-  testButton: {
-    borderRadius: borderRadius.lg,
-    marginTop: spacing.sm,
-  },
-  testButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.lg,
-    gap: spacing.sm,
-  },
-  testButtonText: {
-    fontSize: typography.fontSizes.base,
-    fontFamily: typography.fontFamily.semibold,
-    color: colors.neutral.white,
   },
   instructionsList: {
     marginTop: spacing.sm,

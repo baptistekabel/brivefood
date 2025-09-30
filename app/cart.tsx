@@ -24,12 +24,28 @@ import { useOrder } from '../src/context/OrderContext';
 import { useOrders } from '../src/context/OrdersContext';
 import { useAuth } from '../src/context/AuthContext';
 import { useLoyalty } from '../src/context/LoyaltyContext';
+import { useActiveOrder } from '../src/context/ActiveOrderContext';
+import notificationService from '../src/services/notificationService';
+import { registerCustomerForOrderNotifications } from '../src/services/customerNotificationService';
+import OrderConfirmationPopup from '../src/components/customer/OrderConfirmationPopup';
 
 export default function CartScreen() {
   const fontsLoaded = useFonts();
   const { orderItems, removeItem, addItem, clearOrder, getPromoDetails, selectFreeDessert, getAvailableDesserts, updateItemComment: updateOrderItemComment } = useOrder();
   const { createOrder } = useOrders();
   const { userProfile } = useAuth();
+  const {
+    pendingOrder,
+    showConfirmationPopup,
+    createPendingOrder,
+    confirmPendingOrder,
+    cancelPendingOrder
+  } = useActiveOrder();
+
+  // Debug logs
+  console.log('=== Cart Screen State ===');
+  console.log('pendingOrder:', pendingOrder);
+  console.log('showConfirmationPopup:', showConfirmationPopup);
   const {
     getAvailableRewardsForCart,
     useReward,
@@ -50,8 +66,9 @@ export default function CartScreen() {
     desserts: true
   });
   const [showDessertModal, setShowDessertModal] = useState(false);
-  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  // Variables pour l'ancien modal (à supprimer plus tard)
   const [orderConfirmation, setOrderConfirmation] = useState(null);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [showRewardsModal, setShowRewardsModal] = useState(false);
   const [selectedReward, setSelectedReward] = useState(null);
 
@@ -402,7 +419,11 @@ export default function CartScreen() {
 
     // Créer la commande directement
     const orderData = {
-      customerName: 'Client BriveFood',
+      customerName: userProfile?.firstName && userProfile?.lastName
+        ? `${userProfile.firstName} ${userProfile.lastName}`
+        : userProfile?.name || 'Client BriveFood',
+      firstName: userProfile?.firstName,
+      lastName: userProfile?.lastName,
       items: orderItems.map(item => ({
         name: item.name,
         quantity: item.quantity,
@@ -430,29 +451,12 @@ export default function CartScreen() {
         }
       }
 
-      // Vider le panier après commande réussie
-      clearOrder();
-      setItemComments({});
-
-      const orderModeText = orderModes.find(mode => mode.id === orderMode)?.name;
-      const waitTime = getWaitTime();
-
-      // Préparer les données pour le modal
-      setOrderConfirmation({
-        orderId: result.order.id,
-        mode: orderModeText,
-        waitTime: waitTime,
-        total: getTotal()
-      });
-      setShowConfirmationModal(true);
+      // Créer une commande en attente pour affichage dans le popup
+      // NE PAS vider le panier maintenant - attendre la confirmation
+      createPendingOrder(result.order);
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      // Montrer une erreur dans le modal de confirmation avec un état d'erreur
-      setOrderConfirmation({
-        error: true,
-        message: 'Impossible de créer la commande. Veuillez réessayer.'
-      });
-      setShowConfirmationModal(true);
+      Alert.alert('Erreur', 'Impossible de créer la commande. Veuillez réessayer.');
     }
   };
 
@@ -646,20 +650,22 @@ export default function CartScreen() {
           </View>
         )}
 
-        {/* Section pleine largeur pour commentaire */}
-        <View style={styles.commentSection}>
-          <Text style={styles.commentLabel}>Commentaire (optionnel) :</Text>
-          <TextInput
-            style={styles.commentInput}
-            placeholder="Ajoutez un commentaire pour ce produit..."
-            value={itemComments[item.id] || item.comment || ''}
-            onChangeText={(text) => updateItemComment(item.id, text)}
-            multiline
-            numberOfLines={2}
-            maxLength={150}
-            placeholderTextColor={colors.neutral.gray400}
-          />
-        </View>
+        {/* Section pleine largeur pour commentaire - sauf pour les boissons */}
+        {item.category !== ProductCategory.BOISSONS && (
+          <View style={styles.commentSection}>
+            <Text style={styles.commentLabel}>Commentaire (optionnel) :</Text>
+            <TextInput
+              style={styles.commentInput}
+              placeholder="Ajoutez un commentaire pour ce produit..."
+              value={itemComments[item.id] || item.comment || ''}
+              onChangeText={(text) => updateItemComment(item.id, text)}
+              multiline
+              numberOfLines={2}
+              maxLength={150}
+              placeholderTextColor={colors.neutral.gray400}
+            />
+          </View>
+        )}
       </View>
     );
   };
@@ -989,29 +995,17 @@ export default function CartScreen() {
                     if (orderMode === OrderMode.DELIVERY) {
                       if (!deliveryAddress) {
                         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-                        setOrderConfirmation({
-                          error: true,
-                          message: 'Veuillez saisir votre adresse de livraison'
-                        });
-                        setShowConfirmationModal(true);
+                        Alert.alert('Erreur', 'Veuillez saisir votre adresse de livraison');
                         return;
                       }
                       if (!phoneNumber.trim()) {
                         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-                        setOrderConfirmation({
-                          error: true,
-                          message: 'Veuillez saisir votre numéro de téléphone pour la livraison'
-                        });
-                        setShowConfirmationModal(true);
+                        Alert.alert('Erreur', 'Veuillez saisir votre numéro de téléphone pour la livraison');
                         return;
                       }
                       if (dynamicDeliveryFee === 0 && deliveryAddress) {
                         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-                        setOrderConfirmation({
-                          error: true,
-                          message: 'Désolé, nous ne livrons pas dans cette zone (> 10km)'
-                        });
-                        setShowConfirmationModal(true);
+                        Alert.alert('Erreur', 'Désolé, nous ne livrons pas dans cette zone (> 10km)');
                         return;
                       }
                     }
@@ -1136,8 +1130,11 @@ export default function CartScreen() {
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={styles.rewardOption}
-                  onPress={() => handleUseReward(item)}
+                  style={[
+                    styles.rewardOption,
+                    selectedReward?.id === item.id && styles.selectedRewardOption
+                  ]}
+                  onPress={() => setSelectedReward(selectedReward?.id === item.id ? null : item)}
                 >
                   <LinearGradient
                     colors={item.gradient}
@@ -1164,7 +1161,11 @@ export default function CartScreen() {
                       </View>
 
                       <View style={styles.rewardArrow}>
-                        <Ionicons name="chevron-forward" size={20} color="white" />
+                        {selectedReward?.id === item.id ? (
+                          <Ionicons name="checkmark-circle" size={20} color="white" />
+                        ) : (
+                          <Ionicons name="chevron-forward" size={20} color="white" />
+                        )}
                       </View>
                     </View>
                   </LinearGradient>
@@ -1173,13 +1174,42 @@ export default function CartScreen() {
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.rewardsList}
             />
+
+            {/* Boutons de confirmation */}
+            <View style={styles.rewardModalActions}>
+              {selectedReward ? (
+                <TouchableOpacity
+                  style={styles.confirmRewardButton}
+                  onPress={() => {
+                    handleUseReward(selectedReward);
+                    setSelectedReward(null);
+                  }}
+                >
+                  <LinearGradient
+                    colors={['#22C55E', '#16A34A']}
+                    style={styles.confirmRewardGradient}
+                  >
+                    <Text style={styles.confirmRewardText}>
+                      Utiliser cette récompense
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.cancelRewardModalButton}
+                  onPress={() => setShowRewardsModal(false)}
+                >
+                  <Text style={styles.cancelRewardModalText}>Fermer</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </View>
       </Modal>
 
-      {/* Modal de confirmation de commande */}
+      {/* ANCIEN MODAL SUPPRIMÉ */}
       <Modal
-        visible={showConfirmationModal}
+        visible={false} // Ancien modal désactivé
         animationType="fade"
         transparent={true}
         onRequestClose={() => setShowConfirmationModal(false)}
@@ -1206,7 +1236,7 @@ export default function CartScreen() {
               {orderConfirmation?.error ? (
                 <>
                   <Text style={styles.confirmationMessage}>
-                    {orderConfirmation.message}
+                    {orderConfirmation?.message}
                   </Text>
                   <TouchableOpacity
                     style={styles.confirmationButton}
@@ -1233,25 +1263,25 @@ export default function CartScreen() {
                       <View style={styles.confirmationRow}>
                         <Ionicons name="receipt" size={20} color="#000000" />
                         <Text style={styles.confirmationLabel}>Numéro :</Text>
-                        <Text style={styles.confirmationValue}>#{orderConfirmation.orderId}</Text>
+                        <Text style={styles.confirmationValue}>#{orderConfirmation?.orderId}</Text>
                       </View>
 
                       <View style={styles.confirmationRow}>
                         <Ionicons name="bag" size={20} color="#000000" />
                         <Text style={styles.confirmationLabel}>Mode :</Text>
-                        <Text style={styles.confirmationValue}>{orderConfirmation.mode}</Text>
+                        <Text style={styles.confirmationValue}>{orderConfirmation?.mode}</Text>
                       </View>
 
                       <View style={styles.confirmationRow}>
                         <Ionicons name="time" size={20} color="#000000" />
                         <Text style={styles.confirmationLabel}>Temps d'attente :</Text>
-                        <Text style={styles.confirmationValue}>{orderConfirmation.waitTime}</Text>
+                        <Text style={styles.confirmationValue}>{orderConfirmation?.waitTime}</Text>
                       </View>
 
                       <View style={styles.confirmationRow}>
                         <Ionicons name="card" size={20} color="#000000" />
                         <Text style={styles.confirmationLabel}>Total :</Text>
-                        <Text style={styles.confirmationValue}>{orderConfirmation.total.toFixed(2)} €</Text>
+                        <Text style={styles.confirmationValue}>{orderConfirmation?.total?.toFixed(2)} €</Text>
                       </View>
                     </View>
                   )}
@@ -1262,7 +1292,7 @@ export default function CartScreen() {
                     style={styles.confirmationButton}
                     onPress={() => {
                       setShowConfirmationModal(false);
-                      router.replace('/(tabs)');
+                      router.back(); // Fermer le modal du panier et revenir à l'accueil
                     }}
                   >
                     <LinearGradient
@@ -1278,6 +1308,24 @@ export default function CartScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Popup de confirmation de commande */}
+      <OrderConfirmationPopup
+        visible={showConfirmationPopup}
+        orderData={pendingOrder}
+        onClose={cancelPendingOrder}
+        onConfirm={async () => {
+          // Confirmer la commande active
+          await confirmPendingOrder();
+
+          // Vider le panier après confirmation
+          clearOrder();
+          setItemComments({});
+
+          // Fermer le modal du panier et retourner à l'accueil
+          router.back();
+        }}
+      />
     </LinearGradient>
   );
 }
@@ -2199,5 +2247,44 @@ const styles = StyleSheet.create({
   },
   rewardArrow: {
     marginLeft: spacing.sm,
+  },
+  selectedRewardOption: {
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+    transform: [{ scale: 1.02 }],
+  },
+  rewardModalActions: {
+    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.sm,
+  },
+  confirmRewardButton: {
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.md,
+  },
+  confirmRewardGradient: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+  },
+  confirmRewardText: {
+    fontSize: typography.fontSizes.lg,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.white,
+  },
+  cancelRewardModalButton: {
+    backgroundColor: colors.neutral.gray100,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+  },
+  cancelRewardModalText: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray600,
   },
 });

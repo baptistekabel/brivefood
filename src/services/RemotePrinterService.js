@@ -7,8 +7,8 @@ class RemotePrinterService {
     // Si vous utilisez un serveur cloud (recommandé pour usage à distance):
     // this.serverUrl = 'https://votre-serveur.herokuapp.com';
     
-    // Pour les tests en local:
-    this.serverUrl = 'http://192.168.1.50:3001'; // ⬅️ MODIFIEZ CETTE IP
+    // Serveur d'impression sur le même réseau que votre imprimante Epson (192.168.10.110):
+    this.serverUrl = 'http://192.168.10.100:3001'; // ⬅️ IP du serveur d'impression
     
     this.timeout = 10000; // 10 secondes
   }

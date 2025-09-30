@@ -10,6 +10,7 @@ import {
   Modal,
   ScrollView,
   Animated,
+  Dimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,6 +20,9 @@ import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, typography, spacing, borderRadius } from '../../src/constants/theme';
 import { ProductCategory } from '../../src/types';
+import { isTablet, isLandscape, getResponsiveStyles } from '../../src/utils/deviceUtils';
+import productsByCategory from '../../src/data/products.js';
+import categoryInfo from '../../src/data/categories.js';
 
 export default function ProductPriceManagement() {
   const [products, setProducts] = useState([]);
@@ -28,130 +32,99 @@ export default function ProductPriceManagement() {
   const [newPriceL, setNewPriceL] = useState('');
   const [newPrice, setNewPrice] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [customizationPrices, setCustomizationPrices] = useState({});
 
-  // Animations pour les emojis flottants (15 emojis pour la page produits)
-  const floatingEmojis = useRef(
-    Array.from({ length: 15 }, () => new Animated.Value(0))
-  ).current;
+  // Détection de l'appareil et orientation
+  const isTabletDevice = isTablet();
+  const isLandscapeMode = isLandscape();
+  const { width: screenWidth } = Dimensions.get('window');
 
-  // Catégories avec leurs couleurs et noms du menu client
-  const categoryStyles = {
-    [ProductCategory.PIZZA]: { name: 'Pizzas', color: '#EF4444', gradient: ['#EF4444', '#F87171'] },
-    [ProductCategory.PATES]: { name: 'Pâtes', color: '#22C55E', gradient: ['#22C55E', '#4ADE80'] },
-    [ProductCategory.LASAGNES]: { name: 'Lasagnes', color: '#DC2626', gradient: ['#DC2626', '#EF4444'] },
-    [ProductCategory.BURGER]: { name: 'Burgers', color: '#F59E0B', gradient: ['#F59E0B', '#FBBF24'] },
-    [ProductCategory.TACOS]: { name: 'Tacos', color: '#F97316', gradient: ['#F97316', '#FB923C'] },
-    [ProductCategory.SALADES]: { name: 'Salades', color: '#16A34A', gradient: ['#16A34A', '#22C55E'] },
-    [ProductCategory.DESSERTS]: { name: 'Desserts', color: '#000000', gradient: ['#000000', '#000000'] },
-    [ProductCategory.BOISSONS]: { name: 'Boissons', color: '#0891B2', gradient: ['#0891B2', '#0EA5E9'] },
-    [ProductCategory.FORMULES_PIZZA_DUO]: { name: 'Formules Duo', color: '#000000', gradient: ['#000000', '#000000'] },
-    [ProductCategory.FORMULES_PIZZA_TRIO]: { name: 'Formules Trio', color: '#6366F1', gradient: ['#6366F1', '#8B5CF6'] },
+  // Suppression des emojis flottants pour un design plus professionnel
+
+  // Utiliser les catégories du client (données synchronisées)
+  const categoryStyles = categoryInfo;
+
+  // Fonction pour convertir les données client en format admin
+  const convertClientDataToAdminFormat = () => {
+    const adminProducts = [];
+
+    // Parcourir toutes les catégories de produits du client
+    Object.entries(productsByCategory).forEach(([categoryKey, categoryProducts]) => {
+      categoryProducts.forEach((product) => {
+        // Déterminer si le produit a des tailles
+        const hasSizes = product.sizes && Object.keys(product.sizes).length > 0;
+
+        const adminProduct = {
+          id: product.id,
+          name: product.name,
+          description: product.description,
+          category: categoryKey,
+          categoryName: categoryInfo[categoryKey]?.name || categoryKey,
+          hasSizes: hasSizes,
+        };
+
+        if (hasSizes) {
+          // Produit avec tailles (M/L)
+          adminProduct.prices = {};
+          Object.entries(product.sizes).forEach(([sizeKey, sizeData]) => {
+            adminProduct.prices[sizeKey] = sizeData.price;
+          });
+        } else {
+          // Produit avec prix unique
+          adminProduct.price = product.price;
+        }
+
+        // Ajouter les options de personnalisation si elles existent
+        if (product.customizable && product.customizationOptions) {
+          adminProduct.customizable = true;
+          adminProduct.customizationOptions = product.customizationOptions;
+        }
+
+        adminProducts.push(adminProduct);
+      });
+    });
+
+    return adminProducts;
   };
 
-  // Produits par défaut - synchronisés avec l'app client
-  const defaultProducts = [
-    // PÂTES (avec tailles)
-    { id: '1', name: 'Pâtes bolognaise', category: ProductCategory.PATES, categoryName: 'Pâtes', prices: { M: 10.50, L: 14.50 }, description: 'Penne, sauce tomate, viande hachée, oignons et herbes aromatiques.', hasSizes: true },
-    { id: '2', name: 'Pâtes carbonara', category: ProductCategory.PATES, categoryName: 'Pâtes', prices: { M: 10.50, L: 14.50 }, description: 'Penne, crème fraîche, lardons de volailles et Emmental.', hasSizes: true },
-    { id: '3', name: 'Pâtes saumon', category: ProductCategory.PATES, categoryName: 'Pâtes', prices: { M: 11.50, L: 15.50 }, description: 'Penne, crème fraîche, saumon frais et aneth.', hasSizes: true },
-    { id: '4', name: 'Pâtes forestière', category: ProductCategory.PATES, categoryName: 'Pâtes', prices: { M: 11.50, L: 15.50 }, description: 'Penne, crème fraîche, poulet rôti et champignons de Paris frais.', hasSizes: true },
-    { id: '5', name: 'Pâtes 3 fromages', category: ProductCategory.PATES, categoryName: 'Pâtes', prices: { M: 11.50, L: 15.50 }, description: 'Penne, crème fraîche, bleu d\'Auvergne, Roquefort et Emmental.', hasSizes: true },
-    { id: '6', name: 'Pâtes poulet curry', category: ProductCategory.PATES, categoryName: 'Pâtes', prices: { M: 11.50, L: 15.50 }, description: 'Penne, crème fraîche au curry et poulet rôti.', hasSizes: true },
+  // Produits synchronisés avec l'app client
+  const defaultProducts = convertClientDataToAdminFormat();
 
-    // PIZZAS (avec tailles)
-    { id: 'pizza1', name: 'Pizza Margherita', category: ProductCategory.PIZZA, categoryName: 'Pizzas', prices: { M: 9.90, L: 13.90 }, description: 'Base tomate, mozzarella, basilic frais', hasSizes: true },
-    { id: 'pizza2', name: 'Pizza 4 Fromages', category: ProductCategory.PIZZA, categoryName: 'Pizzas', prices: { M: 12.90, L: 16.90 }, description: 'Mozzarella, chèvre, roquefort, emmental', hasSizes: true },
-    { id: 'pizza3', name: 'Pizza Chèvre Miel', category: ProductCategory.PIZZA, categoryName: 'Pizzas', prices: { M: 11.90, L: 15.90 }, description: 'Base crème, chèvre, miel, noix', hasSizes: true },
-    { id: 'pizza4', name: 'Pizza Saumon', category: ProductCategory.PIZZA, categoryName: 'Pizzas', prices: { M: 13.90, L: 17.90 }, description: 'Base crème, saumon fumé, câpres, aneth', hasSizes: true },
-    { id: 'pizza5', name: 'Pizza Tex-Mex', category: ProductCategory.PIZZA, categoryName: 'Pizzas', prices: { M: 12.90, L: 16.90 }, description: 'Base tomate, viande hachée, haricots rouges, maïs, poivrons', hasSizes: true },
-    { id: 'pizza6', name: 'Pizza Fermière', category: ProductCategory.PIZZA, categoryName: 'Pizzas', prices: { M: 11.90, L: 15.90 }, description: 'Base crème, lardons, pommes de terre, reblochon', hasSizes: true },
-    { id: 'pizza7', name: 'Pizza Raclette', category: ProductCategory.PIZZA, categoryName: 'Pizzas', prices: { M: 12.90, L: 16.90 }, description: 'Base crème, pommes de terre, lardons, fromage à raclette', hasSizes: true },
-    { id: 'pizza8', name: 'Pizza Western', category: ProductCategory.PIZZA, categoryName: 'Pizzas', prices: { M: 12.90, L: 16.90 }, description: 'Base barbecue, poulet, poivrons, oignons rouges', hasSizes: true },
-    { id: 'pizza9', name: 'Pizza Kebab', category: ProductCategory.PIZZA, categoryName: 'Pizzas', prices: { M: 11.90, L: 15.90 }, description: 'Base tomate, viande kebab, oignons, sauce blanche', hasSizes: true },
-    { id: 'pizza10', name: 'Pizza Curry', category: ProductCategory.PIZZA, categoryName: 'Pizzas', prices: { M: 12.90, L: 16.90 }, description: 'Base curry, poulet, ananas, courgettes', hasSizes: true },
-
-    // BURGERS (avec tailles)
-    { id: 'burger1', name: 'Burger Classic', category: ProductCategory.BURGER, categoryName: 'Burgers', prices: { M: 8.90, L: 12.90 }, description: 'Steak, salade, tomate, cornichons, sauce burger', hasSizes: true },
-    { id: 'burger2', name: 'Cheeseburger', category: ProductCategory.BURGER, categoryName: 'Burgers', prices: { M: 9.90, L: 13.90 }, description: 'Steak, fromage, salade, tomate, sauce burger', hasSizes: true },
-    { id: 'burger3', name: 'Double Cheeseburger', category: ProductCategory.BURGER, categoryName: 'Burgers', prices: { M: 11.90, L: 15.90 }, description: 'Double steak, double fromage, salade, tomate', hasSizes: true },
-    { id: 'burger4', name: 'Chicken Burger', category: ProductCategory.BURGER, categoryName: 'Burgers', prices: { M: 9.90, L: 13.90 }, description: 'Escalope de poulet, salade, tomate, sauce mayo', hasSizes: true },
-    { id: 'burger5', name: 'Burger Chèvre Miel', category: ProductCategory.BURGER, categoryName: 'Burgers', prices: { M: 10.90, L: 14.90 }, description: 'Steak, chèvre, miel, salade, tomate', hasSizes: true },
-    { id: 'burger6', name: 'Bacon Burger', category: ProductCategory.BURGER, categoryName: 'Burgers', prices: { M: 10.90, L: 14.90 }, description: 'Steak, bacon, fromage, salade, tomate', hasSizes: true },
-    { id: 'burger7', name: 'Spicy Burger', category: ProductCategory.BURGER, categoryName: 'Burgers', prices: { M: 9.90, L: 13.90 }, description: 'Steak épicé, salade, tomate, sauce piquante', hasSizes: true },
-    { id: 'burger8', name: 'Veggie Burger', category: ProductCategory.BURGER, categoryName: 'Burgers', prices: { M: 8.90, L: 12.90 }, description: 'Steak végétal, salade, tomate, avocat', hasSizes: true },
-    { id: 'burger9', name: 'Wi Mac Burger', category: ProductCategory.BURGER, categoryName: 'Burgers', prices: { M: 11.90, L: 15.90 }, description: 'Double steak, sauce spéciale, salade, fromage', hasSizes: true },
-
-    // SALADES (avec tailles)
-    { id: 'salade1', name: 'Salade Chèvre Miel', category: ProductCategory.SALADES, categoryName: 'Salades', prices: { M: 9.50, L: 13.50 }, description: 'Salade, chèvre chaud, miel, noix, tomates cerises', hasSizes: true },
-    { id: 'salade2', name: 'Salade Saumon', category: ProductCategory.SALADES, categoryName: 'Salades', prices: { M: 11.50, L: 15.50 }, description: 'Salade, saumon fumé, avocat, œuf, câpres', hasSizes: true },
-    { id: 'salade3', name: 'Salade Chicken', category: ProductCategory.SALADES, categoryName: 'Salades', prices: { M: 9.50, L: 13.50 }, description: 'Salade, poulet grillé, tomates, maïs, croûtons', hasSizes: true },
-    { id: 'salade4', name: 'Salade Crudités', category: ProductCategory.SALADES, categoryName: 'Salades', prices: { M: 7.50, L: 11.50 }, description: 'Salade, tomates, concombre, carottes râpées', hasSizes: true },
-    { id: 'salade5', name: 'Salade Tomate Mozza', category: ProductCategory.SALADES, categoryName: 'Salades', prices: { M: 8.50, L: 12.50 }, description: 'Salade, tomates, mozzarella, basilic', hasSizes: true },
-
-    // DESSERTS (prix unique)
-    { id: 'dessert1', name: 'Tiramisu Nutella Spéculoos', category: ProductCategory.DESSERTS, categoryName: 'Desserts', price: 4.50, description: 'Tiramisu maison Nutella et spéculoos', hasSizes: false },
-    { id: 'dessert2', name: 'Tiramisu Oréo', category: ProductCategory.DESSERTS, categoryName: 'Desserts', price: 4.50, description: 'Tiramisu maison aux biscuits Oréo', hasSizes: false },
-    { id: 'dessert3', name: 'Tiramisu Spéculoos Caramel', category: ProductCategory.DESSERTS, categoryName: 'Desserts', price: 4.50, description: 'Tiramisu maison spéculoos et caramel', hasSizes: false },
-    { id: 'dessert4', name: 'Tarte Daim', category: ProductCategory.DESSERTS, categoryName: 'Desserts', price: 4.00, description: 'Tarte aux éclats de Daim', hasSizes: false },
-    { id: 'dessert5', name: 'Gaufre', category: ProductCategory.DESSERTS, categoryName: 'Desserts', price: 3.50, description: 'Gaufre chaude avec garniture au choix', hasSizes: false },
-    { id: 'dessert6', name: 'Milkshake Vanille', category: ProductCategory.DESSERTS, categoryName: 'Desserts', price: 4.00, description: 'Milkshake à la vanille avec chantilly', hasSizes: false },
-    { id: 'dessert7', name: 'Milkshake Fraise', category: ProductCategory.DESSERTS, categoryName: 'Desserts', price: 4.00, description: 'Milkshake à la fraise avec chantilly', hasSizes: false },
-    { id: 'dessert8', name: 'Pizza Briochée', category: ProductCategory.DESSERTS, categoryName: 'Desserts', price: 5.50, description: 'Pizza sucrée avec Nutella et fruits', hasSizes: false },
-
-    // BOISSONS (prix unique)
-    { id: 'coca', name: 'Coca-Cola', category: ProductCategory.BOISSONS, categoryName: 'Boissons', price: 2.50, description: 'Coca-Cola 33cl', hasSizes: false },
-    { id: 'coca-cherry', name: 'Coca-Cola Cherry', category: ProductCategory.BOISSONS, categoryName: 'Boissons', price: 2.50, description: 'Coca-Cola Cherry 33cl', hasSizes: false },
-    { id: 'coca-zero', name: 'Coca-Cola Zéro', category: ProductCategory.BOISSONS, categoryName: 'Boissons', price: 2.50, description: 'Coca-Cola Zéro 33cl', hasSizes: false },
-    { id: 'fanta-orange', name: 'Fanta Orange', category: ProductCategory.BOISSONS, categoryName: 'Boissons', price: 2.50, description: 'Fanta Orange 33cl', hasSizes: false },
-    { id: 'fanta-strawberry', name: 'Fanta Strawberry', category: ProductCategory.BOISSONS, categoryName: 'Boissons', price: 2.50, description: 'Fanta Fraise 33cl', hasSizes: false },
-    { id: 'sprite', name: 'Sprite', category: ProductCategory.BOISSONS, categoryName: 'Boissons', price: 2.50, description: 'Sprite 33cl', hasSizes: false },
-    { id: 'orangina', name: 'Orangina', category: ProductCategory.BOISSONS, categoryName: 'Boissons', price: 2.50, description: 'Orangina 33cl', hasSizes: false },
-    { id: 'eau', name: 'Eau', category: ProductCategory.BOISSONS, categoryName: 'Boissons', price: 1.50, description: 'Eau plate 50cl', hasSizes: false },
-
-    // TACOS (prix unique par taille)
-    { id: 'tacos1', name: 'Tacos M', category: ProductCategory.TACOS, categoryName: 'Tacos', price: 6.50, description: 'Tacos taille M avec viande au choix', hasSizes: false },
-    { id: 'tacos2', name: 'Tacos L', category: ProductCategory.TACOS, categoryName: 'Tacos', price: 7.50, description: 'Tacos taille L avec viande au choix', hasSizes: false },
-    { id: 'tacos3', name: 'Tacos XL', category: ProductCategory.TACOS, categoryName: 'Tacos', price: 8.50, description: 'Tacos taille XL avec viande au choix', hasSizes: false },
-    { id: 'tacos4', name: 'Tacos XXL', category: ProductCategory.TACOS, categoryName: 'Tacos', price: 9.50, description: 'Tacos taille XXL avec viande au choix', hasSizes: false },
-  ];
-
+  // Initialisation des produits au chargement
   useEffect(() => {
     loadProducts();
   }, []);
 
-  // Animation des emojis flottants
-  useEffect(() => {
-    const startFloatingEmojisAnimation = () => {
-      floatingEmojis.forEach((animValue, index) => {
-        Animated.loop(
-          Animated.timing(animValue, {
-            toValue: 1,
-            duration: 8000 + (index * 500), // Durées différentes pour chaque emoji
-            useNativeDriver: true,
-          }),
-          { resetBeforeIteration: true }
-        ).start();
-      });
-    };
-
-    startFloatingEmojisAnimation();
-  }, []);
-
   const loadProducts = async () => {
     try {
-      // Force la mise à jour avec les nouveaux produits pour le développement
-      console.log('Loading new product catalog with', defaultProducts.length, 'products');
-      setProducts(defaultProducts);
-      await AsyncStorage.setItem('@products', JSON.stringify(defaultProducts));
-      
-      // Version pour la production (utiliser les produits stockés)
-      // const storedProducts = await AsyncStorage.getItem('@products');
-      // if (storedProducts) {
-      //   setProducts(JSON.parse(storedProducts));
-      // } else {
-      //   setProducts(defaultProducts);
-      //   await AsyncStorage.setItem('@products', JSON.stringify(defaultProducts));
-      // }
+      // Charger les produits synchronisés avec l'app client
+      console.log('Loading synchronized product catalog with', defaultProducts.length, 'products from client data');
+
+      // Essayer de charger les prix personnalisés depuis le stockage
+      const storedProducts = await AsyncStorage.getItem('@admin_product_prices');
+      if (storedProducts) {
+        const savedPrices = JSON.parse(storedProducts);
+        // Fusionner les données client avec les prix personnalisés admin
+        const updatedProducts = defaultProducts.map(product => {
+          const savedProduct = savedPrices.find(saved => saved.id === product.id);
+          if (savedProduct) {
+            // Conserver les prix personnalisés de l'admin
+            return {
+              ...product,
+              ...(product.hasSizes
+                ? { prices: savedProduct.prices }
+                : { price: savedProduct.price }
+              )
+            };
+          }
+          return product;
+        });
+        setProducts(updatedProducts);
+      } else {
+        // Première utilisation : utiliser les données client par défaut
+        setProducts(defaultProducts);
+        await AsyncStorage.setItem('@admin_product_prices', JSON.stringify(defaultProducts));
+      }
     } catch (error) {
       console.error('Error loading products:', error);
       setProducts(defaultProducts);
@@ -160,7 +133,8 @@ export default function ProductPriceManagement() {
 
   const saveProducts = async (updatedProducts) => {
     try {
-      await AsyncStorage.setItem('@products', JSON.stringify(updatedProducts));
+      // Sauvegarder les prix personnalisés admin (seuls les prix changent, pas les produits eux-mêmes)
+      await AsyncStorage.setItem('@admin_product_prices', JSON.stringify(updatedProducts));
       setProducts(updatedProducts);
     } catch (error) {
       console.error('Error saving products:', error);
@@ -171,11 +145,24 @@ export default function ProductPriceManagement() {
   const handleEditProduct = (product) => {
     setEditingProduct(product);
     if (product.hasSizes) {
-      setNewPriceM(product.prices.M.toString());
-      setNewPriceL(product.prices.L.toString());
+      setNewPriceM((product.prices?.M || 0).toString());
+      setNewPriceL((product.prices?.L || 0).toString());
     } else {
-      setNewPrice(product.price.toString());
+      setNewPrice((product.price || 0).toString());
     }
+
+    // Initialiser les prix des options de personnalisation
+    if (product.customizable && product.customizationOptions) {
+      const customPrices = {};
+      Object.entries(product.customizationOptions).forEach(([optionKey, optionData]) => {
+        customPrices[optionKey] = {};
+        (optionData.options || []).forEach(option => {
+          customPrices[optionKey][option.id] = option.price.toString();
+        });
+      });
+      setCustomizationPrices(customPrices);
+    }
+
     setIsModalVisible(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
@@ -201,10 +188,24 @@ export default function ProductPriceManagement() {
         return;
       }
 
+      let updatedProduct = { ...editingProduct, prices: { M: priceM, L: priceL } };
+
+      // Mettre à jour les prix des options de personnalisation
+      if (editingProduct.customizable && editingProduct.customizationOptions) {
+        const updatedCustomizationOptions = { ...editingProduct.customizationOptions };
+        Object.entries(customizationPrices).forEach(([optionKey, optionPrices]) => {
+          if (updatedCustomizationOptions[optionKey]) {
+            updatedCustomizationOptions[optionKey].options = (updatedCustomizationOptions[optionKey].options || []).map(option => {
+              const newPrice = parseFloat(optionPrices[option.id]);
+              return !isNaN(newPrice) ? { ...option, price: newPrice } : option;
+            });
+          }
+        });
+        updatedProduct.customizationOptions = updatedCustomizationOptions;
+      }
+
       const updatedProducts = products.map(product =>
-        product.id === editingProduct.id
-          ? { ...product, prices: { M: priceM, L: priceL } }
-          : product
+        product.id === editingProduct.id ? updatedProduct : product
       );
 
       await saveProducts(updatedProducts);
@@ -222,10 +223,24 @@ export default function ProductPriceManagement() {
         return;
       }
 
+      let updatedProduct = { ...editingProduct, price: price };
+
+      // Mettre à jour les prix des options de personnalisation
+      if (editingProduct.customizable && editingProduct.customizationOptions) {
+        const updatedCustomizationOptions = { ...editingProduct.customizationOptions };
+        Object.entries(customizationPrices).forEach(([optionKey, optionPrices]) => {
+          if (updatedCustomizationOptions[optionKey]) {
+            updatedCustomizationOptions[optionKey].options = (updatedCustomizationOptions[optionKey].options || []).map(option => {
+              const newPrice = parseFloat(optionPrices[option.id]);
+              return !isNaN(newPrice) ? { ...option, price: newPrice } : option;
+            });
+          }
+        });
+        updatedProduct.customizationOptions = updatedCustomizationOptions;
+      }
+
       const updatedProducts = products.map(product =>
-        product.id === editingProduct.id
-          ? { ...product, price: price }
-          : product
+        product.id === editingProduct.id ? updatedProduct : product
       );
 
       await saveProducts(updatedProducts);
@@ -236,58 +251,119 @@ export default function ProductPriceManagement() {
     setNewPriceM('');
     setNewPriceL('');
     setNewPrice('');
+    setCustomizationPrices({});
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     Alert.alert('Succès', 'Prix mis à jour avec succès');
   };
 
+  // Fonction pour mettre à jour les prix des options de personnalisation
+  const updateCustomizationPrice = (optionKey, optionId, newPrice) => {
+    setCustomizationPrices(prev => ({
+      ...prev,
+      [optionKey]: {
+        ...prev[optionKey],
+        [optionId]: newPrice
+      }
+    }));
+  };
+
   // Filtrer les produits par catégorie
-  const filteredProducts = selectedCategory === 'all' 
-    ? products 
+  const filteredProducts = selectedCategory === 'all'
+    ? products
     : products.filter(product => product.category === selectedCategory);
 
 
   const renderProductItem = ({ item }) => (
-    <View style={styles.productCard}>
-      <View style={styles.productHeader}>
+    <View style={[
+      styles.productCard,
+      isTabletDevice && isLandscapeMode && styles.productCardTablet
+    ]}>
+      <View style={[
+        styles.productHeader,
+        isTabletDevice && isLandscapeMode && styles.productHeaderTablet
+      ]}>
         <View style={styles.productInfo}>
-          <Text style={styles.productName}>{item.name}</Text>
-          <Text style={styles.productDescription}>{item.description}</Text>
+          <Text style={[
+            styles.productName,
+            isTabletDevice && isLandscapeMode && styles.productNameTablet
+          ]}>{item.name}</Text>
+          <Text style={[
+            styles.productDescription,
+            isTabletDevice && isLandscapeMode && styles.productDescriptionTablet
+          ]}>{item.description}</Text>
+
+          {/* Indicateur d'options de personnalisation */}
+          <View style={[
+            styles.customizationIndicator,
+            isTabletDevice && isLandscapeMode && styles.customizationIndicatorTablet
+          ]}>
+            <Ionicons
+              name={item.customizable && item.customizationOptions ? "options" : "checkmark-circle"}
+              size={isTabletDevice && isLandscapeMode ? 18 : 14}
+              color={item.customizable && item.customizationOptions ? colors.accent?.main || '#FF6B35' : colors.primary?.main || '#000000'}
+            />
+            <Text style={[
+              styles.customizationIndicatorText,
+              isTabletDevice && isLandscapeMode && styles.customizationIndicatorTextTablet,
+              item.customizable && item.customizationOptions && styles.customizationIndicatorTextActive
+            ]}>
+              {item.customizable && item.customizationOptions ? 'Personnalisable' : 'Produit complet'}
+            </Text>
+          </View>
         </View>
       </View>
 
-      <View style={styles.pricesContainer}>
+      <View style={[
+        styles.pricesContainer,
+        isTabletDevice && isLandscapeMode && styles.pricesContainerTablet
+      ]}>
         {item.hasSizes ? (
           // Produits avec tailles (pizzas, burgers, pâtes, salades)
           <>
-            <View style={styles.priceItem}>
-              <Text style={styles.sizeLabel}>Taille M</Text>
-              <Text style={styles.priceValue}>{item.prices.M.toFixed(2)} €</Text>
+            <View style={[styles.priceItem, isTabletDevice && isLandscapeMode && styles.priceItemTablet]}>
+              <Text style={[styles.sizeLabel, isTabletDevice && isLandscapeMode && styles.sizeLabelTablet]}>Taille M</Text>
+              <Text style={[styles.priceValue, isTabletDevice && isLandscapeMode && styles.priceValueTablet]}>
+                {(item.prices?.M || 0).toFixed(2)} €
+              </Text>
             </View>
-            <View style={styles.priceItem}>
-              <Text style={styles.sizeLabel}>Taille L</Text>
-              <Text style={styles.priceValue}>{item.prices.L.toFixed(2)} €</Text>
+            <View style={[styles.priceItem, isTabletDevice && isLandscapeMode && styles.priceItemTablet]}>
+              <Text style={[styles.sizeLabel, isTabletDevice && isLandscapeMode && styles.sizeLabelTablet]}>Taille L</Text>
+              <Text style={[styles.priceValue, isTabletDevice && isLandscapeMode && styles.priceValueTablet]}>
+                {(item.prices?.L || 0).toFixed(2)} €
+              </Text>
             </View>
           </>
         ) : (
           // Produits sans tailles (desserts, boissons, tacos)
-          <View style={[styles.priceItem, styles.singlePriceItem]}>
-            <Text style={styles.singlePriceLabel}>Prix</Text>
-            <Text style={[styles.priceValue, styles.singlePriceValue]}>{item.price.toFixed(2)} €</Text>
+          <View style={[styles.priceItem, styles.singlePriceItem, isTabletDevice && isLandscapeMode && styles.singlePriceItemTablet]}>
+            <Text style={[styles.singlePriceLabel, isTabletDevice && isLandscapeMode && styles.singlePriceLabelTablet]}>Prix</Text>
+            <Text style={[styles.priceValue, styles.singlePriceValue, isTabletDevice && isLandscapeMode && styles.singlePriceValueTablet]}>
+              {(item.price || 0).toFixed(2)} €
+            </Text>
           </View>
         )}
       </View>
 
       <TouchableOpacity
-        style={styles.editButton}
+        style={[
+          styles.editButton,
+          isTabletDevice && isLandscapeMode && styles.editButtonTablet
+        ]}
         onPress={() => handleEditProduct(item)}
       >
         <LinearGradient
           colors={['#000000', '#000000', '#000000']}
-          style={styles.editButtonGradient}
+          style={[
+            styles.editButtonGradient,
+            isTabletDevice && isLandscapeMode && styles.editButtonGradientTablet
+          ]}
         >
-          <Ionicons name="pencil" size={16} color={colors.neutral.white} />
-          <Text style={styles.editButtonText}>Modifier les prix</Text>
+          <Ionicons name="pencil" size={isTabletDevice && isLandscapeMode ? 20 : 16} color={colors.neutral.white} />
+          <Text style={[
+            styles.editButtonText,
+            isTabletDevice && isLandscapeMode && styles.editButtonTextTablet
+          ]}>Modifier les prix</Text>
         </LinearGradient>
       </TouchableOpacity>
     </View>
@@ -328,22 +404,23 @@ export default function ProductPriceManagement() {
             >
               <Text style={[styles.filterText, selectedCategory === 'all' && styles.activeFilterText]}>Tout ({products.length})</Text>
             </TouchableOpacity>
-            {Object.keys(categoryStyles).map((categoryKey) => {
-              const style = categoryStyles[categoryKey];
-              const categoryProducts = products.filter(p => p.category === categoryKey);
+            {Object.keys(ProductCategory).map((categoryKey) => {
+              const categoryValue = ProductCategory[categoryKey];
+              const style = categoryStyles[categoryValue];
+              const categoryProducts = products.filter(p => p.category === categoryValue);
               if (categoryProducts.length === 0) return null;
-              
+
               return (
                 <TouchableOpacity
-                  key={categoryKey}
-                  style={[styles.filterBadge, selectedCategory === categoryKey && styles.activeFilterBadge]}
+                  key={categoryValue}
+                  style={[styles.filterBadge, selectedCategory === categoryValue && styles.activeFilterBadge]}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setSelectedCategory(categoryKey);
+                    setSelectedCategory(categoryValue);
                   }}
                 >
-                  <Text style={[styles.filterText, selectedCategory === categoryKey && styles.activeFilterText]}>
-                    {style.name} ({categoryProducts.length})
+                  <Text style={[styles.filterText, selectedCategory === categoryValue && styles.activeFilterText]}>
+                    {style?.name || categoryValue} ({categoryProducts.length})
                   </Text>
                 </TouchableOpacity>
               );
@@ -352,13 +429,22 @@ export default function ProductPriceManagement() {
         </View>
 
         {/* Products List */}
-        <View style={styles.productsContainer}>
+        <View style={[
+          styles.productsContainer,
+          isTabletDevice && isLandscapeMode && styles.productsContainerTablet
+        ]}>
           <FlatList
             data={filteredProducts}
             renderItem={renderProductItem}
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.productsList}
+            contentContainerStyle={[
+              styles.productsList,
+              isTabletDevice && isLandscapeMode && styles.productsListTablet
+            ]}
+            numColumns={isTabletDevice && isLandscapeMode ? 2 : 1}
+            key={isTabletDevice && isLandscapeMode ? 'tablet' : 'mobile'} // Force re-render when columns change
+            columnWrapperStyle={isTabletDevice && isLandscapeMode ? styles.productRow : null}
           />
         </View>
 
@@ -370,7 +456,10 @@ export default function ProductPriceManagement() {
           onRequestClose={() => setIsModalVisible(false)}
         >
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContainer}>
+            <View style={[
+              styles.modalContainer,
+              isTabletDevice && isLandscapeMode && styles.modalContainerTablet
+            ]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>
                   Modifier les prix - {editingProduct?.name}
@@ -383,14 +472,29 @@ export default function ProductPriceManagement() {
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.modalContent}>
+              <ScrollView
+                style={[
+                  styles.modalContent,
+                  isTabletDevice && isLandscapeMode && styles.modalContentTablet
+                ]}
+                showsVerticalScrollIndicator={false}
+              >
                 {editingProduct?.hasSizes ? (
                   // Produits avec tailles (pizzas, burgers, pâtes, salades)
                   <>
-                    <View style={styles.inputContainer}>
-                      <Text style={styles.inputLabel}>Prix Taille M (€)</Text>
+                    <View style={[
+                      styles.inputContainer,
+                      isTabletDevice && isLandscapeMode && styles.inputContainerTablet
+                    ]}>
+                      <Text style={[
+                        styles.inputLabel,
+                        isTabletDevice && isLandscapeMode && styles.inputLabelTablet
+                      ]}>Prix Taille M (€)</Text>
                       <TextInput
-                        style={styles.priceInput}
+                        style={[
+                          styles.priceInput,
+                          isTabletDevice && isLandscapeMode && styles.priceInputTablet
+                        ]}
                         value={newPriceM}
                         onChangeText={setNewPriceM}
                         keyboardType="decimal-pad"
@@ -398,10 +502,19 @@ export default function ProductPriceManagement() {
                       />
                     </View>
 
-                    <View style={styles.inputContainer}>
-                      <Text style={styles.inputLabel}>Prix Taille L (€)</Text>
+                    <View style={[
+                      styles.inputContainer,
+                      isTabletDevice && isLandscapeMode && styles.inputContainerTablet
+                    ]}>
+                      <Text style={[
+                        styles.inputLabel,
+                        isTabletDevice && isLandscapeMode && styles.inputLabelTablet
+                      ]}>Prix Taille L (€)</Text>
                       <TextInput
-                        style={styles.priceInput}
+                        style={[
+                          styles.priceInput,
+                          isTabletDevice && isLandscapeMode && styles.priceInputTablet
+                        ]}
                         value={newPriceL}
                         onChangeText={setNewPriceL}
                         keyboardType="decimal-pad"
@@ -411,10 +524,19 @@ export default function ProductPriceManagement() {
                   </>
                 ) : (
                   // Produits sans tailles (desserts, boissons, tacos)
-                  <View style={styles.inputContainer}>
-                    <Text style={styles.inputLabel}>Prix (€)</Text>
+                  <View style={[
+                    styles.inputContainer,
+                    isTabletDevice && isLandscapeMode && styles.inputContainerTablet
+                  ]}>
+                    <Text style={[
+                      styles.inputLabel,
+                      isTabletDevice && isLandscapeMode && styles.inputLabelTablet
+                    ]}>Prix (€)</Text>
                     <TextInput
-                      style={styles.priceInput}
+                      style={[
+                        styles.priceInput,
+                        isTabletDevice && isLandscapeMode && styles.priceInputTablet
+                      ]}
                       value={newPrice}
                       onChangeText={setNewPrice}
                       keyboardType="decimal-pad"
@@ -423,111 +545,124 @@ export default function ProductPriceManagement() {
                   </View>
                 )}
 
-                <View style={styles.modalButtons}>
+                {/* Options de personnalisation */}
+                {editingProduct?.customizable && editingProduct?.customizationOptions ? (
+                  <View style={[
+                    styles.customizationSection,
+                    isTabletDevice && isLandscapeMode && styles.customizationSectionTablet
+                  ]}>
+                    <Text style={[
+                      styles.sectionTitle,
+                      isTabletDevice && isLandscapeMode && styles.sectionTitleTablet
+                    ]}>Options de personnalisation</Text>
+                    {Object.entries(editingProduct.customizationOptions || {}).map(([optionKey, optionData]) => (
+                      <View key={optionKey} style={[
+                        styles.customizationGroup,
+                        isTabletDevice && isLandscapeMode && styles.customizationGroupTablet
+                      ]}>
+                        <Text style={[
+                          styles.customizationGroupTitle,
+                          isTabletDevice && isLandscapeMode && styles.customizationGroupTitleTablet
+                        ]}>{optionData.title}</Text>
+                        {(optionData.options || []).map((option) => (
+                          <View key={option.id} style={[
+                            styles.customizationOption,
+                            isTabletDevice && isLandscapeMode && styles.customizationOptionTablet
+                          ]}>
+                            <Text style={[
+                              styles.optionName,
+                              isTabletDevice && isLandscapeMode && styles.optionNameTablet
+                            ]}>{option.name}</Text>
+                            <TextInput
+                              style={[
+                                styles.optionPriceInput,
+                                isTabletDevice && isLandscapeMode && styles.optionPriceInputTablet
+                              ]}
+                              value={customizationPrices[optionKey]?.[option.id] || ''}
+                              onChangeText={(value) => updateCustomizationPrice(optionKey, option.id, value)}
+                              keyboardType="decimal-pad"
+                              placeholder="1.50"
+                            />
+                            <Text style={[
+                              styles.euroSymbol,
+                              isTabletDevice && isLandscapeMode && styles.euroSymbolTablet
+                            ]}>€</Text>
+                          </View>
+                        ))}
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <View style={[
+                    styles.noCustomizationSection,
+                    isTabletDevice && isLandscapeMode && styles.noCustomizationSectionTablet
+                  ]}>
+                    <View style={[
+                      styles.noCustomizationCard,
+                      isTabletDevice && isLandscapeMode && styles.noCustomizationCardTablet
+                    ]}>
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={isTabletDevice && isLandscapeMode ? 32 : 24}
+                        color={colors.primary?.main || '#000000'}
+                        style={styles.noCustomizationIcon}
+                      />
+                      <Text style={[
+                        styles.noCustomizationTitle,
+                        isTabletDevice && isLandscapeMode && styles.noCustomizationTitleTablet
+                      ]}>Produit complet</Text>
+                      <Text style={[
+                        styles.noCustomizationText,
+                        isTabletDevice && isLandscapeMode && styles.noCustomizationTextTablet
+                      ]}>Ce produit n'a pas d'options de personnalisation ou toutes les options sont incluses dans le prix de base.</Text>
+                    </View>
+                  </View>
+                )}
+
+                <View style={[
+                  styles.modalButtons,
+                  isTabletDevice && isLandscapeMode && styles.modalButtonsTablet
+                ]}>
                   <TouchableOpacity
-                    style={styles.cancelButton}
+                    style={[
+                      styles.cancelButton,
+                      isTabletDevice && isLandscapeMode && styles.cancelButtonTablet
+                    ]}
                     onPress={() => setIsModalVisible(false)}
                   >
-                    <Text style={styles.cancelButtonText}>Annuler</Text>
+                    <Text style={[
+                      styles.cancelButtonText,
+                      isTabletDevice && isLandscapeMode && styles.cancelButtonTextTablet
+                    ]}>Annuler</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={styles.saveButton}
+                    style={[
+                      styles.saveButton,
+                      isTabletDevice && isLandscapeMode && styles.saveButtonTablet
+                    ]}
                     onPress={handleSavePrice}
                   >
                     <LinearGradient
                       colors={['#000000', '#000000', '#000000']}
-                      style={styles.saveButtonGradient}
+                      style={[
+                        styles.saveButtonGradient,
+                        isTabletDevice && isLandscapeMode && styles.saveButtonGradientTablet
+                      ]}
                     >
-                      <Text style={styles.saveButtonText}>Sauvegarder</Text>
+                      <Text style={[
+                        styles.saveButtonText,
+                        isTabletDevice && isLandscapeMode && styles.saveButtonTextTablet
+                      ]}>Sauvegarder</Text>
                     </LinearGradient>
                   </TouchableOpacity>
                 </View>
-              </View>
+              </ScrollView>
             </View>
           </View>
         </Modal>
 
-        {/* Emojis flottants de fast food avec trajectoires variables */}
-        {floatingEmojis.map((animValue, index) => {
-          // Liste d'emojis de fast food uniquement
-          const fastFoodEmojis = ['🍔', '🍟', '🍕', '🌮', '🌭', '🥪', '🥙', '🍗', '🥓', '🍖', '🧀', '🥯', '🌯', '🧈', '🫓'];
-          const currentEmoji = fastFoodEmojis[index % fastFoodEmojis.length];
-
-          // Différents types de trajectoires selon l'index
-          const screenWidth = 350; // Largeur approximative
-          const screenHeight = 800; // Hauteur approximative
-
-          let startX, endX, startY, endY;
-
-          // Alterner les côtés de départ pour plus de diversité
-          switch (index % 4) {
-            case 0: // Gauche vers droite, montant
-              startX = -30;
-              endX = screenWidth + 30;
-              startY = screenHeight * 0.8;
-              endY = screenHeight * 0.2;
-              break;
-            case 1: // Droite vers gauche, montant
-              startX = screenWidth + 30;
-              endX = -30;
-              startY = screenHeight * 0.7;
-              endY = screenHeight * 0.3;
-              break;
-            case 2: // Diagonal gauche-bas vers droite-haut
-              startX = -30;
-              endX = screenWidth + 30;
-              startY = screenHeight * 0.9;
-              endY = screenHeight * 0.1;
-              break;
-            default: // Diagonal droite-bas vers gauche-haut
-              startX = screenWidth + 30;
-              endX = -30;
-              startY = screenHeight * 0.85;
-              endY = screenHeight * 0.25;
-              break;
-          }
-
-          // Trajectoire sinusoïdale différente pour chaque emoji
-          const amplitude = 20 + (index % 3) * 15; // Amplitude de l'oscillation plus douce
-
-          return (
-            <Animated.View
-              key={index}
-              style={[
-                styles.floatingEmoji,
-                {
-                  transform: [
-                    {
-                      translateX: animValue.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [startX, endX],
-                      }),
-                    },
-                    {
-                      translateY: animValue.interpolate({
-                        inputRange: [0, 0.25, 0.5, 0.75, 1],
-                        outputRange: [
-                          startY,
-                          startY + (endY - startY) * 0.25 + Math.sin(Math.PI * 0.5) * amplitude,
-                          startY + (endY - startY) * 0.5 + Math.sin(Math.PI) * amplitude,
-                          startY + (endY - startY) * 0.75 + Math.sin(Math.PI * 1.5) * amplitude,
-                          endY,
-                        ],
-                      }),
-                    },
-                  ],
-                  opacity: animValue.interpolate({
-                    inputRange: [0, 0.1, 0.9, 1],
-                    outputRange: [0, 0.8, 0.8, 0],
-                  }),
-                },
-              ]}
-            >
-              <Text style={styles.emojiText}>{currentEmoji}</Text>
-            </Animated.View>
-          );
-        })}
+        {/* Suppression des emojis flottants pour un design plus professionnel */}
       </LinearGradient>
     </>
   );
@@ -670,6 +805,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.xl,
     width: '90%',
     maxWidth: 400,
+    maxHeight: '85%',
     shadowColor: colors.neutral.black,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
@@ -786,5 +922,331 @@ const styles = StyleSheet.create({
   },
   emojiText: {
     fontSize: 26,
+  },
+
+  // ========== STYLES TABLETTE PAYSAGE ==========
+
+  // Container et layout
+  productsContainerTablet: {
+    paddingHorizontal: spacing.xl,
+  },
+  productsListTablet: {
+    padding: spacing.xl,
+    paddingBottom: 120,
+  },
+  productRow: {
+    flex: 1,
+    justifyContent: 'space-between',
+    gap: spacing.lg,
+  },
+
+  // Cards produits pour tablette
+  productCardTablet: {
+    flex: 1,
+    minHeight: 280,
+    maxWidth: '48%', // Pour 2 colonnes avec gap
+    marginBottom: spacing.lg,
+    padding: spacing.xl,
+    borderRadius: borderRadius.xl,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+
+  productHeaderTablet: {
+    marginBottom: spacing.lg,
+  },
+
+  productNameTablet: {
+    fontSize: typography.fontSizes.xl,
+    marginBottom: spacing.sm,
+  },
+
+  productDescriptionTablet: {
+    fontSize: typography.fontSizes.base,
+    lineHeight: typography.fontSizes.base * 1.4,
+    marginBottom: spacing.md,
+  },
+
+  // Prix pour tablette
+  pricesContainerTablet: {
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    borderRadius: borderRadius.lg,
+  },
+
+  priceItemTablet: {
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+  },
+
+  sizeLabelTablet: {
+    fontSize: typography.fontSizes.base,
+    marginBottom: spacing.sm,
+  },
+
+  priceValueTablet: {
+    fontSize: typography.fontSizes['2xl'],
+    fontFamily: typography.fontFamily.bold,
+  },
+
+  singlePriceItemTablet: {
+    paddingVertical: spacing.md,
+  },
+
+  singlePriceLabelTablet: {
+    fontSize: typography.fontSizes.lg,
+    marginBottom: spacing.sm,
+  },
+
+  singlePriceValueTablet: {
+    fontSize: typography.fontSizes['3xl'],
+  },
+
+  // Bouton d'édition pour tablette
+  editButtonTablet: {
+    borderRadius: borderRadius.lg,
+    shadowColor: colors.neutral.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+
+  editButtonGradientTablet: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.lg,
+    gap: spacing.sm,
+  },
+
+  editButtonTextTablet: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.bold,
+  },
+
+  // Modal pour tablette
+  modalContainerTablet: {
+    width: '85%',
+    maxWidth: 800,
+    minWidth: 600,
+    maxHeight: '80%',
+    borderRadius: borderRadius['2xl'],
+    shadowOffset: { width: 0, height: 15 },
+    shadowOpacity: 0.4,
+    shadowRadius: 25,
+    elevation: 25,
+  },
+
+  // Styles pour les options de personnalisation
+  customizationSection: {
+    marginTop: spacing.lg,
+    paddingTop: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.neutral.gray200,
+  },
+  sectionTitle: {
+    fontSize: typography.fontSizes.lg,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.gray800,
+    marginBottom: spacing.md,
+  },
+  customizationGroup: {
+    marginBottom: spacing.lg,
+  },
+  customizationGroupTitle: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.semibold,
+    color: colors.neutral.gray700,
+    marginBottom: spacing.sm,
+  },
+  customizationOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.neutral.gray50,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.xs,
+  },
+  optionName: {
+    flex: 1,
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray700,
+  },
+  optionPriceInput: {
+    width: 80,
+    borderWidth: 1,
+    borderColor: colors.neutral.gray200,
+    borderRadius: borderRadius.sm,
+    padding: spacing.sm,
+    fontSize: typography.fontSizes.sm,
+    backgroundColor: colors.neutral.white,
+    textAlign: 'center',
+    marginLeft: spacing.sm,
+  },
+  euroSymbol: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray600,
+    marginLeft: spacing.xs,
+    minWidth: 15,
+  },
+
+  // Styles spécifiques pour tablette
+  modalContentTablet: {
+    padding: spacing.xl,
+  },
+  inputContainerTablet: {
+    marginBottom: spacing.xl,
+  },
+  inputLabelTablet: {
+    fontSize: typography.fontSizes.lg,
+    marginBottom: spacing.md,
+  },
+  priceInputTablet: {
+    padding: spacing.lg,
+    fontSize: typography.fontSizes.lg,
+    borderRadius: borderRadius.lg,
+  },
+  modalButtonsTablet: {
+    gap: spacing.lg,
+    marginTop: spacing.xl,
+  },
+  cancelButtonTablet: {
+    paddingVertical: spacing.lg,
+    borderRadius: borderRadius.lg,
+  },
+  cancelButtonTextTablet: {
+    fontSize: typography.fontSizes.lg,
+  },
+  saveButtonTablet: {
+    borderRadius: borderRadius.lg,
+  },
+  saveButtonGradientTablet: {
+    paddingVertical: spacing.lg,
+    borderRadius: borderRadius.lg,
+  },
+  saveButtonTextTablet: {
+    fontSize: typography.fontSizes.lg,
+  },
+  customizationSectionTablet: {
+    marginTop: spacing.xl,
+    paddingTop: spacing.xl,
+  },
+  sectionTitleTablet: {
+    fontSize: typography.fontSizes.xl,
+    marginBottom: spacing.lg,
+  },
+  customizationGroupTablet: {
+    marginBottom: spacing.xl,
+  },
+  customizationGroupTitleTablet: {
+    fontSize: typography.fontSizes.lg,
+    marginBottom: spacing.md,
+  },
+  customizationOptionTablet: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.sm,
+  },
+  optionNameTablet: {
+    fontSize: typography.fontSizes.base,
+  },
+  optionPriceInputTablet: {
+    width: 100,
+    padding: spacing.md,
+    fontSize: typography.fontSizes.base,
+    borderRadius: borderRadius.md,
+    marginLeft: spacing.md,
+  },
+  euroSymbolTablet: {
+    fontSize: typography.fontSizes.base,
+    marginLeft: spacing.sm,
+    minWidth: 20,
+  },
+
+  // Styles pour "pas d'options de personnalisation"
+  noCustomizationSection: {
+    marginTop: spacing.lg,
+    paddingTop: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.neutral.gray200,
+  },
+  noCustomizationSectionTablet: {
+    marginTop: spacing.xl,
+    paddingTop: spacing.xl,
+  },
+  noCustomizationCard: {
+    backgroundColor: colors.neutral.gray50,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.neutral.gray200,
+    borderStyle: 'dashed',
+  },
+  noCustomizationCardTablet: {
+    padding: spacing.xl,
+    borderRadius: borderRadius.xl,
+  },
+  noCustomizationIcon: {
+    marginBottom: spacing.sm,
+  },
+  noCustomizationTitle: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.gray700,
+    marginBottom: spacing.xs,
+    textAlign: 'center',
+  },
+  noCustomizationTitleTablet: {
+    fontSize: typography.fontSizes.lg,
+    marginBottom: spacing.sm,
+  },
+  noCustomizationText: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray600,
+    textAlign: 'center',
+    lineHeight: typography.fontSizes.sm * 1.4,
+  },
+  noCustomizationTextTablet: {
+    fontSize: typography.fontSizes.base,
+    lineHeight: typography.fontSizes.base * 1.5,
+  },
+
+  // Indicateur de personnalisation sur les cartes
+  customizationIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.neutral.gray100,
+    borderRadius: borderRadius.full,
+    alignSelf: 'flex-start',
+  },
+  customizationIndicatorTablet: {
+    marginTop: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  customizationIndicatorText: {
+    fontSize: typography.fontSizes.xs,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray600,
+    marginLeft: spacing.xs,
+  },
+  customizationIndicatorTextTablet: {
+    fontSize: typography.fontSizes.sm,
+    marginLeft: spacing.sm,
+  },
+  customizationIndicatorTextActive: {
+    color: colors.accent?.main || '#FF6B35',
   },
 });

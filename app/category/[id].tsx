@@ -287,9 +287,32 @@ export default function CategoryScreen() {
     setCommentSize(null);
   };
 
-  // Fonction pour ajouter au panier (maintenant ouvre la modal)
+  // Fonction pour ajouter au panier (maintenant ouvre la modal sauf pour les boissons)
   const handleAddToCart = (product, selectedSize = 'M', event = null) => {
-    openCommentModal(product, selectedSize);
+    // Si c'est une boisson, ajouter directement au panier sans modal de commentaire
+    if (id === ProductCategory.BOISSONS) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      // Déclencher l'animation
+      triggerCartAnimation(product, event);
+
+      // Ajouter directement au panier
+      if (product.sizes && product.sizes[selectedSize]) {
+        const productWithSize = {
+          ...product,
+          id: `${product.id}_${selectedSize}`,
+          price: product.sizes[selectedSize].price,
+          selectedSize: selectedSize,
+          name: `${product.name} (${product.sizes[selectedSize].name})`
+        };
+        addItem(productWithSize);
+      } else {
+        addItem(product);
+      }
+    } else {
+      // Pour les autres catégories, ouvrir le modal de commentaire
+      openCommentModal(product, selectedSize);
+    }
   };
 
   // Fonction pour ajouter au panier avec personnalisations
@@ -389,8 +412,35 @@ export default function CategoryScreen() {
           };
         }
       } else {
-        // Pour les sélections multiples : comportement normal toggle
+        // Pour les sélections multiples : comportement normal toggle avec vérification des limites
         if (isSelected) {
+          // Vérifier les limites spéciales pour les viandes dans les tacos
+          if (categoryKey === 'viandes' && product?.sizes) {
+            const selectedSize = selectedSizes[productId];
+            let maxViandes = 4; // Valeur par défaut
+
+            switch (selectedSize) {
+              case 'M': maxViandes = 1; break;
+              case 'L': maxViandes = 2; break;
+              case 'XL': maxViandes = 3; break;
+              case 'XXL': maxViandes = 4; break;
+            }
+
+            // Si on a déjà atteint la limite, ne pas ajouter
+            if (categorySelections.length >= maxViandes) {
+              console.log(`Limite de viandes atteinte pour la taille ${selectedSize}: ${maxViandes}`);
+              // Feedback visuel et tactile
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+              return prev; // Ne pas modifier l'état
+            }
+          }
+
+          // Vérifier la limite générale maxSelections/maxSelection
+          if (maxSelect && categorySelections.length >= maxSelect) {
+            console.log(`Limite générale atteinte: ${maxSelect}`);
+            return prev; // Ne pas modifier l'état
+          }
+
           // isSelected = true signifie qu'on veut sélectionner l'option
           return {
             ...prev,
@@ -454,6 +504,23 @@ export default function CategoryScreen() {
                   <View style={styles.customizationCategoryHeader}>
                     <Text style={styles.customizationCategoryTitle}>
                       {category.title}
+                      {/* Afficher la limite pour les viandes dans les tacos */}
+                      {categoryKey === 'viandes' && product.sizes && (() => {
+                        const selectedSize = selectedSizes[product.id];
+                        const selectedCount = selectedOptions.length;
+                        let maxViandes = 4;
+                        switch (selectedSize) {
+                          case 'M': maxViandes = 1; break;
+                          case 'L': maxViandes = 2; break;
+                          case 'XL': maxViandes = 3; break;
+                          case 'XXL': maxViandes = 4; break;
+                        }
+                        return (
+                          <Text style={styles.selectionCounter}>
+                            {' '}({selectedCount}/{maxViandes})
+                          </Text>
+                        );
+                      })()}
                     </Text>
                     {category.required && (
                       <Text style={styles.requiredLabel}>Obligatoire</Text>
@@ -461,6 +528,21 @@ export default function CategoryScreen() {
                   </View>
                   <Text style={styles.customizationCategorySubtitle}>
                     {category.subtitle}
+                    {/* Message explicatif pour les viandes */}
+                    {categoryKey === 'viandes' && product.sizes && (() => {
+                      const selectedSize = selectedSizes[product.id];
+                      if (selectedSize) {
+                        let maxViandes = 4;
+                        switch (selectedSize) {
+                          case 'M': maxViandes = 1; break;
+                          case 'L': maxViandes = 2; break;
+                          case 'XL': maxViandes = 3; break;
+                          case 'XXL': maxViandes = 4; break;
+                        }
+                        return ` (Max ${maxViandes} viande${maxViandes > 1 ? 's' : ''} pour la taille ${selectedSize})`;
+                      }
+                      return '';
+                    })()}
                   </Text>
 
                   <View style={styles.customizationOptionsList}>
@@ -475,9 +557,23 @@ export default function CategoryScreen() {
                       const optionId = option.id || option.name;
                       const isSelected = selectedOptions && selectedOptions.includes(optionId);
                       const maxSelectLimit = category.maxSelections || category.maxSelection;
+
+                      // Calculer la limite effective pour les viandes dans les tacos
+                      let effectiveLimit = maxSelectLimit;
+                      if (categoryKey === 'viandes' && product.sizes) {
+                        const selectedSize = selectedSizes[product.id];
+                        switch (selectedSize) {
+                          case 'M': effectiveLimit = 1; break;
+                          case 'L': effectiveLimit = 2; break;
+                          case 'XL': effectiveLimit = 3; break;
+                          case 'XXL': effectiveLimit = 4; break;
+                          default: effectiveLimit = maxSelectLimit || 4; break;
+                        }
+                      }
+
                       const canSelect = !isSelected && (
-                        !maxSelectLimit ||
-                        (selectedOptions ? selectedOptions.length : 0) < maxSelectLimit
+                        !effectiveLimit ||
+                        (selectedOptions ? selectedOptions.length : 0) < effectiveLimit
                       );
 
                       return (

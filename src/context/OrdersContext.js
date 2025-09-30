@@ -1,6 +1,22 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  getDocs,
+  onSnapshot,
+  query,
+  orderBy,
+  serverTimestamp,
+  where
+} from 'firebase/firestore';
+import { db } from '../../config/firebase';
 import { OrderStatus, OrderMode } from '../types';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import customerNotificationService from '../services/customerNotificationService';
+import printerService from '../services/PrinterService';
 
 const OrdersContext = createContext();
 
@@ -14,46 +30,117 @@ export const useOrders = () => {
 
 export const OrdersProvider = ({ children }) => {
   const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [orderPositions, setOrderPositions] = useState({}); // Mémoriser les positions
 
-  // Charger les commandes depuis AsyncStorage au démarrage
+  // Référence vers la collection orders dans Firestore
+  const ordersCollection = collection(db, 'orders');
+
+  // Écouter les changements en temps réel depuis Firestore
   useEffect(() => {
-    loadOrders();
+    console.log('=== SETTING UP FIRESTORE LISTENER ===');
+
+    const q = query(ordersCollection, orderBy('id', 'desc'));
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      console.log('🔥 Firestore snapshot received:', querySnapshot.size, 'orders');
+
+      const firestoreOrders = [];
+      querySnapshot.forEach((doc) => {
+        const orderData = doc.data();
+        firestoreOrders.push({
+          ...orderData,
+          firestoreId: doc.id, // Garder l'ID Firestore
+          createdAt: orderData.createdAt?.toDate?.()?.toISOString() || orderData.createdAt
+        });
+      });
+
+      // Système de positions stables
+      setOrders(prevOrders => {
+        // Si c'est le premier chargement, définir les positions initiales
+        if (prevOrders.length === 0) {
+          const initialSorted = firestoreOrders.sort((a, b) => {
+            const idA = parseInt(a.id) || 0;
+            const idB = parseInt(b.id) || 0;
+            return idB - idA;
+          });
+
+          // Mémoriser les positions initiales
+          const positions = {};
+          initialSorted.forEach((order, index) => {
+            positions[order.id] = index;
+          });
+          setOrderPositions(positions);
+
+          console.log('✅ Setting initial orders from Firestore:', initialSorted.length);
+          return initialSorted;
+        }
+
+        // Pour les mises à jour, maintenir l'ordre existant
+        const updatedOrders = [...prevOrders];
+
+        // Mettre à jour les commandes existantes et ajouter les nouvelles
+        firestoreOrders.forEach(newOrder => {
+          const existingIndex = updatedOrders.findIndex(order => order.id === newOrder.id);
+
+          if (existingIndex !== -1) {
+            // Mettre à jour la commande existante à sa position actuelle
+            updatedOrders[existingIndex] = newOrder;
+          } else {
+            // Nouvelle commande - l'ajouter au début
+            updatedOrders.unshift(newOrder);
+            setOrderPositions(prev => ({
+              ...prev,
+              [newOrder.id]: 0
+            }));
+            // Décaler les positions des autres commandes
+            setOrderPositions(prev => {
+              const newPositions = { ...prev };
+              Object.keys(newPositions).forEach(orderId => {
+                if (orderId !== newOrder.id) {
+                  newPositions[orderId] = newPositions[orderId] + 1;
+                }
+              });
+              return newPositions;
+            });
+
+            // L'impression automatique se fait uniquement côté admin (voir dashboard.tsx)
+          }
+        });
+
+        // Supprimer les commandes qui n'existent plus dans Firestore
+        const firestoreOrderIds = new Set(firestoreOrders.map(order => order.id));
+        const filteredOrders = updatedOrders.filter(order => firestoreOrderIds.has(order.id));
+
+        console.log('✅ Updating orders from Firestore (maintaining order):', filteredOrders.length);
+        return filteredOrders;
+      });
+
+      setLoading(false);
+    }, (error) => {
+      console.error('❌ Firestore listener error:', error);
+      setLoading(false);
+    });
+
+    // Cleanup function
+    return () => {
+      console.log('🧹 Cleaning up Firestore listener');
+      unsubscribe();
+    };
   }, []);
 
-  // Sauvegarder les commandes dans AsyncStorage
-  const saveOrders = async (ordersToSave) => {
-    try {
-      await AsyncStorage.setItem('@orders', JSON.stringify(ordersToSave));
-    } catch (error) {
-      console.error('Error saving orders:', error);
-    }
-  };
+  // Plus besoin de saveOrders - Firestore se synchronise automatiquement
 
-  // Charger les commandes depuis AsyncStorage
-  const loadOrders = async () => {
-    try {
-      const storedOrders = await AsyncStorage.getItem('@orders');
-      if (storedOrders) {
-        setOrders(JSON.parse(storedOrders));
-      }
-    } catch (error) {
-      console.error('Error loading orders:', error);
-    }
-  };
+  // Plus besoin de debugAsyncStorageOrders - utilisation directe de Firestore
 
-  // Générer un numéro de commande séquentiel
+  // Plus besoin de loadOrders - le listener Firestore se charge du chargement
+
+  // Générer un numéro de commande séquentiel avec Firestore
   const generateOrderId = async () => {
     try {
-      // Récupérer le dernier numéro de commande
-      const lastOrderNumber = await AsyncStorage.getItem('@lastOrderNumber');
-      let nextOrderNumber = 1;
-
-      if (lastOrderNumber) {
-        nextOrderNumber = parseInt(lastOrderNumber, 10) + 1;
-      }
-
-      // Sauvegarder le nouveau numéro
-      await AsyncStorage.setItem('@lastOrderNumber', nextOrderNumber.toString());
+      // Compter les commandes existantes pour générer le prochain ID
+      const snapshot = await getDocs(ordersCollection);
+      const nextOrderNumber = snapshot.size + 1;
 
       // Formatter avec des zéros devant (00001, 00002, etc.)
       return nextOrderNumber.toString().padStart(5, '0');
@@ -65,13 +152,18 @@ export const OrdersProvider = ({ children }) => {
     }
   };
 
-  // Créer une nouvelle commande
+  // Créer une nouvelle commande dans Firestore
   const createOrder = async (orderData) => {
     try {
+      console.log('=== CREATING ORDER IN FIRESTORE ===');
+      console.log('Order data:', orderData);
+
       const orderId = await generateOrderId();
       const newOrder = {
         id: orderId,
         customerName: orderData.customerName || 'Client',
+        firstName: orderData.firstName || null,
+        lastName: orderData.lastName || null,
         customerEmail: orderData.customerEmail || '',
         phone: orderData.phone || '',
         items: orderData.items,
@@ -81,64 +173,101 @@ export const OrdersProvider = ({ children }) => {
         address: orderData.address || null,
         deliveryFee: orderData.deliveryFee || 0,
         paymentMethod: orderData.paymentMethod || null,
-        orderTime: new Date().toLocaleTimeString('fr-FR', { 
-          hour: '2-digit', 
-          minute: '2-digit' 
+        orderTime: new Date().toLocaleTimeString('fr-FR', {
+          hour: '2-digit',
+          minute: '2-digit'
         }),
         orderDate: new Date().toLocaleDateString('fr-FR'),
-        createdAt: new Date().toISOString(),
+        createdAt: serverTimestamp(), // Utiliser serverTimestamp de Firestore
       };
 
-      const updatedOrders = [newOrder, ...orders];
-      setOrders(updatedOrders);
-      await saveOrders(updatedOrders);
+      console.log('Creating order in Firestore:', newOrder);
 
-      return { success: true, order: newOrder };
+      // Ajouter à Firestore - le listener mettra à jour automatiquement le state
+      const docRef = await addDoc(ordersCollection, newOrder);
+      console.log('✅ Order created in Firestore with ID:', docRef.id);
+
+      // L'impression automatique se fait uniquement côté admin (voir dashboard.tsx)
+
+      return { success: true, order: { ...newOrder, firestoreId: docRef.id } };
     } catch (error) {
-      console.error('Error creating order:', error);
+      console.error('❌ Error creating order in Firestore:', error);
       return { success: false, error: error.message };
     }
   };
 
-  // Mettre à jour le statut d'une commande
+  // Mettre à jour le statut d'une commande dans Firestore
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
-      const updatedOrders = orders.map(order =>
-        order.id === orderId ? { ...order, status: newStatus } : order
-      );
-      
-      setOrders(updatedOrders);
-      await saveOrders(updatedOrders);
-      
+      console.log('=== UPDATING ORDER STATUS IN FIRESTORE ===');
+      console.log('Order ID:', orderId, 'New status:', newStatus);
+
+      // Trouver la commande par son ID
+      const orderToUpdate = orders.find(order => order.id === orderId);
+      if (!orderToUpdate || !orderToUpdate.firestoreId) {
+        throw new Error('Order not found or missing Firestore ID');
+      }
+
+      // Mettre à jour dans Firestore
+      const orderDoc = doc(db, 'orders', orderToUpdate.firestoreId);
+      await updateDoc(orderDoc, {
+        status: newStatus,
+        updatedAt: serverTimestamp()
+      });
+
+      console.log('✅ Order status updated in Firestore');
+
+      // Notifier le client si nécessaire
+      try {
+        await customerNotificationService.notifyCustomerStatusChange(
+          orderId,
+          newStatus,
+          {
+            mode: orderToUpdate.mode,
+            customerName: orderToUpdate.customerName,
+            estimatedTime: '15-30 min'
+          }
+        );
+      } catch (notificationError) {
+        console.warn('⚠️ Erreur notification client:', notificationError);
+        // Ne pas faire échouer la mise à jour du statut si la notification échoue
+      }
+
       return { success: true };
     } catch (error) {
-      console.error('Error updating order status:', error);
+      console.error('❌ Error updating order status in Firestore:', error);
       return { success: false, error: error.message };
     }
   };
 
-  // Assigner une commande à un livreur
+  // Assigner une commande à un livreur dans Firestore
   const assignOrderToDelivery = async (orderId, deliveryUser) => {
     try {
-      const updatedOrders = orders.map(order =>
-        order.id === orderId ? { 
-          ...order, 
-          assignedDelivery: {
-            id: deliveryUser.id,
-            name: deliveryUser.name,
-            phone: deliveryUser.phone,
-            assignedAt: new Date().toISOString(),
-          },
-          status: OrderStatus.IN_DELIVERY 
-        } : order
-      );
-      
-      setOrders(updatedOrders);
-      await saveOrders(updatedOrders);
-      
+      console.log('=== ASSIGNING ORDER TO DELIVERY IN FIRESTORE ===');
+
+      // Trouver la commande par son ID
+      const orderToUpdate = orders.find(order => order.id === orderId);
+      if (!orderToUpdate || !orderToUpdate.firestoreId) {
+        throw new Error('Order not found or missing Firestore ID');
+      }
+
+      // Mettre à jour dans Firestore
+      const orderDoc = doc(db, 'orders', orderToUpdate.firestoreId);
+      await updateDoc(orderDoc, {
+        assignedDelivery: {
+          id: deliveryUser.id,
+          name: deliveryUser.name,
+          phone: deliveryUser.phone,
+          assignedAt: serverTimestamp(),
+        },
+        status: OrderStatus.IN_DELIVERY,
+        updatedAt: serverTimestamp()
+      });
+
+      console.log('✅ Order assigned to delivery in Firestore');
       return { success: true };
     } catch (error) {
-      console.error('Error assigning order:', error);
+      console.error('❌ Error assigning order in Firestore:', error);
       return { success: false, error: error.message };
     }
   };
@@ -169,16 +298,25 @@ export const OrdersProvider = ({ children }) => {
     );
   };
 
-  // Supprimer une commande
+  // Supprimer une commande de Firestore
   const deleteOrder = async (orderId) => {
     try {
-      const updatedOrders = orders.filter(order => order.id !== orderId);
-      setOrders(updatedOrders);
-      await saveOrders(updatedOrders);
-      
+      console.log('=== DELETING ORDER FROM FIRESTORE ===');
+
+      // Trouver la commande par son ID
+      const orderToDelete = orders.find(order => order.id === orderId);
+      if (!orderToDelete || !orderToDelete.firestoreId) {
+        throw new Error('Order not found or missing Firestore ID');
+      }
+
+      // Supprimer de Firestore
+      const orderDoc = doc(db, 'orders', orderToDelete.firestoreId);
+      await deleteDoc(orderDoc);
+
+      console.log('✅ Order deleted from Firestore');
       return { success: true };
     } catch (error) {
-      console.error('Error deleting order:', error);
+      console.error('❌ Error deleting order from Firestore:', error);
       return { success: false, error: error.message };
     }
   };
@@ -215,20 +353,39 @@ export const OrdersProvider = ({ children }) => {
     };
   };
 
-  // Réinitialiser les commandes (pour le développement)
+  // Réinitialiser les commandes (pour le développement) - supprime tout de Firestore
   const clearAllOrders = async () => {
     try {
-      setOrders([]);
-      await AsyncStorage.removeItem('@orders');
+      console.log('=== CLEARING ALL ORDERS FROM FIRESTORE ===');
+
+      // Récupérer tous les documents
+      const snapshot = await getDocs(ordersCollection);
+
+      // Supprimer chaque document
+      const deletePromises = [];
+      snapshot.forEach((document) => {
+        deletePromises.push(deleteDoc(doc(db, 'orders', document.id)));
+      });
+
+      await Promise.all(deletePromises);
+      console.log('✅ All orders cleared from Firestore');
+
       return { success: true };
     } catch (error) {
-      console.error('Error clearing orders:', error);
+      console.error('❌ Error clearing orders from Firestore:', error);
       return { success: false, error: error.message };
     }
   };
 
+  // Plus besoin de forceUpdateOrders et refreshOrders - Firestore se synchronise automatiquement
+  const refreshOrders = React.useCallback(() => {
+    console.log('🔄 refreshOrders called - Firestore listener handles this automatically');
+    // Le listener Firestore se charge automatiquement des mises à jour
+  }, []);
+
   const value = {
     orders,
+    loading,
     createOrder,
     updateOrderStatus,
     deleteOrder,
@@ -236,7 +393,7 @@ export const OrdersProvider = ({ children }) => {
     getTodayOrders,
     getOrderStats,
     clearAllOrders,
-    refreshOrders: loadOrders,
+    refreshOrders,
     assignOrderToDelivery,
     getAvailableDeliveryOrders,
     getOrdersForDelivery,

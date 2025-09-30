@@ -910,6 +910,11 @@ const styles = StyleSheet.create({
     color: colors.neutral.gray800,
     marginBottom: spacing.xs / 2,
   },
+  selectionCounter: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.semibold,
+    color: colors.accent.main,
+  },
   customizationCategorySubtitle: {
     fontSize: typography.fontSizes.sm,
     fontFamily: typography.fontFamily.medium,
