@@ -23,6 +23,8 @@ import { isTablet, isLandscape } from '../../src/utils/deviceUtils';
 import notificationService from '../../src/services/notificationService';
 import adminNotificationService, { registerAdminForNotifications } from '../../src/services/adminNotificationService';
 import remotePrinterService from '../../src/services/RemotePrinterService';
+import RestaurantStatusControl from '../../src/components/admin/RestaurantStatusControl';
+import restaurantStatusService from '../../src/services/restaurantStatusService';
 
 export default function AdminDashboard() {
   const { orders, loading, refreshOrders, updateOrderStatus } = useOrders();
@@ -39,10 +41,14 @@ export default function AdminDashboard() {
   const isTabletDevice = isTablet();
   const isLandscapeMode = isLandscape();
 
-  // Initialiser les notifications au chargement (désactivé temporairement)
+  // Initialiser les services au chargement
   useEffect(() => {
-    const initNotifications = async () => {
+    const initServices = async () => {
       try {
+        // Initialiser le service de statut restaurant
+        await restaurantStatusService.initialize();
+        console.log('✅ Service de statut restaurant initialisé');
+
         // await notificationService.initialize();
         console.log('🔔 Notifications désactivées temporairement (focus sur impression)');
 
@@ -56,15 +62,16 @@ export default function AdminDashboard() {
         //   console.log('✅ Admin enregistré pour les notifications push');
         // }
       } catch (error) {
-        console.error('❌ Erreur initialisation notifications:', error);
+        console.error('❌ Erreur initialisation services:', error);
       }
     };
 
-    initNotifications();
+    initServices();
 
     // Cleanup au démontage
     return () => {
       // notificationService.cleanup();
+      restaurantStatusService.cleanup();
     };
   }, []);
 
@@ -184,7 +191,10 @@ export default function AdminDashboard() {
       console.log(`Changing order ${selectedOrder.id} status to ${newStatus}`);
 
       // Utiliser la fonction du contexte pour mettre à jour le statut
-      const success = await updateOrderStatus(selectedOrder.id, newStatus);
+      const success = await updateOrderStatus(selectedOrder.id, newStatus, {
+        manualStatusChange: true, // Indiquer que c'est un changement manuel
+        triggerRating: newStatus === OrderStatus.DELIVERED || newStatus === OrderStatus.READY
+      });
 
       if (success) {
         closeStatusMenu();
@@ -630,6 +640,17 @@ export default function AdminDashboard() {
             isTabletDevice && isLandscapeMode && styles.contentContainerTablet
           ]}
         >
+
+          {/* Restaurant Status Control */}
+          <View style={styles.section}>
+            <Text style={[
+              styles.sectionTitle,
+              isTabletDevice && isLandscapeMode && styles.sectionTitleTablet
+            ]}>
+              Statut du restaurant
+            </Text>
+            <RestaurantStatusControl />
+          </View>
 
           {/* Status Filters */}
           {renderStatusFilters()}

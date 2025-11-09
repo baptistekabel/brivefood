@@ -6,6 +6,7 @@ import {
   ScrollView,
   RefreshControl,
   Dimensions,
+  TouchableOpacity,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,17 +17,43 @@ import { colors, typography, spacing, borderRadius } from '../../src/constants/t
 import { OrderStatus, OrderMode } from '../../src/types';
 import { useOrders } from '../../src/context/OrdersContext';
 import { isTablet, isLandscape, getResponsiveStyles } from '../../src/utils/deviceUtils';
+import orderRatingService from '../../src/services/orderRatingService';
 
 export default function AdminAnalytics() {
   const { orders, refreshOrders } = useOrders();
   const [refreshing, setRefreshing] = useState(false);
+  const [ratingStats, setRatingStats] = useState(null);
 
   // Détection de l'appareil et orientation
   const isTabletDevice = isTablet();
   const isLandscapeMode = isLandscape();
+
+  // Charger les statistiques des avis
+  useEffect(() => {
+    const loadRatingStats = async () => {
+      try {
+        const stats = await orderRatingService.getRatingStats();
+        setRatingStats(stats);
+      } catch (error) {
+        console.error('Erreur chargement stats avis:', error);
+      }
+    };
+
+    loadRatingStats();
+  }, []);
+
   const onRefresh = async () => {
     setRefreshing(true);
     await refreshOrders();
+
+    // Recharger aussi les stats des avis
+    try {
+      const stats = await orderRatingService.getRatingStats();
+      setRatingStats(stats);
+    } catch (error) {
+      console.error('Erreur rechargement stats avis:', error);
+    }
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setRefreshing(false);
   };
@@ -91,6 +118,94 @@ export default function AdminAnalytics() {
 
   const stats = getStatistics();
   const completedDeliveries = getCompletedDeliveries();
+
+  // Navigation vers la page des avis
+  const navigateToReviews = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push('/(admin)/reviews');
+  };
+
+  // Rendu de la section avis clients
+  const renderRatingsSection = () => {
+    if (!ratingStats) {
+      return (
+        <View style={styles.ratingsCard}>
+          <View style={styles.ratingsHeader}>
+            <Ionicons name="star" size={24} color="#F59E0B" />
+            <Text style={styles.ratingsTitle}>Avis clients</Text>
+          </View>
+          <Text style={styles.ratingsLoading}>Chargement...</Text>
+        </View>
+      );
+    }
+
+    return (
+      <TouchableOpacity
+        style={styles.ratingsCard}
+        onPress={navigateToReviews}
+        activeOpacity={0.8}
+      >
+        <View style={styles.ratingsHeader}>
+          <Ionicons name="star" size={24} color="#F59E0B" />
+          <Text style={styles.ratingsTitle}>Avis clients</Text>
+          <Ionicons name="chevron-forward" size={20} color={colors.neutral.gray400} />
+        </View>
+
+        <View style={styles.ratingsContent}>
+          <View style={styles.averageRatingContainer}>
+            <Text style={styles.averageRating}>
+              {ratingStats.averageRating > 0 ? ratingStats.averageRating.toFixed(1) : '—'}
+            </Text>
+            <View style={styles.starsContainer}>
+              {[1, 2, 3, 4, 5].map(star => (
+                <Ionicons
+                  key={star}
+                  name={star <= Math.round(ratingStats.averageRating) ? "star" : "star-outline"}
+                  size={16}
+                  color="#F59E0B"
+                />
+              ))}
+            </View>
+            <Text style={styles.totalRatings}>
+              {ratingStats.totalRatings} avis
+            </Text>
+          </View>
+
+          <View style={styles.ratingsStats}>
+            <Text style={styles.ratingsStatsTitle}>Répartition :</Text>
+            <View style={styles.ratingDistribution}>
+              {[5, 4, 3, 2, 1].map(rating => (
+                <View key={rating} style={styles.ratingRow}>
+                  <Text style={styles.ratingNumber}>{rating}★</Text>
+                  <View style={styles.ratingBar}>
+                    <View
+                      style={[
+                        styles.ratingBarFill,
+                        {
+                          width: ratingStats.totalRatings > 0
+                            ? `${(ratingStats.ratingDistribution[rating] / ratingStats.totalRatings) * 100}%`
+                            : '0%'
+                        }
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.ratingCount}>
+                    {ratingStats.ratingDistribution[rating]}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.ratingsFooter}>
+          <Text style={styles.ratingsFooterText}>
+            Appuyez pour voir tous les avis
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
 
   const renderStatCard = (title, value, subtitle, icon, color = '#000000', isTabletMode = false) => (
@@ -274,7 +389,15 @@ export default function AdminAnalytics() {
                 </View>
               </View>
 
-              {/* Troisième rangée - Livraisons terminées */}
+              {/* Troisième rangée - Avis clients */}
+              <View style={styles.tabletRatingsRow}>
+                <View style={[styles.section, styles.tabletFullWidth]}>
+                  <Text style={[styles.sectionTitle, styles.sectionTitleTablet]}>Avis clients</Text>
+                  {renderRatingsSection()}
+                </View>
+              </View>
+
+              {/* Quatrième rangée - Livraisons terminées */}
               <View style={styles.tabletDeliveriesRow}>
                 <View style={[styles.section, styles.tabletFullWidth]}>
                   <Text style={[styles.sectionTitle, styles.sectionTitleTablet]}>
@@ -363,6 +486,12 @@ export default function AdminAnalytics() {
                     </View>
                   </View>
                 </View>
+              </View>
+
+              {/* Section Avis clients */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Avis clients</Text>
+                {renderRatingsSection()}
               </View>
 
               {/* Livraisons terminées Section */}
@@ -816,6 +945,116 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.base,
     color: colors.neutral.gray500,
     textAlign: 'center',
+  },
+
+  // Styles pour avis clients
+  ratingsCard: {
+    backgroundColor: colors.neutral.white,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    shadowColor: colors.neutral.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  ratingsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  ratingsTitle: {
+    fontSize: typography.fontSizes.lg,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.gray800,
+    flex: 1,
+    marginLeft: spacing.sm,
+  },
+  ratingsLoading: {
+    fontSize: typography.fontSizes.base,
+    color: colors.neutral.gray500,
+    textAlign: 'center',
+    padding: spacing.xl,
+  },
+  ratingsContent: {
+    flexDirection: 'row',
+    gap: spacing.lg,
+  },
+  averageRatingContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  averageRating: {
+    fontSize: typography.fontSizes['3xl'],
+    fontFamily: typography.fontFamily.bold,
+    color: '#F59E0B',
+    marginBottom: spacing.xs,
+  },
+  starsContainer: {
+    flexDirection: 'row',
+    gap: 2,
+    marginBottom: spacing.xs,
+  },
+  totalRatings: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.neutral.gray600,
+  },
+  ratingsStats: {
+    flex: 2,
+  },
+  ratingsStatsTitle: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.semibold,
+    color: colors.neutral.gray700,
+    marginBottom: spacing.sm,
+  },
+  ratingDistribution: {
+    gap: spacing.xs,
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  ratingNumber: {
+    fontSize: typography.fontSizes.xs,
+    color: colors.neutral.gray600,
+    width: 20,
+  },
+  ratingBar: {
+    flex: 1,
+    height: 6,
+    backgroundColor: colors.neutral.gray200,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  ratingBarFill: {
+    height: '100%',
+    backgroundColor: '#F59E0B',
+  },
+  ratingCount: {
+    fontSize: typography.fontSizes.xs,
+    color: colors.neutral.gray600,
+    width: 20,
+    textAlign: 'right',
+  },
+  ratingsFooter: {
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.neutral.gray200,
+  },
+  ratingsFooterText: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.neutral.gray500,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+
+  // Styles tablette pour avis
+  tabletRatingsRow: {
+    marginBottom: spacing.xl,
   },
 
   // Styles tablette pour livraisons

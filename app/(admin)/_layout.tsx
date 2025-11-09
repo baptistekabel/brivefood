@@ -113,12 +113,12 @@ export default function AdminTabLayout() {
       <Tabs.Screen
         name="analytics"
         options={{
-          title: 'Chiffres',
+          title: 'Statistiques',
           tabBarIcon: ({ color, focused, size }) => (
-            <Ionicons 
-              name={focused ? "stats-chart" : "stats-chart-outline"} 
-              size={focused ? size + 2 : size} 
-              color={color} 
+            <Ionicons
+              name={focused ? "stats-chart" : "stats-chart-outline"}
+              size={focused ? size + 2 : size}
+              color={color}
             />
           ),
         }}
@@ -170,6 +170,12 @@ export default function AdminTabLayout() {
         name="order-details"
         options={{
           href: null, // Cache cet écran des tabs - écran de détail
+        }}
+      />
+      <Tabs.Screen
+        name="reviews"
+        options={{
+          href: null, // Cache cet écran des tabs - accessible via les statistiques
         }}
       />
       </Tabs>

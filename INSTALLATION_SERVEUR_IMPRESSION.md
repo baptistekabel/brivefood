@@ -48,7 +48,7 @@
 1. **Trouver l'IP de votre imprimante** :
    - Sur votre Epson TM-M30III, maintenez le bouton **FEED**
    - Un ticket avec les infos réseau s'imprime
-   - Notez l'adresse IP (ex: `192.168.1.45`)
+   - Notez l'adresse IP (ex: `'192'.168.1.45`)
 
 2. **Configurer le fichier `.env`** :
    ```env

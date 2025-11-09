@@ -1,11 +1,23 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { OrderStatus } from '../types';
 import firebaseOrderSync from '../services/firebaseOrderSync';
 import notificationService from '../services/notificationService';
 import { registerCustomerForOrderNotifications } from '../services/customerNotificationService';
+import orderRatingService from '../services/orderRatingService';
+import { useOrders } from './OrdersContext';
 
 const ActiveOrderContext = createContext();
+
+// Variables globales pour les callbacks de rating
+let globalOrderStatusChangeCallback = null;
+let globalOrderRemovalCallback = null;
+
+// Fonctions pour définir les callbacks
+export const setOrderRatingCallbacks = (onStatusChange, onRemoval) => {
+  globalOrderStatusChangeCallback = onStatusChange;
+  globalOrderRemovalCallback = onRemoval;
+};
 
 export const useActiveOrder = () => {
   const context = useContext(ActiveOrderContext);
@@ -20,56 +32,109 @@ export const ActiveOrderProvider = ({ children }) => {
   const [pendingOrder, setPendingOrder] = useState(null);
   const [showConfirmationPopup, setShowConfirmationPopup] = useState(false);
 
+  // Utiliser le contexte Orders pour la synchronisation
+  const { orders } = useOrders();
+
+  // Ref pour garder une référence à jour de activeOrder dans le callback
+  const activeOrderRef = useRef(null);
+
+  // Mettre à jour la ref quand activeOrder change
+  useEffect(() => {
+    activeOrderRef.current = activeOrder;
+  }, [activeOrder]);
+
   // Charger la commande active depuis AsyncStorage au démarrage
   useEffect(() => {
     loadActiveOrder();
   }, []);
 
-  // Synchroniser le statut de la commande active avec Firebase
+  // Surveiller les changements de statut dans les commandes Firestore
   useEffect(() => {
-    if (!activeOrder) return;
+    if (!activeOrder || !orders || orders.length === 0) return;
 
-    // Écouter les changements de statut pour cette commande
-    const syncActiveOrderStatus = (allOrders) => {
-      if (!activeOrder || !allOrders || allOrders.length === 0) return;
+    console.log('🔄 [ActiveOrder] Vérification synchronisation avec', orders.length, 'commandes');
 
-      // Trouver la commande correspondante dans la liste Firebase
-      const updatedOrder = allOrders.find(order => order.id === activeOrder.id);
+    // Trouver la commande correspondante dans la liste Firestore
+    const updatedOrder = orders.find(order => order.id === activeOrder.id);
 
-      if (updatedOrder && updatedOrder.status !== activeOrder.status) {
-        console.log(`🔄 [ActiveOrder] Status sync: ${activeOrder.status} -> ${updatedOrder.status}`);
+    if (updatedOrder) {
+      console.log('🔄 [ActiveOrder] Commande trouvée:', updatedOrder.id, 'Statut local:', activeOrder.status, 'Statut Firebase:', updatedOrder.status);
 
-        // Mettre à jour le statut localement
-        setActiveOrder(prev => ({
-          ...prev,
-          status: updatedOrder.status
-        }));
+      if (updatedOrder.status !== activeOrder.status) {
+        console.log('🔄 [ActiveOrder] CHANGEMENT DE STATUT DÉTECTÉ:', activeOrder.status, '->', updatedOrder.status);
 
-        // Sauvegarder la mise à jour
-        saveActiveOrder({
+        const updatedActiveOrder = {
           ...activeOrder,
           status: updatedOrder.status
-        });
+        };
 
-        // Si la commande est terminée, la supprimer automatiquement après 3 secondes
-        if (updatedOrder.status === OrderStatus.DELIVERED) {
-          setTimeout(() => {
-            completeActiveOrder();
-          }, 3000);
+        setActiveOrder(updatedActiveOrder);
+        saveActiveOrder(updatedActiveOrder);
+
+        // Notifier le contexte de notation du changement de statut
+        if (globalOrderStatusChangeCallback) {
+          // Vérifier s'il y a une info de changement manuel stockée
+          const checkManualChange = async () => {
+            try {
+              const manualChangeData = await AsyncStorage.getItem(`@manual_status_change_${updatedOrder.id}`);
+              let isManualChange = false;
+              let shouldTriggerRating = false;
+
+              if (manualChangeData) {
+                const parsedData = JSON.parse(manualChangeData);
+                // Vérifier si c'est récent (dans les 30 secondes)
+                const isRecent = (Date.now() - parsedData.timestamp) < 30000;
+                isManualChange = isRecent && parsedData.newStatus === updatedOrder.status;
+                // Vérifier si c'est un statut terminé
+                const completedStatuses = [OrderStatus.DELIVERED, OrderStatus.READY];
+                const isCompletedStatus = completedStatuses.includes(updatedOrder.status);
+
+                shouldTriggerRating = isManualChange && parsedData.triggerRating && isCompletedStatus;
+
+                console.log('🔍 [ActiveOrder] Vérification changement manuel:');
+                console.log('  - Données stockées:', parsedData);
+                console.log('  - Est récent (<30s):', isRecent);
+                console.log('  - Statut correspond:', parsedData.newStatus === updatedOrder.status);
+                console.log('  - Statut actuel:', updatedOrder.status);
+                console.log('  - Est statut terminé:', isCompletedStatus);
+                console.log('  - isManualChange final:', isManualChange);
+                console.log('  - shouldTriggerRating final:', shouldTriggerRating);
+
+                // Nettoyer après utilisation
+                if (isManualChange) {
+                  await AsyncStorage.removeItem(`@manual_status_change_${updatedOrder.id}`);
+                }
+              }
+
+              const statusChangeMetadata = {
+                isManualChange,
+                shouldTriggerRating,
+                timestamp: new Date().toISOString()
+              };
+
+              console.log('🔄 [ActiveOrder] Callback avec métadonnées:', statusChangeMetadata);
+              globalOrderStatusChangeCallback(updatedActiveOrder, updatedOrder.status, statusChangeMetadata);
+            } catch (error) {
+              console.error('❌ Erreur vérification changement manuel:', error);
+              // Fallback sans métadonnées
+              globalOrderStatusChangeCallback(updatedActiveOrder, updatedOrder.status, { isManualChange: false });
+            }
+          };
+
+          checkManualChange();
         }
-      }
-    };
 
-    // Démarrer l'écoute
-    const listener = firebaseOrderSync.listenForAllOrders(syncActiveOrderStatus);
+        // Note: La gestion des notations est maintenant entièrement gérée par OrderRatingContext
+        // via le callback globalOrderStatusChangeCallback pour éviter la duplication
 
-    // Cleanup
-    return () => {
-      if (listener) {
-        firebaseOrderSync.stopListening('allOrders');
+        // Note: La suppression automatique de la commande est désactivée
+        // Le numéro de commande reste affiché pour permettre la notation
       }
-    };
-  }, [activeOrder?.id]); // Re-sync quand l'ID de la commande change
+    } else {
+      console.log('🔄 [ActiveOrder] Commande non trouvée dans Firebase:', activeOrder.id);
+    }
+  }, [orders, activeOrder?.id, activeOrder?.status]);
+
 
   // Sauvegarder la commande active dans AsyncStorage
   const saveActiveOrder = async (order) => {
@@ -122,10 +187,39 @@ export const ActiveOrderProvider = ({ children }) => {
     setShowConfirmationPopup(true);
 
     console.log('showConfirmationPopup should be true now');
+
+    // Créer automatiquement la commande active (pour éviter que le user oublie de cliquer)
+    setTimeout(async () => {
+      console.log('🚀 ActiveOrder: Création automatique de la commande active');
+      try {
+        const newActiveOrder = {
+          id: pendingOrderData.orderId,
+          customerName: pendingOrderData.customerName,
+          items: pendingOrderData.items,
+          total: pendingOrderData.total,
+          mode: pendingOrderData.mode,
+          address: pendingOrderData.address,
+          phone: pendingOrderData.phone,
+          paymentMethod: pendingOrderData.paymentMethod,
+          orderTime: pendingOrderData.orderTime,
+          orderDate: pendingOrderData.orderDate,
+          status: OrderStatus.PENDING,
+          createdAt: new Date().toISOString(),
+          estimatedTime: pendingOrderData.waitTime
+        };
+
+        console.log('🚀 ActiveOrder: Création automatique de la commande active:', newActiveOrder.id);
+        setActiveOrder(newActiveOrder);
+        await saveActiveOrder(newActiveOrder);
+      } catch (error) {
+        console.error('❌ Erreur création automatique commande active:', error);
+      }
+    }, 1000); // Attendre 1 seconde après la création de la pendingOrder
   };
 
   // Confirmer la commande en attente et créer la commande active
   const confirmPendingOrder = async () => {
+    console.log('🚀 ActiveOrder: confirmPendingOrder appelée avec pendingOrder:', pendingOrder?.orderId);
     if (!pendingOrder) return { success: false, error: 'No pending order' };
 
     try {
@@ -145,6 +239,7 @@ export const ActiveOrderProvider = ({ children }) => {
         estimatedTime: pendingOrder.waitTime
       };
 
+      console.log('🚀 ActiveOrder: Création de la commande active:', newActiveOrder.id);
       setActiveOrder(newActiveOrder);
       await saveActiveOrder(newActiveOrder);
 
@@ -208,9 +303,18 @@ export const ActiveOrderProvider = ({ children }) => {
   // Terminer la commande active (la supprimer de l'affichage)
   const completeActiveOrder = async () => {
     try {
+      const currentOrderId = activeOrder?.id;
+      console.log('🗑️ ActiveOrder: Suppression de la commande active:', currentOrderId);
+
       setActiveOrder(null);
       await saveActiveOrder(null);
 
+      // Notifier la suppression de la commande au contexte de notation
+      if (currentOrderId && globalOrderRemovalCallback) {
+        globalOrderRemovalCallback(currentOrderId);
+      }
+
+      console.log('✅ ActiveOrder: Commande active supprimée avec succès');
       return { success: true };
     } catch (error) {
       console.error('Error completing active order:', error);

@@ -21,15 +21,21 @@ import { colors, typography, spacing, borderRadius } from '../../src/constants/t
 import useFonts from '../../src/hooks/useFonts';
 import LoadingScreen from '../../src/components/common/LoadingScreen';
 import { useOrder } from '../../src/context/OrderContext';
+import { useOrderRating } from '../../src/context/OrderRatingContext';
+import restaurantStatusService from '../../src/services/restaurantStatusService';
+import orderRatingService from '../../src/services/orderRatingService';
+import firebaseRatingService from '../../src/services/firebaseRatingService';
 
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const fontsLoaded = useFonts();
   const { setOrderType } = useOrder();
+  const { triggerRatingRequest } = useOrderRating();
   const animatedValue = useRef(new Animated.Value(0)).current;
   const pulseValue = useRef(new Animated.Value(1)).current;
   const [isRestaurantOpen, setIsRestaurantOpen] = useState(true);
+  const [restaurantStatus, setRestaurantStatus] = useState(null);
   
   // Animations d'apparition pour les éléments
   const headerOpacity = useRef(new Animated.Value(0)).current;
@@ -113,20 +119,26 @@ export default function HomeScreen() {
     Linking.openURL(snapchatUrl);
   };
 
-  const checkRestaurantStatus = () => {
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinutes = now.getMinutes();
-    const currentTime = currentHour * 60 + currentMinutes;
-    
-    // Horaires: 18h00 - 1h55 du matin (1080 minutes - 115 minutes le lendemain)
-    const openTime = 18 * 60; // 18h00 en minutes
-    const closeTime = 1 * 60 + 55; // 1h55 en minutes
-    
-    // Ouvert si c'est après 18h00 OU avant 1h55 du matin
-    const isOpen = currentTime >= openTime || currentTime <= closeTime;
-    
-    setIsRestaurantOpen(isOpen);
+  const checkRestaurantStatus = async () => {
+    try {
+      const status = await restaurantStatusService.getStatus();
+      console.log('🏪 Client: Statut récupéré:', status);
+      setRestaurantStatus(status);
+      setIsRestaurantOpen(status.isOpen);
+    } catch (error) {
+      console.error('Erreur récupération statut restaurant:', error);
+      // Fallback sur l'ancien calcul en cas d'erreur
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinutes = now.getMinutes();
+      const currentTime = currentHour * 60 + currentMinutes;
+
+      const openTime = 18 * 60; // 18h00 en minutes
+      const closeTime = 1 * 60 + 55; // 1h55 en minutes
+
+      const isOpen = currentTime >= openTime || currentTime <= closeTime;
+      setIsRestaurantOpen(isOpen);
+    }
   };
 
   const getTimeUntilOpen = () => {
@@ -159,6 +171,12 @@ export default function HomeScreen() {
   };
 
   useEffect(() => {
+    // Initialiser le service de statut restaurant
+    const initializeStatusService = async () => {
+      await restaurantStatusService.initialize();
+      await checkRestaurantStatus();
+    };
+
     // Animation continue en arrière-plan
     const startBackgroundAnimation = () => {
       Animated.loop(
@@ -202,7 +220,7 @@ export default function HomeScreen() {
         const delay = Math.random() * 1000;
         // Durée plus lente entre 15 et 30 secondes
         const duration = 15000 + Math.random() * 15000;
-        
+
         setTimeout(() => {
           Animated.loop(
             Animated.timing(animValue, {
@@ -288,12 +306,25 @@ export default function HomeScreen() {
     startPulseAnimation();
     startFloatingEmojisAnimation();
     startEntranceAnimations();
-    checkRestaurantStatus();
-    
-    // Vérifier le statut toutes les minutes
+
+    // Initialiser le service et écouter les changements
+    initializeStatusService();
+
+    // Écouter les changements de statut en temps réel
+    const removeListener = restaurantStatusService.addStatusListener((newStatus, previousStatus) => {
+      console.log('🔔 Client: Notification statut reçue:', newStatus);
+      console.log('🔔 Client: Statut précédent:', previousStatus);
+      setRestaurantStatus(newStatus);
+      setIsRestaurantOpen(newStatus.isOpen);
+    });
+
+    // Vérifier le statut toutes les minutes comme backup
     const statusInterval = setInterval(checkRestaurantStatus, 60000);
-    
-    return () => clearInterval(statusInterval);
+
+    return () => {
+      clearInterval(statusInterval);
+      removeListener();
+    };
   }, []);
 
   if (!fontsLoaded) {
@@ -502,7 +533,7 @@ export default function HomeScreen() {
                     {isRestaurantOpen ? 'Ouvert maintenant' : 'Fermé'}
                   </Text>
                   <Text style={styles.statusSubtext}>
-                    {isRestaurantOpen ? 'Horaires: 18h00 - 1h55' : 'Ouvre à 18h00'}
+                    {restaurantStatus ? restaurantStatus.reason : (isRestaurantOpen ? 'Horaires: 18h00 - 1h55' : 'Ouvre à 18h00')}
                   </Text>
                 </View>
               </View>
@@ -652,6 +683,78 @@ export default function HomeScreen() {
           </View>
         </Animated.View>
 
+        {/* BOUTON TEST MODAL NOTATION */}
+        <View style={styles.testSection}>
+          <TouchableOpacity
+            style={styles.testButton}
+            onPress={() => {
+              console.log('🧪 TEST: Déclenchement modal notation');
+              const testOrderData = {
+                orderId: 'TEST-' + Date.now(),
+                customerName: 'Client Test',
+                total: 29.90,
+                orderDate: new Date().toLocaleDateString('fr-FR'),
+                orderTime: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+                completedAt: new Date().toISOString()
+              };
+
+              try {
+                triggerRatingRequest(testOrderData);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+              } catch (error) {
+                console.error('❌ Erreur test modal:', error);
+                Alert.alert('Erreur', 'Impossible de déclencher le modal de test');
+              }
+            }}
+          >
+            <LinearGradient
+              colors={['#FF6B35', '#F7931E']}
+              style={styles.testButtonGradient}
+            >
+              <Ionicons name="star" size={20} color="white" />
+              <Text style={styles.testButtonText}>TEST MODAL NOTATION</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          {/* Bouton debug avis */}
+          <TouchableOpacity
+            style={[styles.testButton, { marginTop: spacing.md }]}
+            onPress={async () => {
+              try {
+                console.log('🔍 DEBUG: Vérification des avis...');
+
+                // Test connexion Firebase
+                const connectionTest = await firebaseRatingService.testConnection();
+                console.log('🔗 Test connexion Firebase:', connectionTest);
+
+                // Vérifier avis locaux
+                const localRatings = await orderRatingService.getLocalRatings();
+                console.log('💾 Avis locaux:', localRatings.length, localRatings);
+
+                // Vérifier avis Firebase
+                const firebaseRatings = await firebaseRatingService.getAllRatings();
+                console.log('🔥 Avis Firebase:', firebaseRatings.length, firebaseRatings);
+
+                Alert.alert(
+                  'Debug Avis',
+                  `🔗 Firebase: ${connectionTest.success ? 'OK' : 'ERREUR'}\n💾 Local: ${localRatings.length} avis\n🔥 Firebase: ${firebaseRatings.length} avis\n\nVoir console pour détails`
+                );
+              } catch (error) {
+                console.error('❌ Erreur debug avis:', error);
+                Alert.alert('Erreur', 'Erreur lors de la vérification');
+              }
+            }}
+          >
+            <LinearGradient
+              colors={['#8B5CF6', '#A855F7']}
+              style={styles.testButtonGradient}
+            >
+              <Ionicons name="search" size={20} color="white" />
+              <Text style={styles.testButtonText}>DEBUG AVIS</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+
         {/* Réseaux sociaux */}
         <Animated.View
           style={[
@@ -699,6 +802,35 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         </Animated.View>
+
+        {/* Bouton de test pour le modal de notation */}
+        <View style={styles.testSection}>
+          <TouchableOpacity
+            style={styles.testButton}
+            onPress={() => {
+              console.log('🧪 [TEST] Déclenchement manuel du modal de notation');
+              const testOrderData = {
+                orderId: '00035',
+                customerName: 'Test Client',
+                total: 15.00,
+                orderDate: '20/10/2025',
+                orderTime: '16:00',
+                completedAt: new Date().toISOString()
+              };
+
+              triggerRatingRequest(testOrderData);
+            }}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#FF6B6B', '#FF8E8E']}
+              style={styles.testButtonGradient}
+            >
+              <Ionicons name="star" size={20} color={colors.neutral.white} />
+              <Text style={styles.testButtonText}>🧪 TEST MODAL NOTATION</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
 
       </ScrollView>
     </LinearGradient>
@@ -1582,6 +1714,35 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.sm,
     fontFamily: typography.fontFamily.medium,
     color: colors.neutral.gray600,
+  },
+
+  // Styles pour le bouton test modal notation
+  testSection: {
+    marginHorizontal: spacing.lg,
+    marginVertical: spacing.xl,
+  },
+  testButton: {
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    elevation: 5,
+    shadowColor: colors.neutral.black,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+  },
+  testButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+  },
+  testButtonText: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.white,
+    letterSpacing: 0.5,
   },
 
 });

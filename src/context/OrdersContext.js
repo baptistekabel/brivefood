@@ -197,10 +197,10 @@ export const OrdersProvider = ({ children }) => {
   };
 
   // Mettre à jour le statut d'une commande dans Firestore
-  const updateOrderStatus = async (orderId, newStatus) => {
+  const updateOrderStatus = async (orderId, newStatus, options = {}) => {
     try {
       console.log('=== UPDATING ORDER STATUS IN FIRESTORE ===');
-      console.log('Order ID:', orderId, 'New status:', newStatus);
+      console.log('Order ID:', orderId, 'New status:', newStatus, 'Options:', options);
 
       // Trouver la commande par son ID
       const orderToUpdate = orders.find(order => order.id === orderId);
@@ -208,11 +208,33 @@ export const OrdersProvider = ({ children }) => {
         throw new Error('Order not found or missing Firestore ID');
       }
 
-      // Mettre à jour dans Firestore
+      // Stocker temporairement l'info du changement manuel pour la synchronisation
+      if (options.manualStatusChange && options.triggerRating) {
+        console.log('🎯 [OrdersContext] Marquage changement manuel pour:', orderId);
+        // Stocker dans AsyncStorage temporairement
+        try {
+          const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+          await AsyncStorage.setItem(`@manual_status_change_${orderId}`, JSON.stringify({
+            orderId,
+            newStatus,
+            timestamp: Date.now(),
+            triggerRating: true
+          }));
+        } catch (error) {
+          console.error('❌ Erreur stockage changement manuel:', error);
+        }
+      }
+
+      // Mettre à jour dans Firestore avec les options
       const orderDoc = doc(db, 'orders', orderToUpdate.firestoreId);
       await updateDoc(orderDoc, {
         status: newStatus,
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
+        // Ajouter les métadonnées du changement
+        ...(options.manualStatusChange && {
+          lastStatusChangeType: 'manual',
+          manualStatusChangeAt: serverTimestamp()
+        })
       });
 
       console.log('✅ Order status updated in Firestore');

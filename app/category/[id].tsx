@@ -1370,25 +1370,32 @@ export default function CategoryScreen() {
 
             <View style={styles.commentModalButtons}>
               <TouchableOpacity
-                style={styles.commentCancelButton}
-                onPress={() => setCommentModalVisible(false)}
-              >
-                <Text style={styles.commentCancelText}>Annuler</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
                 style={styles.commentConfirmButton}
                 onPress={confirmAddToCart}
+                activeOpacity={0.9}
               >
                 <LinearGradient
-                  colors={[colors.primary.main, colors.primary.light]}
+                  colors={['#22C55E', '#16A34A', '#15803D']}
                   style={styles.commentConfirmGradient}
+                  start={{x: 0, y: 0}}
+                  end={{x: 1, y: 1}}
                 >
-                  <Ionicons name="cart" size={18} color={colors.neutral.white} />
+                  <Ionicons name="cart" size={20} color={colors.neutral.white} />
                   <Text style={styles.commentConfirmText}>
                     Ajouter au panier
                   </Text>
                 </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.commentCancelButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setCommentModalVisible(false);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.commentCancelText}>Annuler</Text>
               </TouchableOpacity>
             </View>
               </View>

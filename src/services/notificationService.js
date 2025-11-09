@@ -155,6 +155,10 @@ class NotificationService {
         this.badgeCount++;
       }
       this.updateBadgeCount();
+    } else if (data?.type === 'rating_request' || data?.type === 'rating_reminder') {
+      console.log('⭐ Notification de notation reçue:', data.orderId);
+      // La notification est affichée automatiquement
+      // Le clic sera géré dans handleNotificationResponse
     }
   }
 
@@ -166,6 +170,48 @@ class NotificationService {
       // Naviguer vers la page des commandes
       console.log('🔄 Navigation vers les commandes');
       // Vous pouvez ajouter ici la logique de navigation
+    } else if (data?.type === 'rating_request' || data?.type === 'rating_reminder') {
+      console.log('⭐ Clic sur notification de notation:', data.orderId);
+      // Déclencher l'ouverture du modal de notation
+      this.handleRatingNotificationClick(data);
+    }
+  }
+
+  // Gérer le clic sur une notification de notation
+  async handleRatingNotificationClick(notificationData) {
+    try {
+      console.log('🎯 Traitement clic notification notation:', notificationData.orderId);
+
+      // Importer dynamiquement le service et le contexte
+      const orderRatingService = (await import('./orderRatingService')).default;
+
+      // Vérifier si la commande est toujours en attente de notation
+      const isAlreadyRated = await orderRatingService.isOrderRated(notificationData.orderId);
+
+      if (!isAlreadyRated) {
+        // Récupérer les notations en attente
+        const pendingRatings = await orderRatingService.getPendingRatings();
+        const pendingOrder = pendingRatings.find(p => p.orderId === notificationData.orderId);
+
+        if (pendingOrder) {
+          console.log('✅ Commande trouvée en attente, ouverture modal notation');
+
+          // Déclencher l'ouverture du modal via un événement global
+          // On va utiliser AsyncStorage pour communiquer avec le contexte
+          await AsyncStorage.setItem('@rating_notification_clicked', JSON.stringify({
+            orderId: notificationData.orderId,
+            timestamp: Date.now()
+          }));
+
+          console.log('📝 Signal modal notation stocké dans AsyncStorage');
+        } else {
+          console.log('⚠️ Commande non trouvée dans les notations en attente');
+        }
+      } else {
+        console.log('⚠️ Commande déjà notée, pas d\'action nécessaire');
+      }
+    } catch (error) {
+      console.error('❌ Erreur traitement clic notification notation:', error);
     }
   }
 
@@ -187,6 +233,74 @@ class NotificationService {
       console.log('📨 Notification locale envoyée');
     } catch (error) {
       console.error('❌ Erreur lors de l\'envoi de la notification locale:', error);
+    }
+  }
+
+  // Envoyer une notification de demande de notation
+  async sendRatingNotification(orderData) {
+    try {
+      const title = '⭐ Notez votre commande';
+      const body = `Comment s'est passée votre commande #${orderData.id || orderData.orderId} ?`;
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+          data: {
+            type: 'rating_request',
+            orderId: orderData.id || orderData.orderId,
+            customerName: orderData.customerName,
+            total: orderData.total,
+            orderDate: orderData.orderDate,
+            orderTime: orderData.orderTime,
+          },
+          sound: true,
+          priority: Notifications.AndroidNotificationPriority.HIGH,
+          vibrate: [0, 250, 250, 250],
+          badge: this.badgeCount + 1,
+        },
+        trigger: null, // Envoyer immédiatement
+      });
+
+      this.badgeCount++;
+      console.log('⭐ Notification de notation envoyée pour commande:', orderData.id || orderData.orderId);
+    } catch (error) {
+      console.error('❌ Erreur lors de l\'envoi de la notification de notation:', error);
+    }
+  }
+
+  // Envoyer une notification de notation avec délai
+  async scheduleRatingNotification(orderData, delayInMinutes = 2) {
+    try {
+      const title = '⭐ Notez votre commande';
+      const body = `N'oubliez pas de noter votre commande #${orderData.id || orderData.orderId} !`;
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+          data: {
+            type: 'rating_reminder',
+            orderId: orderData.id || orderData.orderId,
+            customerName: orderData.customerName,
+            total: orderData.total,
+            orderDate: orderData.orderDate,
+            orderTime: orderData.orderTime,
+          },
+          sound: true,
+          priority: Notifications.AndroidNotificationPriority.DEFAULT,
+          vibrate: [0, 250, 250, 250],
+          badge: this.badgeCount + 1,
+        },
+        trigger: {
+          seconds: delayInMinutes * 60, // Convertir minutes en secondes
+        },
+      });
+
+      this.badgeCount++;
+      console.log(`⏰ Notification de notation programmée dans ${delayInMinutes} minutes pour commande:`, orderData.id || orderData.orderId);
+    } catch (error) {
+      console.error('❌ Erreur lors de la programmation de la notification de notation:', error);
     }
   }
 
@@ -379,6 +493,218 @@ class NotificationService {
     } catch (error) {
       console.error('❌ Erreur réseau lors de l\'enregistrement du token:', error);
       throw error;
+    }
+  }
+
+  // 🚨 NOUVELLE MÉTHODE : Notifier tous les admins d'un nouvel avis
+  async sendAdminNotification(notificationData) {
+    try {
+      console.log('📱 [NotificationService] Envoi notification admin:', notificationData);
+
+      // 1. Récupérer tous les tokens admin stockés
+      const adminTokens = await this.getAdminTokens();
+
+      if (adminTokens.length === 0) {
+        console.warn('⚠️ Aucun token admin trouvé');
+        return { success: false, reason: 'no_admin_tokens' };
+      }
+
+      // 2. Préparer le message de notification
+      const notification = {
+        title: notificationData.title || '⭐ Nouvel avis client',
+        body: notificationData.body || 'Un client vient de laisser un avis',
+        sound: 'default',
+        badge: 1,
+        data: {
+          type: 'admin_alert',
+          subtype: 'new_rating',
+          ...notificationData.data,
+          timestamp: new Date().toISOString(),
+          priority: 'high'
+        }
+      };
+
+      // 3. Envoyer à tous les admins
+      const sendPromises = adminTokens.map(async (tokenData) => {
+        try {
+          await this.sendPushNotification(tokenData.token, notification);
+          console.log(`✅ Notification envoyée à admin:`, tokenData.deviceType);
+          return { success: true, token: tokenData.token };
+        } catch (error) {
+          console.error(`❌ Erreur envoi à admin ${tokenData.token}:`, error);
+          return { success: false, token: tokenData.token, error: error.message };
+        }
+      });
+
+      const results = await Promise.all(sendPromises);
+      const successes = results.filter(r => r.success).length;
+
+      console.log(`📊 Notification admin: ${successes}/${adminTokens.length} envoyées`);
+
+      // 4. Envoyer aussi une notification locale si l'admin est sur l'app
+      try {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: notification.title,
+            body: notification.body,
+            sound: 'default',
+            data: notification.data
+          },
+          trigger: null, // Immédiatement
+        });
+      } catch (localError) {
+        console.warn('⚠️ Notification locale admin échouée:', localError);
+      }
+
+      return {
+        success: successes > 0,
+        sent: successes,
+        total: adminTokens.length,
+        results
+      };
+
+    } catch (error) {
+      console.error('❌ [NotificationService] Erreur notification admin:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // Récupérer tous les tokens admin
+  async getAdminTokens() {
+    try {
+      // Récupérer les tokens stockés localement
+      const offlineTokens = await AsyncStorage.getItem('@offline_tokens') || '[]';
+      const tokens = JSON.parse(offlineTokens);
+
+      // Filtrer seulement les tokens admin
+      const adminTokens = tokens.filter(t => t.userType === 'admin' && t.token);
+
+      // Ajouter le token courant si on est admin
+      const currentToken = await this.getPushToken();
+      if (currentToken) {
+        const currentExists = adminTokens.some(t => t.token === currentToken);
+        if (!currentExists) {
+          adminTokens.push({
+            token: currentToken,
+            deviceType: Platform.OS,
+            userType: 'admin',
+            timestamp: new Date().toISOString(),
+            current: true
+          });
+        }
+      }
+
+      console.log(`📋 [NotificationService] ${adminTokens.length} tokens admin trouvés`);
+      return adminTokens;
+
+    } catch (error) {
+      console.error('❌ [NotificationService] Erreur récupération tokens admin:', error);
+      return [];
+    }
+  }
+
+  // Envoyer une notification push via API
+  async sendPushNotification(token, notification) {
+    try {
+      // Utiliser l'API Expo Push Notifications
+      const message = {
+        to: token,
+        sound: 'default',
+        title: notification.title,
+        body: notification.body,
+        data: notification.data,
+        badge: notification.badge || 1,
+        priority: 'high',
+        channelId: 'admin-alerts'
+      };
+
+      const response = await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Accept-encoding': 'gzip, deflate',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(message),
+      });
+
+      const result = await response.json();
+
+      if (result.data && result.data[0] && result.data[0].status === 'ok') {
+        console.log('✅ Notification push envoyée avec succès');
+        return { success: true };
+      } else {
+        throw new Error(result.data[0]?.message || 'Échec envoi push');
+      }
+
+    } catch (error) {
+      console.error('❌ Erreur envoi notification push:', error);
+      throw error;
+    }
+  }
+
+  // 🚨 MÉTHODE SPÉCIALE : Notification critique pour les avis 5 étoiles
+  async sendCriticalRatingAlert(ratingData) {
+    try {
+      const isExcellent = ratingData.rating >= 5;
+      const isBad = ratingData.rating <= 2;
+
+      let title, body, priority;
+
+      if (isExcellent) {
+        title = '🌟 Avis 5 étoiles !';
+        body = `Excellent avis pour la commande #${ratingData.orderId}`;
+        priority = 'normal';
+      } else if (isBad) {
+        title = '🚨 Avis négatif';
+        body = `Avis ${ratingData.rating}/5 pour #${ratingData.orderId} - Action requise`;
+        priority = 'high';
+      } else {
+        title = '⭐ Nouvel avis';
+        body = `Avis ${ratingData.rating}/5 pour #${ratingData.orderId}`;
+        priority = 'normal';
+      }
+
+      return await this.sendAdminNotification({
+        title,
+        body,
+        data: {
+          type: 'rating_alert',
+          orderId: ratingData.orderId,
+          rating: ratingData.rating,
+          comment: ratingData.comment,
+          priority,
+          critical: isBad
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Erreur notification critique:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Nettoyer les anciens tokens admin
+  async cleanupAdminTokens() {
+    try {
+      const offlineTokens = await AsyncStorage.getItem('@offline_tokens') || '[]';
+      const tokens = JSON.parse(offlineTokens);
+
+      // Garder seulement les tokens des 7 derniers jours
+      const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+      const recentTokens = tokens.filter(t =>
+        new Date(t.timestamp).getTime() > sevenDaysAgo
+      );
+
+      await AsyncStorage.setItem('@offline_tokens', JSON.stringify(recentTokens));
+
+      console.log(`🧹 Nettoyage tokens: ${tokens.length - recentTokens.length} tokens supprimés`);
+
+    } catch (error) {
+      console.error('❌ Erreur nettoyage tokens:', error);
     }
   }
 

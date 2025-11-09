@@ -1,3 +1,4 @@
+import React, { useEffect } from 'react';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -14,10 +15,13 @@ import { AdminAuthProvider } from '../src/context/AdminAuthContext';
 import { DeliveryManagementProvider } from '../src/context/DeliveryManagementContext';
 import { DeliveryAuthProvider } from '../src/context/DeliveryAuthContext';
 import { ActiveOrderProvider } from '../src/context/ActiveOrderContext';
+import { OrderRatingProvider } from '../src/context/OrderRatingContext';
 import { colors } from '../src/constants/theme';
 import OrderThumbnail from '../src/components/common/OrderThumbnail';
 import ActiveOrderWidget from '../src/components/customer/ActiveOrderWidget';
+import OrderRatingManager from '../src/components/customer/OrderRatingManager';
 import useFonts from '../src/hooks/useFonts';
+import notificationService from '../src/services/notificationService';
 
 
 // Thème personnalisé
@@ -37,6 +41,19 @@ const BriveFoodTheme = {
 export default function RootLayout() {
   const fontsLoaded = useFonts();
 
+  // Initialiser les notifications au démarrage de l'app
+  useEffect(() => {
+    const initNotifications = async () => {
+      try {
+        await notificationService.initialize();
+        console.log('✅ Notifications initialisées dans RootLayout');
+      } catch (error) {
+        console.error('❌ Erreur initialisation notifications:', error);
+      }
+    };
+
+    initNotifications();
+  }, []);
 
   if (!fontsLoaded) {
     return (
@@ -54,7 +71,8 @@ export default function RootLayout() {
             <OrderProvider>
               <OrdersProvider>
                 <ActiveOrderProvider>
-                  <LoyaltyProvider>
+                  <OrderRatingProvider>
+                    <LoyaltyProvider>
                 <ThemeProvider value={BriveFoodTheme}>
             <View style={{ flex: 1, backgroundColor: '#000000' }}>
               <Stack>
@@ -93,10 +111,12 @@ export default function RootLayout() {
             </Stack>
             <OrderThumbnail />
             <ActiveOrderWidget />
+            <OrderRatingManager />
             <StatusBar style="auto" />
             </View>
             </ThemeProvider>
-                  </LoyaltyProvider>
+                    </LoyaltyProvider>
+                  </OrderRatingProvider>
                 </ActiveOrderProvider>
               </OrdersProvider>
             </OrderProvider>
