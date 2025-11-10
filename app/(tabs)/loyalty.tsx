@@ -29,11 +29,38 @@ export default function LoyaltyScreen() {
 
   const loyaltyData = userLoyaltyData;
 
-  // Animations
+  // Animations d'apparition
+  const headerAnimation = useRef({
+    opacity: new Animated.Value(0),
+    translateY: new Animated.Value(-30),
+    scale: new Animated.Value(0.9)
+  }).current;
+
+  const pointsCardAnimation = useRef({
+    opacity: new Animated.Value(0),
+    translateY: new Animated.Value(50),
+    scale: new Animated.Value(0.8)
+  }).current;
+
+  const progressSectionAnimation = useRef({
+    opacity: new Animated.Value(0),
+    translateX: new Animated.Value(-50)
+  }).current;
+
+  const infoSectionAnimation = useRef({
+    opacity: new Animated.Value(0),
+    translateY: new Animated.Value(30)
+  }).current;
+
+  // Animations existantes
   const pointsScale = useRef(new Animated.Value(1)).current;
   const progressAnimation = useRef(new Animated.Value(0)).current;
   const cardAnimations = useRef(
-    Array.from({ length: rewards.length }, () => new Animated.Value(0))
+    Array.from({ length: rewards.length }, () => ({
+      opacity: new Animated.Value(0),
+      translateY: new Animated.Value(40),
+      scale: new Animated.Value(0.9)
+    }))
   ).current;
 
   // Animations pour les emojis flottants (20 emojis de fidélité)
@@ -70,38 +97,128 @@ export default function LoyaltyScreen() {
   useEffect(() => {
     if (!fontsLoaded) return;
 
-    // Animation des points
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pointsScale, {
-          toValue: 1.05,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pointsScale, {
-          toValue: 1,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Animation de la barre de progression
-    Animated.timing(progressAnimation, {
-      toValue: Math.min(loyaltyData.currentPoints / loyaltyData.nextRewardAt, 1), // Progression vers le prochain objectif
-      duration: 1500,
-      useNativeDriver: false,
+    // Animation d'apparition de l'en-tête
+    Animated.timing(headerAnimation.opacity, {
+      toValue: 1,
+      duration: 800,
+      useNativeDriver: true,
     }).start();
 
-    // Animation des cartes avec délai
-    cardAnimations.forEach((animation, index) => {
-      Animated.timing(animation, {
+    Animated.timing(headerAnimation.translateY, {
+      toValue: 0,
+      duration: 800,
+      useNativeDriver: true,
+    }).start();
+
+    Animated.timing(headerAnimation.scale, {
+      toValue: 1,
+      duration: 800,
+      useNativeDriver: true,
+    }).start();
+
+    // Animation d'apparition de la carte points avec délai
+    setTimeout(() => {
+      Animated.timing(pointsCardAnimation.opacity, {
         toValue: 1,
         duration: 600,
-        delay: index * 150,
         useNativeDriver: true,
       }).start();
-    });
+
+      Animated.timing(pointsCardAnimation.translateY, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }).start();
+
+      Animated.timing(pointsCardAnimation.scale, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }).start();
+    }, 200);
+
+    // Animation d'apparition de la section progression avec délai
+    setTimeout(() => {
+      Animated.timing(progressSectionAnimation.opacity, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }).start();
+
+      Animated.timing(progressSectionAnimation.translateX, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }).start();
+    }, 400);
+
+    // Animation d'apparition de la section info avec délai
+    setTimeout(() => {
+      Animated.timing(infoSectionAnimation.opacity, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }).start();
+
+      Animated.timing(infoSectionAnimation.translateY, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }).start();
+    }, 600);
+
+    // Animation des points (existante)
+    setTimeout(() => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pointsScale, {
+            toValue: 1.05,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pointsScale, {
+            toValue: 1,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    }, 800);
+
+    // Animation de la barre de progression
+    setTimeout(() => {
+      Animated.timing(progressAnimation, {
+        toValue: Math.min(loyaltyData.currentPoints / loyaltyData.nextRewardAt, 1),
+        duration: 1500,
+        useNativeDriver: false,
+      }).start();
+    }, 800);
+
+    // Animation des cartes avec délai en cascade
+    setTimeout(() => {
+      cardAnimations.forEach((animation, index) => {
+        Animated.parallel([
+          Animated.timing(animation.opacity, {
+            toValue: 1,
+            duration: 600,
+            delay: index * 150,
+            useNativeDriver: true,
+          }),
+          Animated.timing(animation.translateY, {
+            toValue: 0,
+            duration: 600,
+            delay: index * 150,
+            useNativeDriver: true,
+          }),
+          Animated.timing(animation.scale, {
+            toValue: 1,
+            duration: 600,
+            delay: index * 150,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      });
+    }, 1000);
 
     // Démarrer l'animation des emojis flottants
     startFloatingEmojisAnimation();
@@ -254,18 +371,34 @@ export default function LoyaltyScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Header */}
-          <View style={styles.header}>
+          <Animated.View style={[
+            styles.header,
+            {
+              opacity: headerAnimation.opacity,
+              transform: [
+                { translateY: headerAnimation.translateY },
+                { scale: headerAnimation.scale }
+              ]
+            }
+          ]}>
             <Text style={styles.headerTitle}>Programme Fidélité</Text>
             <Text style={styles.headerSubtitle}>
               Gagnez des points à chaque commande !
             </Text>
-          </View>
+          </Animated.View>
 
           {/* Carte Points */}
           <Animated.View
             style={[
               styles.pointsCard,
-              { transform: [{ scale: pointsScale }] }
+              {
+                opacity: pointsCardAnimation.opacity,
+                transform: [
+                  { scale: pointsScale },
+                  { translateY: pointsCardAnimation.translateY },
+                  { scale: pointsCardAnimation.scale }
+                ]
+              }
             ]}
           >
             <LinearGradient
@@ -320,7 +453,13 @@ export default function LoyaltyScreen() {
           </Animated.View>
 
           {/* Barre de progression */}
-          <View style={styles.progressSection}>
+          <Animated.View style={[
+            styles.progressSection,
+            {
+              opacity: progressSectionAnimation.opacity,
+              transform: [{ translateX: progressSectionAnimation.translateX }]
+            }
+          ]}>
             <Text style={styles.progressTitle}>Progression vers la prochaine récompense</Text>
             <View style={styles.progressBarContainer}>
               <View style={styles.progressBar}>
@@ -341,7 +480,7 @@ export default function LoyaltyScreen() {
             <Text style={styles.progressHint}>
               1€ dépensé = 0,1 point • 10€ dépensés = 1 point de fidélité
             </Text>
-          </View>
+          </Animated.View>
 
           {/* Récompenses */}
           <View style={styles.rewardsSection}>
@@ -354,13 +493,15 @@ export default function LoyaltyScreen() {
                   style={[
                     styles.rewardCard,
                     {
-                      opacity: cardAnimations[index],
-                      transform: [{
-                        translateY: cardAnimations[index].interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [30, 0],
-                        })
-                      }]
+                      opacity: cardAnimations[index]?.opacity || 0,
+                      transform: [
+                        {
+                          translateY: cardAnimations[index]?.translateY || 40,
+                        },
+                        {
+                          scale: cardAnimations[index]?.scale || 0.9,
+                        }
+                      ]
                     }
                   ]}
                 >
@@ -451,7 +592,13 @@ export default function LoyaltyScreen() {
           </View>
 
           {/* Comment gagner des points */}
-          <View style={styles.infoSection}>
+          <Animated.View style={[
+            styles.infoSection,
+            {
+              opacity: infoSectionAnimation.opacity,
+              transform: [{ translateY: infoSectionAnimation.translateY }]
+            }
+          ]}>
             <Text style={styles.sectionTitle}>Comment gagner des points ?</Text>
             <View style={styles.infoCards}>
               <View style={styles.infoCard}>
@@ -469,7 +616,7 @@ export default function LoyaltyScreen() {
                 </View>
               </View>
             </View>
-          </View>
+          </Animated.View>
         </ScrollView>
       </LinearGradient>
     </View>

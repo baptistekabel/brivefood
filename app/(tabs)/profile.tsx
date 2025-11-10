@@ -30,8 +30,37 @@ export default function ProfileScreen() {
     const cleaned = phone.replace(/\D/g, '');
     return cleaned.replace(/(\d{2})(?=\d)/g, '$1 ');
   };
-  
+
   const [pushNotificationsEnabled, setPushNotificationsEnabled] = useState(false);
+
+  // Animations d'apparition
+  const headerAnimation = useRef({
+    opacity: new Animated.Value(0),
+    translateY: new Animated.Value(-30),
+    scale: new Animated.Value(0.9)
+  }).current;
+
+  const userCardAnimation = useRef({
+    opacity: new Animated.Value(0),
+    translateY: new Animated.Value(50),
+    scale: new Animated.Value(0.8)
+  }).current;
+
+  const menuSectionAnimation = useRef({
+    opacity: new Animated.Value(0),
+    translateX: new Animated.Value(-50)
+  }).current;
+
+  const notificationSectionAnimation = useRef({
+    opacity: new Animated.Value(0),
+    translateX: new Animated.Value(50)
+  }).current;
+
+  const logoutButtonAnimation = useRef({
+    opacity: new Animated.Value(0),
+    translateY: new Animated.Value(30),
+    scale: new Animated.Value(0.9)
+  }).current;
 
   // Vérifier le statut des notifications au chargement
   useEffect(() => {
@@ -92,13 +121,106 @@ export default function ProfileScreen() {
     Array.from({ length: 10 }, () => new Animated.Value(0))
   ).current;
 
-  // Animation des emojis flottants
+  // Animation des emojis flottants et animations d'apparition
   useEffect(() => {
+    if (!fontsLoaded) return;
+
+    // Animation d'apparition de l'en-tête
+    Animated.timing(headerAnimation.opacity, {
+      toValue: 1,
+      duration: 800,
+      useNativeDriver: true,
+    }).start();
+
+    Animated.timing(headerAnimation.translateY, {
+      toValue: 0,
+      duration: 800,
+      useNativeDriver: true,
+    }).start();
+
+    Animated.timing(headerAnimation.scale, {
+      toValue: 1,
+      duration: 800,
+      useNativeDriver: true,
+    }).start();
+
+    // Animation d'apparition de la carte utilisateur avec délai
+    setTimeout(() => {
+      Animated.timing(userCardAnimation.opacity, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }).start();
+
+      Animated.timing(userCardAnimation.translateY, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }).start();
+
+      Animated.timing(userCardAnimation.scale, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }).start();
+    }, 200);
+
+    // Animation d'apparition de la section menu avec délai
+    setTimeout(() => {
+      Animated.timing(menuSectionAnimation.opacity, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }).start();
+
+      Animated.timing(menuSectionAnimation.translateX, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }).start();
+    }, 400);
+
+    // Animation d'apparition de la section notifications avec délai
+    setTimeout(() => {
+      Animated.timing(notificationSectionAnimation.opacity, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }).start();
+
+      Animated.timing(notificationSectionAnimation.translateX, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }).start();
+    }, 600);
+
+    // Animation d'apparition du bouton déconnexion avec délai
+    setTimeout(() => {
+      Animated.timing(logoutButtonAnimation.opacity, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }).start();
+
+      Animated.timing(logoutButtonAnimation.translateY, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }).start();
+
+      Animated.timing(logoutButtonAnimation.scale, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }).start();
+    }, 800);
+
     const startFloatingEmojisAnimation = () => {
       floatingEmojis?.forEach((animValue, index) => {
         const delay = Math.random() * 1000;
         const duration = 15000 + Math.random() * 15000;
-        
+
         setTimeout(() => {
           Animated.loop(
             Animated.timing(animValue, {
@@ -112,7 +234,7 @@ export default function ProfileScreen() {
     };
 
     startFloatingEmojisAnimation();
-  }, []);
+  }, [fontsLoaded]);
 
   if (!fontsLoaded) {
     return <LoadingScreen />;
@@ -327,13 +449,31 @@ export default function ProfileScreen() {
       })}
       
       {/* Header */}
-      <View style={styles.header}>
+      <Animated.View style={[
+        styles.header,
+        {
+          opacity: headerAnimation.opacity,
+          transform: [
+            { translateY: headerAnimation.translateY },
+            { scale: headerAnimation.scale }
+          ]
+        }
+      ]}>
         <Text style={styles.headerTitle}>Mon Profil</Text>
-      </View>
+      </Animated.View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* User Info */}
-        <View style={styles.userCard}>
+        <Animated.View style={[
+          styles.userCard,
+          {
+            opacity: userCardAnimation.opacity,
+            transform: [
+              { translateY: userCardAnimation.translateY },
+              { scale: userCardAnimation.scale }
+            ]
+          }
+        ]}>
           <View style={styles.userInfo}>
             <View style={styles.userDetails}>
               <Text style={styles.userName}>{userProfile?.name || user?.displayName || 'Utilisateur'}</Text>
@@ -345,35 +485,56 @@ export default function ProfileScreen() {
               )}
             </View>
           </View>
-        </View>
+        </Animated.View>
 
 
         {/* Menu Principal */}
-        <View style={styles.section}>
+        <Animated.View style={[
+          styles.section,
+          {
+            opacity: menuSectionAnimation.opacity,
+            transform: [{ translateX: menuSectionAnimation.translateX }]
+          }
+        ]}>
           <Text style={styles.sectionTitle}>Mon Compte</Text>
           <View style={styles.menuCard}>
             {menuItems.map((item, index) => 
               renderMenuItem(item, index === menuItems.length - 1)
             )}
           </View>
-        </View>
+        </Animated.View>
 
         {/* Notifications */}
-        <View style={styles.section}>
+        <Animated.View style={[
+          styles.section,
+          {
+            opacity: notificationSectionAnimation.opacity,
+            transform: [{ translateX: notificationSectionAnimation.translateX }]
+          }
+        ]}>
           <Text style={styles.sectionTitle}>Notifications</Text>
           <View style={styles.menuCard}>
             {renderPushNotificationSetting()}
           </View>
-        </View>
+        </Animated.View>
 
 
         {/* Logout */}
-        <View style={styles.section}>
+        <Animated.View style={[
+          styles.section,
+          {
+            opacity: logoutButtonAnimation.opacity,
+            transform: [
+              { translateY: logoutButtonAnimation.translateY },
+              { scale: logoutButtonAnimation.scale }
+            ]
+          }
+        ]}>
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
             <Ionicons name="log-out-outline" size={20} color={colors.status.error} />
             <Text style={styles.logoutText}>Déconnexion</Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
 
         <View style={styles.bottomSpacer} />
       </ScrollView>

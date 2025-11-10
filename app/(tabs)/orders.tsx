@@ -27,14 +27,109 @@ export default function OrdersScreen() {
   const { orders } = useOrders();
   const { reorderItems } = useOrder();
   const [activeTab, setActiveTab] = useState('current');
+
+  // Animations d'apparition
+  const headerAnimation = useRef({
+    opacity: new Animated.Value(0),
+    translateY: new Animated.Value(-30)
+  }).current;
+
+  const tabsAnimation = useRef({
+    opacity: new Animated.Value(0),
+    scale: new Animated.Value(0.9)
+  }).current;
+
+  const orderAnimations = useRef(
+    Array.from({ length: 20 }, () => ({
+      opacity: new Animated.Value(0),
+      translateY: new Animated.Value(50),
+      scale: new Animated.Value(0.9)
+    }))
+  ).current;
   
   // Animations pour les emojis flottants
   const floatingEmojis = useRef(
     Array.from({ length: 12 }, () => new Animated.Value(0))
   ).current;
 
-  // Animation des emojis flottants
+  // Animations d'entrée et des emojis flottants
   useEffect(() => {
+    // Animation d'entrée du header
+    const animateHeaderEntrance = () => {
+      Animated.parallel([
+        Animated.timing(headerAnimation.opacity, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.spring(headerAnimation.translateY, {
+          toValue: 0,
+          tension: 80,
+          friction: 8,
+          useNativeDriver: true,
+        })
+      ]).start();
+    };
+
+    // Animation d'entrée des tabs
+    const animateTabsEntrance = () => {
+      Animated.parallel([
+        Animated.timing(tabsAnimation.opacity, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.spring(tabsAnimation.scale, {
+          toValue: 1,
+          tension: 100,
+          friction: 8,
+          useNativeDriver: true,
+        })
+      ]).start();
+    };
+
+    // Animation d'entrée des commandes en cascade
+    const animateOrdersEntrance = () => {
+      const animations = orderAnimations.map((orderAnim, index) =>
+        Animated.timing(orderAnim.opacity, {
+          toValue: 1,
+          duration: 600,
+          delay: index * 150, // Délai plus important pour un effet plus visible
+          useNativeDriver: true,
+        })
+      );
+
+      const translateAnimations = orderAnimations.map((orderAnim, index) =>
+        Animated.timing(orderAnim.translateY, {
+          toValue: 0,
+          duration: 800,
+          delay: index * 150,
+          useNativeDriver: true,
+        })
+      );
+
+      const scaleAnimations = orderAnimations.map((orderAnim, index) =>
+        Animated.spring(orderAnim.scale, {
+          toValue: 1,
+          delay: index * 150,
+          tension: 100,
+          friction: 8,
+          useNativeDriver: true,
+        })
+      );
+
+      Animated.parallel([
+        ...animations,
+        ...translateAnimations,
+        ...scaleAnimations
+      ]).start();
+    };
+
+    // Démarrer les animations d'entrée avec des délais échelonnés
+    setTimeout(animateHeaderEntrance, 200);
+    setTimeout(animateTabsEntrance, 600);
+    setTimeout(animateOrdersEntrance, 1000);
+
     const startFloatingEmojisAnimation = () => {
       floatingEmojis.forEach((animValue, index) => {
         const delay = Math.random() * 1000;
@@ -167,8 +262,48 @@ export default function OrdersScreen() {
     }
   };
 
-  const renderOrderItem = ({ item }) => (
-    <View style={styles.orderCard}>
+  const renderOrderItem = ({ item, index }) => {
+    // Animation pour cette commande
+    const orderAnim = orderAnimations[index] || {
+      opacity: new Animated.Value(1),
+      translateY: new Animated.Value(0),
+      scale: new Animated.Value(1)
+    };
+
+    return (
+      <Animated.View
+        style={[
+          {
+            opacity: orderAnim.opacity,
+            transform: [
+              { translateY: orderAnim.translateY },
+              { scale: orderAnim.scale }
+            ]
+          }
+        ]}
+      >
+        <TouchableOpacity
+          style={styles.orderCard}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            // Animation de feedback
+            Animated.sequence([
+              Animated.spring(orderAnim.scale, {
+                toValue: 0.98,
+                tension: 300,
+                friction: 10,
+                useNativeDriver: true,
+              }),
+              Animated.spring(orderAnim.scale, {
+                toValue: 1,
+                tension: 300,
+                friction: 10,
+                useNativeDriver: true,
+              })
+            ]).start();
+          }}
+          activeOpacity={0.9}
+        >
       <View style={styles.orderHeader}>
         <View style={styles.orderInfo}>
           <Text style={styles.orderNumber}>{item.orderNumber}</Text>
@@ -226,27 +361,61 @@ export default function OrdersScreen() {
           </TouchableOpacity>
         </View>
       )}
-    </View>
-  );
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
 
-  const renderEmptyState = () => (
-    <View style={styles.emptyState}>
-      <Ionicons 
-        name={activeTab === 'current' ? 'receipt-outline' : 'time-outline'} 
-        size={64} 
-        color='rgba(255, 255, 255, 0.6)' 
-      />
-      <Text style={styles.emptyTitle}>
-        {activeTab === 'current' ? 'Aucune commande en cours' : 'Aucun historique'}
-      </Text>
-      <Text style={styles.emptyMessage}>
-        {activeTab === 'current' 
-          ? 'Passez votre première commande depuis le menu' 
-          : 'Vos commandes précédentes apparaîtront ici'
-        }
-      </Text>
-    </View>
-  );
+  const renderEmptyState = () => {
+    const emptyAnimation = useRef({
+      opacity: new Animated.Value(0),
+      scale: new Animated.Value(0.8)
+    }).current;
+
+    // Animation d'apparition de l'état vide
+    useEffect(() => {
+      Animated.parallel([
+        Animated.timing(emptyAnimation.opacity, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.spring(emptyAnimation.scale, {
+          toValue: 1,
+          tension: 100,
+          friction: 8,
+          useNativeDriver: true,
+        })
+      ]).start();
+    }, [activeTab]);
+
+    return (
+      <Animated.View
+        style={[
+          styles.emptyState,
+          {
+            opacity: emptyAnimation.opacity,
+            transform: [{ scale: emptyAnimation.scale }]
+          }
+        ]}
+      >
+        <Ionicons
+          name={activeTab === 'current' ? 'receipt-outline' : 'time-outline'}
+          size={64}
+          color='rgba(255, 255, 255, 0.6)'
+        />
+        <Text style={styles.emptyTitle}>
+          {activeTab === 'current' ? 'Aucune commande en cours' : 'Aucun historique'}
+        </Text>
+        <Text style={styles.emptyMessage}>
+          {activeTab === 'current'
+            ? 'Passez votre première commande depuis le menu'
+            : 'Vos commandes précédentes apparaîtront ici'
+          }
+        </Text>
+      </Animated.View>
+    );
+  };
 
   const handleLogin = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -374,16 +543,61 @@ export default function OrdersScreen() {
       })}
       
       {/* Header */}
-      <View style={styles.header}>
+      <Animated.View
+        style={[
+          styles.header,
+          {
+            opacity: headerAnimation.opacity,
+            transform: [{ translateY: headerAnimation.translateY }]
+          }
+        ]}
+      >
         <Text style={styles.headerTitle}>Mes Commandes</Text>
         
         {/* Tabs */}
-        <View style={styles.tabsContainer}>
+        <Animated.View
+          style={[
+            styles.tabsContainer,
+            {
+              opacity: tabsAnimation.opacity,
+              transform: [{ scale: tabsAnimation.scale }]
+            }
+          ]}
+        >
           <TouchableOpacity
             style={[styles.tab, activeTab === 'current' && styles.activeTab]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setActiveTab('current');
+              // Réinitialiser et redémarrer les animations des commandes
+              setTimeout(() => {
+                orderAnimations.forEach((anim, index) => {
+                  anim.opacity.setValue(0);
+                  anim.translateY.setValue(50);
+                  anim.scale.setValue(0.9);
+
+                  setTimeout(() => {
+                    Animated.parallel([
+                      Animated.timing(anim.opacity, {
+                        toValue: 1,
+                        duration: 600,
+                        useNativeDriver: true,
+                      }),
+                      Animated.timing(anim.translateY, {
+                        toValue: 0,
+                        duration: 800,
+                        useNativeDriver: true,
+                      }),
+                      Animated.spring(anim.scale, {
+                        toValue: 1,
+                        tension: 100,
+                        friction: 8,
+                        useNativeDriver: true,
+                      })
+                    ]).start();
+                  }, index * 100);
+                });
+              }, 100);
             }}
           >
             <Text style={[styles.tabText, activeTab === 'current' && styles.activeTabText]}>
@@ -395,14 +609,43 @@ export default function OrdersScreen() {
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setActiveTab('history');
+              // Réinitialiser et redémarrer les animations des commandes
+              setTimeout(() => {
+                orderAnimations.forEach((anim, index) => {
+                  anim.opacity.setValue(0);
+                  anim.translateY.setValue(50);
+                  anim.scale.setValue(0.9);
+
+                  setTimeout(() => {
+                    Animated.parallel([
+                      Animated.timing(anim.opacity, {
+                        toValue: 1,
+                        duration: 600,
+                        useNativeDriver: true,
+                      }),
+                      Animated.timing(anim.translateY, {
+                        toValue: 0,
+                        duration: 800,
+                        useNativeDriver: true,
+                      }),
+                      Animated.spring(anim.scale, {
+                        toValue: 1,
+                        tension: 100,
+                        friction: 8,
+                        useNativeDriver: true,
+                      })
+                    ]).start();
+                  }, index * 100);
+                });
+              }, 100);
             }}
           >
             <Text style={[styles.tabText, activeTab === 'history' && styles.activeTabText]}>
               Historique
             </Text>
           </TouchableOpacity>
-        </View>
-      </View>
+        </Animated.View>
+      </Animated.View>
 
       {/* Orders List */}
       <FlatList

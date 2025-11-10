@@ -644,7 +644,7 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* Informations pratiques */}
-        <Animated.View 
+        <Animated.View
           style={[
             styles.infoSection,
             {
@@ -654,106 +654,43 @@ export default function HomeScreen() {
           ]}
         >
           <Text style={styles.sectionTitle}>Informations pratiques</Text>
-          
-          <View style={styles.infoCards}>
-            <TouchableOpacity style={styles.infoCard} onPress={openNavigation}>
-              <View style={styles.infoIconContainer}>
-                <Ionicons name="location-outline" size={24} color={colors.accent.main} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoTitle}>Adresse</Text>
-                <Text style={styles.infoText}>23 Bis Avenue Du Président Roosevelt</Text>
-                <Text style={styles.infoText}>Brive-La-Gaillarde, 19100</Text>
-                <Text style={styles.navigationHint}>Appuyez pour ouvrir la navigation</Text>
-              </View>
-              <Ionicons name="arrow-forward" size={20} color={colors.accent.main} style={styles.navigationArrow} />
+
+          <View style={styles.infoCardsRow}>
+            <TouchableOpacity style={styles.infoCardCompact} onPress={openNavigation}>
+              <LinearGradient
+                colors={['#10B981', '#059669']}
+                style={styles.infoCardGradient}
+              >
+                <View style={styles.infoIconBadge}>
+                  <Ionicons name="location" size={28} color="#FFFFFF" />
+                </View>
+                <View style={styles.infoTextContainer}>
+                  <Text style={styles.infoLabel}>Adresse</Text>
+                  <Text style={styles.infoSubtext}>23 Bis Av. Roosevelt</Text>
+                  <Text style={styles.infoSubtext}>Brive-La-Gaillarde</Text>
+                  <Text style={styles.infoHint}> </Text>
+                </View>
+              </LinearGradient>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.infoCard} onPress={callRestaurant}>
-              <View style={styles.infoIconContainer}>
-                <Ionicons name="call-outline" size={24} color={colors.accent.main} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoTitle}>Téléphone</Text>
-                <Text style={styles.infoText}>07 77 88 16 97</Text>
-                <Text style={styles.navigationHint}>Appuyez pour appeler BriveFood</Text>
-              </View>
-              <Ionicons name="arrow-forward" size={20} color={colors.accent.main} style={styles.navigationArrow} />
+            <TouchableOpacity style={styles.infoCardCompact} onPress={callRestaurant}>
+              <LinearGradient
+                colors={['#3B82F6', '#2563EB']}
+                style={styles.infoCardGradient}
+              >
+                <View style={styles.infoIconBadge}>
+                  <Ionicons name="call" size={28} color="#FFFFFF" />
+                </View>
+                <View style={styles.infoTextContainer}>
+                  <Text style={styles.infoLabel}>Téléphone</Text>
+                  <Text style={styles.infoMainText}>07 77 88 16 97</Text>
+                  <Text style={styles.infoHint}>service gratuit + coût de l'appel</Text>
+                </View>
+              </LinearGradient>
             </TouchableOpacity>
           </View>
         </Animated.View>
 
-        {/* BOUTON TEST MODAL NOTATION */}
-        <View style={styles.testSection}>
-          <TouchableOpacity
-            style={styles.testButton}
-            onPress={() => {
-              console.log('🧪 TEST: Déclenchement modal notation');
-              const testOrderData = {
-                orderId: 'TEST-' + Date.now(),
-                customerName: 'Client Test',
-                total: 29.90,
-                orderDate: new Date().toLocaleDateString('fr-FR'),
-                orderTime: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-                completedAt: new Date().toISOString()
-              };
-
-              try {
-                triggerRatingRequest(testOrderData);
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-              } catch (error) {
-                console.error('❌ Erreur test modal:', error);
-                Alert.alert('Erreur', 'Impossible de déclencher le modal de test');
-              }
-            }}
-          >
-            <LinearGradient
-              colors={['#FF6B35', '#F7931E']}
-              style={styles.testButtonGradient}
-            >
-              <Ionicons name="star" size={20} color="white" />
-              <Text style={styles.testButtonText}>TEST MODAL NOTATION</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-
-          {/* Bouton debug avis */}
-          <TouchableOpacity
-            style={[styles.testButton, { marginTop: spacing.md }]}
-            onPress={async () => {
-              try {
-                console.log('🔍 DEBUG: Vérification des avis...');
-
-                // Test connexion Firebase
-                const connectionTest = await firebaseRatingService.testConnection();
-                console.log('🔗 Test connexion Firebase:', connectionTest);
-
-                // Vérifier avis locaux
-                const localRatings = await orderRatingService.getLocalRatings();
-                console.log('💾 Avis locaux:', localRatings.length, localRatings);
-
-                // Vérifier avis Firebase
-                const firebaseRatings = await firebaseRatingService.getAllRatings();
-                console.log('🔥 Avis Firebase:', firebaseRatings.length, firebaseRatings);
-
-                Alert.alert(
-                  'Debug Avis',
-                  `🔗 Firebase: ${connectionTest.success ? 'OK' : 'ERREUR'}\n💾 Local: ${localRatings.length} avis\n🔥 Firebase: ${firebaseRatings.length} avis\n\nVoir console pour détails`
-                );
-              } catch (error) {
-                console.error('❌ Erreur debug avis:', error);
-                Alert.alert('Erreur', 'Erreur lors de la vérification');
-              }
-            }}
-          >
-            <LinearGradient
-              colors={['#8B5CF6', '#A855F7']}
-              style={styles.testButtonGradient}
-            >
-              <Ionicons name="search" size={20} color="white" />
-              <Text style={styles.testButtonText}>DEBUG AVIS</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
 
         {/* Réseaux sociaux */}
         <Animated.View
@@ -767,70 +704,47 @@ export default function HomeScreen() {
         >
           <Text style={styles.sectionTitle}>Suivez-nous</Text>
 
-          <View style={styles.socialCards}>
-            <TouchableOpacity style={styles.socialCard} onPress={openFacebook}>
-              <View style={styles.socialIconContainer}>
-                <Ionicons name="logo-facebook" size={24} color="#1877F2" />
-              </View>
-              <View style={styles.socialContent}>
-                <Text style={styles.socialTitle}>Facebook</Text>
-                <Text style={styles.socialText}>@Brive-Food</Text>
-              </View>
-              <Ionicons name="arrow-forward" size={20} color={colors.accent.main} style={styles.navigationArrow} />
+          <View style={styles.socialCardsRow}>
+            <TouchableOpacity style={styles.socialCardCompact} onPress={openFacebook}>
+              <LinearGradient
+                colors={['#1877F2', '#42A5F5']}
+                style={styles.socialCardGradient}
+              >
+                <View style={styles.socialIconBadge}>
+                  <Ionicons name="logo-facebook" size={32} color="#FFFFFF" />
+                </View>
+                <Text style={styles.socialLabel}>Facebook</Text>
+              </LinearGradient>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.socialCard} onPress={openInstagram}>
-              <View style={styles.socialIconContainer}>
-                <Ionicons name="logo-instagram" size={24} color="#E4405F" />
-              </View>
-              <View style={styles.socialContent}>
-                <Text style={styles.socialTitle}>Instagram</Text>
-                <Text style={styles.socialText}>@brivefood</Text>
-              </View>
-              <Ionicons name="arrow-forward" size={20} color={colors.accent.main} style={styles.navigationArrow} />
+            <TouchableOpacity style={styles.socialCardCompact} onPress={openInstagram}>
+              <LinearGradient
+                colors={['#E4405F', '#F56040', '#FFDC80']}
+                style={styles.socialCardGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <View style={styles.socialIconBadge}>
+                  <Ionicons name="logo-instagram" size={32} color="#FFFFFF" />
+                </View>
+                <Text style={styles.socialLabel}>Instagram</Text>
+              </LinearGradient>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.socialCard} onPress={openSnapchat}>
-              <View style={styles.socialIconContainer}>
-                <Ionicons name="logo-snapchat" size={24} color="#FFFC00" />
-              </View>
-              <View style={styles.socialContent}>
-                <Text style={styles.socialTitle}>Snapchat</Text>
-                <Text style={styles.socialText}>@brive-food</Text>
-              </View>
-              <Ionicons name="arrow-forward" size={20} color={colors.accent.main} style={styles.navigationArrow} />
+            <TouchableOpacity style={styles.socialCardCompact} onPress={openSnapchat}>
+              <LinearGradient
+                colors={['#FFFC00', '#FFE135']}
+                style={styles.socialCardGradient}
+              >
+                <View style={styles.socialIconBadge}>
+                  <Ionicons name="logo-snapchat" size={32} color="#FFFFFF" />
+                </View>
+                <Text style={styles.socialLabel}>Snapchat</Text>
+              </LinearGradient>
             </TouchableOpacity>
           </View>
         </Animated.View>
 
-        {/* Bouton de test pour le modal de notation */}
-        <View style={styles.testSection}>
-          <TouchableOpacity
-            style={styles.testButton}
-            onPress={() => {
-              console.log('🧪 [TEST] Déclenchement manuel du modal de notation');
-              const testOrderData = {
-                orderId: '00035',
-                customerName: 'Test Client',
-                total: 15.00,
-                orderDate: '20/10/2025',
-                orderTime: '16:00',
-                completedAt: new Date().toISOString()
-              };
-
-              triggerRatingRequest(testOrderData);
-            }}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={['#FF6B6B', '#FF8E8E']}
-              style={styles.testButtonGradient}
-            >
-              <Ionicons name="star" size={20} color={colors.neutral.white} />
-              <Text style={styles.testButtonText}>🧪 TEST MODAL NOTATION</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
 
       </ScrollView>
     </LinearGradient>
@@ -1546,45 +1460,81 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     textAlign: 'center',
   },
-  infoCards: {
+  infoCardsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     gap: spacing.md,
   },
-  infoCard: {
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    elevation: 4,
+  infoCardCompact: {
+    flex: 1,
+    borderRadius: borderRadius.xl,
+    overflow: 'hidden',
+    elevation: 8,
     shadowColor: colors.neutral.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
   },
-  infoIconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(251, 191, 36, 0.1)',
-    justifyContent: 'center',
+  infoCardGradient: {
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.md,
     alignItems: 'center',
-    marginRight: spacing.md,
-  },
-  infoContent: {
+    minHeight: 160,
+    justifyContent: 'space-between',
     flex: 1,
   },
-  infoTitle: {
+  infoIconBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  infoTextContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  infoLabel: {
     fontSize: typography.fontSizes.base,
     fontFamily: typography.fontFamily.bold,
-    color: colors.neutral.gray800,
-    marginBottom: spacing.xs / 2,
+    color: colors.neutral.white,
+    textAlign: 'center',
+    marginBottom: spacing.xs,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
-  infoText: {
-    fontSize: typography.fontSizes.sm,
+  infoSubtext: {
+    fontSize: typography.fontSizes.xs,
     fontFamily: typography.fontFamily.medium,
-    color: colors.neutral.gray600,
+    color: 'rgba(255, 255, 255, 0.9)',
+    textAlign: 'center',
+    lineHeight: typography.fontSizes.xs * 1.3,
   },
-  
+  infoMainText: {
+    fontSize: typography.fontSizes.lg,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.white,
+    textAlign: 'center',
+    marginBottom: spacing.xs,
+    letterSpacing: 1,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  infoHint: {
+    fontSize: typography.fontSizes.xs,
+    fontFamily: typography.fontFamily.medium,
+    color: 'rgba(255, 255, 255, 0.8)',
+    textAlign: 'center',
+    fontStyle: 'italic',
+    lineHeight: typography.fontSizes.xs * 1.2,
+  },
+
   // Styles pour les emojis flottants
   floatingEmoji: {
     position: 'absolute',
@@ -1592,16 +1542,6 @@ const styles = StyleSheet.create({
   },
   emojiText: {
     fontSize: 30,
-  },
-  navigationHint: {
-    fontSize: typography.fontSizes.xs,
-    fontFamily: typography.fontFamily.medium,
-    color: colors.accent.main,
-    fontStyle: 'italic',
-    marginTop: spacing.xs / 2,
-  },
-  navigationArrow: {
-    marginLeft: spacing.sm,
   },
 
   // Styles pour la promo simple et élégante
@@ -1677,72 +1617,48 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     marginBottom: spacing['2xl'],
   },
-  socialCards: {
-    gap: spacing.md,
-  },
-  socialCard: {
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
+  socialCardsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    elevation: 4,
-    shadowColor: colors.neutral.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    justifyContent: 'space-between',
+    gap: spacing.sm,
   },
-  socialIconContainer: {
+  socialCardCompact: {
+    flex: 1,
+    borderRadius: borderRadius.xl,
+    overflow: 'hidden',
+    elevation: 8,
+    shadowColor: colors.neutral.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+  },
+  socialCardGradient: {
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+    minHeight: 100,
+    justifyContent: 'center',
+  },
+  socialIconBadge: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
-  socialContent: {
-    flex: 1,
-  },
-  socialTitle: {
-    fontSize: typography.fontSizes.base,
-    fontFamily: typography.fontFamily.bold,
-    color: colors.neutral.gray800,
-    marginBottom: spacing.xs / 2,
-  },
-  socialText: {
+  socialLabel: {
     fontSize: typography.fontSizes.sm,
-    fontFamily: typography.fontFamily.medium,
-    color: colors.neutral.gray600,
-  },
-
-  // Styles pour le bouton test modal notation
-  testSection: {
-    marginHorizontal: spacing.lg,
-    marginVertical: spacing.xl,
-  },
-  testButton: {
-    borderRadius: borderRadius.lg,
-    overflow: 'hidden',
-    elevation: 5,
-    shadowColor: colors.neutral.black,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-  },
-  testButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
-  },
-  testButtonText: {
-    fontSize: typography.fontSizes.base,
     fontFamily: typography.fontFamily.bold,
     color: colors.neutral.white,
-    letterSpacing: 0.5,
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
+
 
 });

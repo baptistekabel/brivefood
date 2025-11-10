@@ -99,6 +99,21 @@ export default function MenuScreen() {
   const { orderType, getCurrentOrderType, getItemCount, orderTotal } = useOrder();
   const [selectedCategory, setSelectedCategory] = useState(null);
   const scrollY = useRef(new Animated.Value(0)).current;
+
+  // Animations d'apparition des cartes
+  const cardAnimations = useRef(
+    Array.from({ length: 20 }, () => ({
+      opacity: new Animated.Value(0),
+      translateY: new Animated.Value(50),
+      scale: new Animated.Value(0.8)
+    }))
+  ).current;
+
+  // Animation du header
+  const headerAnimation = useRef({
+    opacity: new Animated.Value(0),
+    translateY: new Animated.Value(-30)
+  }).current;
   
   // Animations pour les emojis flottants (15 emojis pour le menu)
   const floatingEmojis = useRef(
@@ -125,6 +140,64 @@ export default function MenuScreen() {
 
   // Animation des emojis flottants et des arrière-plans
   useEffect(() => {
+    // Animation d'entrée des cartes en cascade
+    const animateCardsEntrance = () => {
+      const animations = cardAnimations.map((cardAnim, index) =>
+        Animated.timing(cardAnim.opacity, {
+          toValue: 1,
+          duration: 600,
+          delay: index * 100, // Délai en cascade
+          useNativeDriver: true,
+        })
+      );
+
+      const translateAnimations = cardAnimations.map((cardAnim, index) =>
+        Animated.timing(cardAnim.translateY, {
+          toValue: 0,
+          duration: 800,
+          delay: index * 100,
+          useNativeDriver: true,
+        })
+      );
+
+      const scaleAnimations = cardAnimations.map((cardAnim, index) =>
+        Animated.spring(cardAnim.scale, {
+          toValue: 1,
+          delay: index * 100,
+          tension: 100,
+          friction: 8,
+          useNativeDriver: true,
+        })
+      );
+
+      Animated.parallel([
+        ...animations,
+        ...translateAnimations,
+        ...scaleAnimations
+      ]).start();
+    };
+
+    // Animation d'entrée du header
+    const animateHeaderEntrance = () => {
+      Animated.parallel([
+        Animated.timing(headerAnimation.opacity, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.spring(headerAnimation.translateY, {
+          toValue: 0,
+          tension: 80,
+          friction: 8,
+          useNativeDriver: true,
+        })
+      ]).start();
+    };
+
+    // Démarrer les animations d'entrée
+    setTimeout(animateHeaderEntrance, 200);
+    setTimeout(animateCardsEntrance, 600);
+
     // Animation des arrière-plans
     const startBackgroundAnimation = () => {
       Animated.loop(
@@ -548,11 +621,33 @@ export default function MenuScreen() {
   ];
 
 
-  const handleCategoryPress = (category) => {
+  const handleCategoryPress = (category, cardIndex) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelectedCategory(category.id);
-    // Navigation vers la liste des produits de cette catégorie
-    router.push(`/category/${category.id}`);
+
+    // Animation de rebond pour feedback visuel
+    const cardAnim = cardAnimations[cardIndex];
+    if (cardAnim) {
+      Animated.sequence([
+        Animated.spring(cardAnim.scale, {
+          toValue: 0.95,
+          tension: 300,
+          friction: 10,
+          useNativeDriver: true,
+        }),
+        Animated.spring(cardAnim.scale, {
+          toValue: 1,
+          tension: 300,
+          friction: 10,
+          useNativeDriver: true,
+        })
+      ]).start();
+    }
+
+    // Navigation vers la liste des produits de cette catégorie avec délai pour l'animation
+    setTimeout(() => {
+      router.push(`/category/${category.id}`);
+    }, 150);
   };
 
   const renderCategoryCard = (category, index) => {
@@ -563,13 +658,27 @@ export default function MenuScreen() {
     };
     const images = categoryImages[category.id] || [];
 
+    // Animation pour cette carte
+    const cardAnim = cardAnimations[index] || { opacity: new Animated.Value(1), translateY: new Animated.Value(0), scale: new Animated.Value(1) };
+
     return (
-      <TouchableOpacity
-        key={category.id}
-        style={[styles.categoryCard, cardStyle]}
-        onPress={() => handleCategoryPress(category)}
-        activeOpacity={0.9}
+      <Animated.View
+        style={[
+          {
+            opacity: cardAnim.opacity,
+            transform: [
+              { translateY: cardAnim.translateY },
+              { scale: cardAnim.scale }
+            ]
+          }
+        ]}
       >
+        <TouchableOpacity
+          key={category.id}
+          style={[styles.categoryCard, cardStyle]}
+          onPress={() => handleCategoryPress(category, index)}
+          activeOpacity={0.9}
+        >
         {/* Image de fond */}
         {images[0] && (
           <Image
@@ -671,7 +780,8 @@ export default function MenuScreen() {
             </View>
           </View>
         )}
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </Animated.View>
     );
   };
 
@@ -686,7 +796,11 @@ export default function MenuScreen() {
       <View style={styles.gridContainer}>
         {categoryPairs.map((pair, pairIndex) => (
           <View key={pairIndex} style={styles.categoryRow}>
-            {pair.map((category, index) => renderCategoryCard(category, index))}
+            {pair.map((category, index) => {
+              // Calculer l'index global pour l'animation
+              const globalIndex = pairIndex * 2 + index;
+              return renderCategoryCard(category, globalIndex);
+            })}
             {/* Si le nombre de catégories est impair, ajouter un espace vide */}
             {pair.length === 1 && <View style={styles.emptyCard} />}
           </View>
@@ -838,12 +952,14 @@ export default function MenuScreen() {
       })}
       
       {/* Header avec animation */}
-      <Animated.View 
+      <Animated.View
         style={[
           styles.header,
           {
-            opacity: headerOpacity,
-            transform: [{ translateY: headerTranslate }]
+            opacity: headerAnimation.opacity,
+            transform: [
+              { translateY: headerAnimation.translateY }
+            ]
           }
         ]}
       >

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Platform,
   ScrollView,
   Dimensions,
+  Animated,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -36,9 +37,143 @@ export default function LoginScreen() {
   const isLandscapeMode = isLandscape();
   const responsiveStyles = getResponsiveStyles();
 
+  // Animations pour le background (similaires à l'écran d'accueil)
+  const animatedValue = useRef(new Animated.Value(0)).current;
+
+  // Animations pour les emojis flottants (25 emojis)
+  const floatingEmojis = useRef(
+    Array.from({ length: 25 }, () => new Animated.Value(0))
+  ).current;
+
+  // Mémoriser les trajectoires pour éviter la réinitialisation lors des re-renders
+  const emojiTrajectories = useRef(
+    Array.from({ length: 25 }, (_, index) => {
+      const trajectoryType = index % 6;
+      const screenWidth = 400;
+      const screenHeight = 900;
+      let startX, endX, startY, endY;
+
+      const zone = Math.floor(index / 4);
+      const zoneWidth = screenWidth / 3;
+      const baseX = (zone % 3) * zoneWidth;
+
+      switch (trajectoryType) {
+        case 0:
+          startX = baseX + Math.random() * zoneWidth;
+          endX = startX + (Math.random() - 0.5) * 100;
+          startY = screenHeight + 100;
+          endY = -100;
+          break;
+        case 1:
+          startX = -100;
+          endX = screenWidth + 100;
+          startY = 300 + (index % 3) * 150;
+          endY = startY + (Math.random() - 0.5) * 200;
+          break;
+        case 2:
+          startX = screenWidth + 100;
+          endX = -100;
+          startY = 400 + (index % 3) * 100;
+          endY = startY + (Math.random() - 0.5) * 150;
+          break;
+        case 3:
+          startX = baseX + Math.random() * zoneWidth;
+          endX = startX + (Math.random() - 0.5) * 80;
+          startY = -100;
+          endY = screenHeight + 100;
+          break;
+        case 4:
+          startX = Math.random() * screenWidth;
+          endX = (startX + screenWidth / 2) % screenWidth;
+          startY = screenHeight + 100;
+          endY = -100;
+          break;
+        case 5:
+          startX = Math.random() * screenWidth;
+          endX = (startX + screenWidth / 3) % screenWidth;
+          startY = -100;
+          endY = screenHeight + 100;
+          break;
+        default:
+          startX = 0;
+          endX = 0;
+          startY = 0;
+          endY = 0;
+      }
+
+      return {
+        startX,
+        endX,
+        startY,
+        endY,
+        amplitude: 15 + (index % 4) * 12,
+        rotationSpeed: (index % 3 + 1) * 180
+      };
+    })
+  ).current;
+
+  useEffect(() => {
+    // Animation continue en arrière-plan
+    const startBackgroundAnimation = () => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(animatedValue, {
+            toValue: 1,
+            duration: 6000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(animatedValue, {
+            toValue: 0,
+            duration: 6000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    };
+
+    // Animation des emojis flottants avec trajectoires aléatoires
+    const startFloatingEmojisAnimation = () => {
+      floatingEmojis.forEach((animValue, index) => {
+        // Délai plus rapide pour étaler les démarrages
+        const delay = Math.random() * 1000;
+        // Durée plus lente entre 15 et 30 secondes
+        const duration = 15000 + Math.random() * 15000;
+
+        setTimeout(() => {
+          Animated.loop(
+            Animated.timing(animValue, {
+              toValue: 1,
+              duration: duration,
+              useNativeDriver: true,
+            })
+          ).start();
+        }, delay);
+      });
+    };
+
+    startBackgroundAnimation();
+    startFloatingEmojisAnimation();
+  }, []);
+
   if (!fontsLoaded) {
     return <LoadingScreen />;
   }
+
+  // Animations interpolées
+  const rotateAnimation = animatedValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
+  const scaleAnimation = animatedValue.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [1, 1.1, 1],
+  });
+
+  const opacityAnimation = animatedValue.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0.3, 0.8, 0.3],
+  });
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -88,11 +223,113 @@ export default function LoginScreen() {
   };
 
   return (
-    <LinearGradient
-      colors={['#000000', '#000000', '#000000']}
-      style={styles.container}
-    >
-      <StatusBar style="light" />
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#000000', '#111111', '#222222']}
+        style={styles.gradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <StatusBar style="light" />
+
+        {/* Animation d'arrière-plan */}
+        <Animated.View
+          style={[
+            styles.backgroundAnimation1,
+            {
+              transform: [
+                { rotate: rotateAnimation },
+                { scale: scaleAnimation }
+              ],
+              opacity: opacityAnimation
+            }
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.backgroundAnimation2,
+            {
+              transform: [
+                { rotate: rotateAnimation },
+                { scale: scaleAnimation }
+              ],
+              opacity: opacityAnimation
+            }
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.backgroundAnimation3,
+            {
+              transform: [
+                { rotate: rotateAnimation },
+                { scale: scaleAnimation }
+              ],
+              opacity: opacityAnimation
+            }
+          ]}
+        />
+
+        {/* Emojis flottants de fast food avec trajectoires variables et équilibrées */}
+        {floatingEmojis.map((animValue, index) => {
+          // Liste d'emojis de fast food uniquement
+          const fastFoodEmojis = ['🍔', '🍟', '🍕', '🌮', '🌭', '🥪', '🥙', '🍗', '🥓', '🍖', '🧀', '🥯', '🌯', '🧈', '🫓', '🧄', '🥒', '🍅', '🌶️', '🫒'];
+          const currentEmoji = fastFoodEmojis[index % fastFoodEmojis.length];
+
+          // Utiliser les trajectoires mémorisées
+          const trajectory = emojiTrajectories[index];
+
+          return (
+            <Animated.View
+              key={index}
+              style={[
+                styles.floatingEmoji,
+                {
+                  transform: [
+                    {
+                      translateY: animValue.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [trajectory.startY, trajectory.endY],
+                      }),
+                    },
+                    {
+                      translateX: animValue.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [trajectory.startX, trajectory.endX],
+                        extrapolate: 'clamp',
+                      }),
+                    },
+                    {
+                      translateX: animValue.interpolate({
+                        inputRange: [0, 0.2, 0.4, 0.6, 0.8, 1],
+                        outputRange: [0, trajectory.amplitude, -trajectory.amplitude/2, trajectory.amplitude/2, -trajectory.amplitude, 0],
+                        extrapolate: 'clamp',
+                      }),
+                    },
+                    {
+                      rotate: animValue.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['0deg', `${trajectory.rotationSpeed}deg`],
+                      }),
+                    },
+                    {
+                      scale: animValue.interpolate({
+                        inputRange: [0, 0.5, 1],
+                        outputRange: [0.8, 1.2, 0.8],
+                      }),
+                    },
+                  ],
+                  opacity: animValue.interpolate({
+                    inputRange: [0, 0.1, 0.9, 1],
+                    outputRange: [0, 0.5, 0.5, 0],
+                  }),
+                },
+              ]}
+            >
+              <Text style={styles.emojiText}>{currentEmoji}</Text>
+            </Animated.View>
+          );
+        })}
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -362,13 +599,52 @@ export default function LoginScreen() {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
-    </LinearGradient>
+      </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  gradient: {
+    flex: 1,
+  },
+  backgroundAnimation1: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    top: -50,
+    right: -50,
+  },
+  backgroundAnimation2: {
+    position: 'absolute',
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(255,191,36,0.1)',
+    top: '30%',
+    left: -75,
+  },
+  backgroundAnimation3: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    bottom: '20%',
+    right: -60,
+  },
+  // Styles pour les emojis flottants
+  floatingEmoji: {
+    position: 'absolute',
+    zIndex: -1,
+  },
+  emojiText: {
+    fontSize: 30,
   },
   keyboardView: {
     flex: 1,
