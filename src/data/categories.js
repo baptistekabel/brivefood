@@ -85,6 +85,12 @@ const categoryInfo = {
     color: '#F59E0B',
     gradient: ['#F59E0B', '#FBBF24'],
   },
+  [ProductCategory.BRUNCH]: {
+    name: 'Brunch',
+    emoji: '🥐',
+    color: '#F97316',
+    gradient: ['#F97316', '#FB923C'],
+  },
   [ProductCategory.TEX_MEX]: {
     name: 'Tex-Mex',
     emoji: '🔥',

@@ -32,7 +32,8 @@ export default function AdminAnalytics() {
   useEffect(() => {
     const loadRatingStats = async () => {
       try {
-        const stats = await orderRatingService.getRatingStats();
+        // Forcer Firebase côté admin pour avoir les vraies données
+        const stats = await orderRatingService.getRatingStats(true);
         setRatingStats(stats);
       } catch (error) {
         console.error('Erreur chargement stats avis:', error);
@@ -46,9 +47,9 @@ export default function AdminAnalytics() {
     setRefreshing(true);
     await refreshOrders();
 
-    // Recharger aussi les stats des avis
+    // Recharger aussi les stats des avis (forcer Firebase côté admin)
     try {
-      const stats = await orderRatingService.getRatingStats();
+      const stats = await orderRatingService.getRatingStats(true);
       setRatingStats(stats);
     } catch (error) {
       console.error('Erreur rechargement stats avis:', error);

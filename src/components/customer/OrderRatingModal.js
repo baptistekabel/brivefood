@@ -20,7 +20,6 @@ export default function OrderRatingModal({
   visible,
   orderData,
   onClose,
-  onForceClose,
   onSubmitRating
 }) {
   const [rating, setRating] = useState(0);
@@ -187,12 +186,6 @@ export default function OrderRatingModal({
     });
   };
 
-  // Fermeture d'urgence pour déblocage
-  const handleForceClose = () => {
-    console.log('🚨 FERMETURE FORCÉE DU MODAL DE NOTATION');
-    onForceClose && onForceClose();
-  };
-
   const getRatingText = (rating) => {
     switch (rating) {
       case 1: return 'Très déçu 😞';
@@ -250,33 +243,13 @@ export default function OrderRatingModal({
             colors={['#000000', '#111111', '#222222']}
             style={styles.header}
           >
-            <View style={styles.headerCloseButtons}>
-              <TouchableOpacity
-                style={[styles.closeButton, { backgroundColor: 'rgba(239, 68, 68, 0.3)' }]}
-                onPress={handleForceClose}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="trash" size={20} color={colors.neutral.white} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.closeButton, { backgroundColor: 'rgba(34, 197, 94, 0.3)' }]}
-                onPress={() => {
-                  console.log('🚨 FERMETURE FORCÉE IMMÉDIATE DU MODAL');
-                  setIsSubmitting(false);
-                  onClose && onClose();
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={{color: colors.neutral.white, fontSize: 10, fontWeight: 'bold'}}>FORCE</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={handleClose}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="close" size={24} color={colors.neutral.white} />
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={styles.headerCloseButton}
+              onPress={handleClose}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={24} color={colors.neutral.white} />
+            </TouchableOpacity>
 
             <View style={styles.headerContent}>
               <View style={styles.iconContainer}>
@@ -429,20 +402,17 @@ const styles = StyleSheet.create({
     position: 'relative',
     alignItems: 'center',
   },
-  headerCloseButtons: {
+  headerCloseButton: {
     position: 'absolute',
     top: spacing.lg,
     right: spacing.lg,
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  closeButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 10,
   },
   headerContent: {
     alignItems: 'center',

@@ -447,7 +447,8 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   customizationCategory: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.xs / 2,
+    marginTop: spacing.lg,
   },
   requiredLabel: {
     fontSize: typography.fontSizes.xs,
@@ -455,7 +456,7 @@ const styles = StyleSheet.create({
     color: '#000000',
     backgroundColor: 'rgba(0, 0, 0, 0.1)',
     paddingHorizontal: spacing.xs,
-    paddingVertical: spacing.xs / 2,
+    paddingVertical: 1,
     borderRadius: borderRadius.sm,
   },
   popularLabel: {
@@ -902,7 +903,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   customizationCategoryHeader: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.xs / 2,
   },
   customizationCategoryTitle: {
     fontSize: typography.fontSizes.base,
@@ -916,10 +917,19 @@ const styles = StyleSheet.create({
     color: colors.accent.main,
   },
   customizationCategorySubtitle: {
+    marginBottom: spacing.xs,
+  },
+  customizationCategorySubtitleText: {
     fontSize: typography.fontSizes.sm,
     fontFamily: typography.fontFamily.medium,
     color: colors.neutral.gray600,
+  },
+  customizationHelperText: {
+    fontSize: typography.fontSizes.xs,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray500,
     marginBottom: spacing.xs,
+    fontStyle: 'italic',
   },
   customizationRequired: {
     fontSize: typography.fontSizes.xs,

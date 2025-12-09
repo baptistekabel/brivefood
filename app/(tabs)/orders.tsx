@@ -1,11 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  ScrollView,
   Animated,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -17,26 +16,19 @@ import useFonts from '../../src/hooks/useFonts';
 import LoadingScreen from '../../src/components/common/LoadingScreen';
 import { useAuth } from '../../src/context/AuthContext';
 import { useOrders } from '../../src/context/OrdersContext';
-import { useOrder } from '../../src/context/OrderContext';
 import { colors, typography, spacing, borderRadius } from '../../src/constants/theme';
 import { OrderStatus, OrderMode } from '../../src/types';
+import ProductImage from '../../src/components/common/ProductImage';
 
 export default function OrdersScreen() {
   const fontsLoaded = useFonts();
-  const { user, isAuthenticated } = useAuth();
-  const { orders } = useOrders();
-  const { reorderItems } = useOrder();
-  const [activeTab, setActiveTab] = useState('current');
+  const { user, userProfile, isAuthenticated } = useAuth();
+  const { orders: allOrders } = useOrders();
 
   // Animations d'apparition
   const headerAnimation = useRef({
     opacity: new Animated.Value(0),
     translateY: new Animated.Value(-30)
-  }).current;
-
-  const tabsAnimation = useRef({
-    opacity: new Animated.Value(0),
-    scale: new Animated.Value(0.9)
   }).current;
 
   const orderAnimations = useRef(
@@ -46,7 +38,51 @@ export default function OrdersScreen() {
       scale: new Animated.Value(0.9)
     }))
   ).current;
-  
+
+  // Mémoriser les trajectoires des emojis pour éviter les réinitialisations
+  const emojiTrajectories = useRef(
+    Array.from({ length: 12 }, (_, index) => {
+      const trajectoryType = index % 4;
+      let startX, endX, startY, endY;
+
+      switch (trajectoryType) {
+        case 0:
+          startX = Math.random() * 300 - 50;
+          endX = startX + (Math.random() - 0.5) * 200;
+          startY = 900;
+          endY = -100;
+          break;
+        case 1:
+          startX = -100;
+          endX = 400;
+          startY = 200 + Math.random() * 400;
+          endY = startY + (Math.random() - 0.5) * 300;
+          break;
+        case 2:
+          startX = 400;
+          endX = -100;
+          startY = 300 + Math.random() * 300;
+          endY = startY + (Math.random() - 0.5) * 200;
+          break;
+        case 3:
+        default:
+          startX = Math.random() * 300 - 50;
+          endX = startX + (Math.random() - 0.5) * 150;
+          startY = -100;
+          endY = 900;
+          break;
+      }
+
+      return {
+        startX,
+        endX,
+        startY,
+        endY,
+        amplitude: 20 + (index % 3) * 15,
+      };
+    })
+  ).current;
+
   // Animations pour les emojis flottants
   const floatingEmojis = useRef(
     Array.from({ length: 12 }, () => new Animated.Value(0))
@@ -71,30 +107,13 @@ export default function OrdersScreen() {
       ]).start();
     };
 
-    // Animation d'entrée des tabs
-    const animateTabsEntrance = () => {
-      Animated.parallel([
-        Animated.timing(tabsAnimation.opacity, {
-          toValue: 1,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-        Animated.spring(tabsAnimation.scale, {
-          toValue: 1,
-          tension: 100,
-          friction: 8,
-          useNativeDriver: true,
-        })
-      ]).start();
-    };
-
     // Animation d'entrée des commandes en cascade
     const animateOrdersEntrance = () => {
       const animations = orderAnimations.map((orderAnim, index) =>
         Animated.timing(orderAnim.opacity, {
           toValue: 1,
           duration: 600,
-          delay: index * 150, // Délai plus important pour un effet plus visible
+          delay: index * 150,
           useNativeDriver: true,
         })
       );
@@ -127,14 +146,13 @@ export default function OrdersScreen() {
 
     // Démarrer les animations d'entrée avec des délais échelonnés
     setTimeout(animateHeaderEntrance, 200);
-    setTimeout(animateTabsEntrance, 600);
-    setTimeout(animateOrdersEntrance, 1000);
+    setTimeout(animateOrdersEntrance, 600);
 
     const startFloatingEmojisAnimation = () => {
       floatingEmojis.forEach((animValue, index) => {
         const delay = Math.random() * 1000;
         const duration = 15000 + Math.random() * 15000;
-        
+
         setTimeout(() => {
           Animated.loop(
             Animated.timing(animValue, {
@@ -154,28 +172,30 @@ export default function OrdersScreen() {
     return <LoadingScreen />;
   }
 
-  // Filtrer et adapter les commandes réelles par statut
-  const currentOrders = orders
-    .filter(order => 
-      order.status !== OrderStatus.DELIVERED && 
-      order.status !== OrderStatus.CANCELLED
-    )
-    .map(order => ({
-      ...order,
-      orderNumber: `#${order.id}`,
-      timestamp: new Date(order.createdAt),
-    }));
-
-  const orderHistory = orders
-    .filter(order => 
-      order.status === OrderStatus.DELIVERED || 
-      order.status === OrderStatus.CANCELLED
-    )
-    .map(order => ({
-      ...order,
-      orderNumber: `#${order.id}`,
-      timestamp: new Date(order.createdAt),
-    }));
+  // Filtrer les commandes de l'utilisateur connecté
+  const userOrders = allOrders.filter(order => {
+    // Filtrer par email
+    if (user?.email && order.customerEmail === user.email) return true;
+    // Ou par userId
+    if (user?.uid && order.userId === user.uid) return true;
+    // Ou par nom du client (pour les anciennes commandes sans email/userId)
+    if (userProfile?.name && order.customerName === userProfile.name) return true;
+    // Ou par prénom + nom
+    if (userProfile?.firstName && userProfile?.lastName) {
+      const fullName = `${userProfile.firstName} ${userProfile.lastName}`;
+      if (order.customerName === fullName) return true;
+    }
+    return false;
+  }).sort((a, b) => {
+    // Trier par date décroissante (plus récent en premier)
+    const dateA = new Date(a.createdAt || a.orderDate || 0);
+    const dateB = new Date(b.createdAt || b.orderDate || 0);
+    return dateB.getTime() - dateA.getTime();
+  }).map(order => ({
+    ...order,
+    orderNumber: `#${order.id}`,
+    timestamp: new Date(order.createdAt || order.orderDate),
+  }));
 
 
   const getStatusColor = (status) => {
@@ -183,9 +203,9 @@ export default function OrdersScreen() {
       case OrderStatus.PENDING:
         return colors.status.warning;
       case OrderStatus.CONFIRMED:
-        return '#000000';
+        return colors.secondary.main;
       case OrderStatus.PREPARING:
-        return '#000000';
+        return colors.secondary.main;
       case OrderStatus.READY:
         return colors.status.success;
       case OrderStatus.IN_DELIVERY:
@@ -228,18 +248,30 @@ export default function OrdersScreen() {
         return 'À emporter';
       case OrderMode.DELIVERY:
         return 'Livraison';
+      case 'takeaway':
+        return 'À emporter';
+      case 'dine_in':
+      case 'dine-in':
+        return 'Sur place';
+      case 'delivery':
+        return 'Livraison';
       default:
-        return mode;
+        return mode || 'Inconnu';
     }
   };
 
   const getModeIcon = (mode) => {
     switch (mode) {
       case OrderMode.DINE_IN:
+      case 'dine_in':
+      case 'dine-in':
         return 'restaurant-outline';
       case OrderMode.TAKEOUT:
+      case 'takeaway':
+      case 'takeout':
         return 'bag-outline';
       case OrderMode.DELIVERY:
+      case 'delivery':
         return 'bicycle-outline';
       default:
         return 'help-outline';
@@ -247,17 +279,19 @@ export default function OrdersScreen() {
   };
 
   const formatDate = (date) => {
+    if (!date) return '';
     const now = new Date();
-    const diffInDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+    const orderDate = new Date(date);
+    const diffInDays = Math.floor((now - orderDate) / (1000 * 60 * 60 * 24));
 
-    const time = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    const time = orderDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
     if (diffInDays === 0) {
       return `Aujourd'hui ${time}`;
     } else if (diffInDays === 1) {
       return `Hier ${time}`;
     } else {
-      const dateStr = date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+      const dateStr = orderDate.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
       return `${dateStr} ${time}`;
     }
   };
@@ -308,10 +342,10 @@ export default function OrdersScreen() {
         <View style={styles.orderInfo}>
           <Text style={styles.orderNumber}>{item.orderNumber}</Text>
           <View style={styles.orderMeta}>
-            <Ionicons 
-              name={getModeIcon(item.mode)} 
-              size={16} 
-              color={colors.neutral.gray600} 
+            <Ionicons
+              name={getModeIcon(item.mode)}
+              size={16}
+              color={colors.neutral.gray600}
             />
             <Text style={styles.orderMode}>{getModeText(item.mode)}</Text>
             {item.tableNumber && (
@@ -327,11 +361,23 @@ export default function OrdersScreen() {
       </View>
 
       <View style={styles.orderItems}>
-        {item.items.map((orderItem, index) => (
-          <View key={index} style={styles.orderItemRow}>
-            <Text style={styles.itemQuantity}>{orderItem.quantity}x</Text>
-            <Text style={styles.itemName}>{orderItem.name}</Text>
-            <Text style={styles.itemPrice}>{(orderItem.price * orderItem.quantity).toFixed(2)} €</Text>
+        {item.items?.map((orderItem, idx) => (
+          <View key={idx} style={styles.orderItemRow}>
+            <ProductImage
+              product={{
+                name: orderItem.name,
+                id: orderItem.id || orderItem.productId,
+                imageKey: orderItem.imageKey
+              }}
+              style={styles.itemImage}
+              resizeMode="cover"
+            />
+            <View style={styles.itemDetails}>
+              <Text style={styles.itemName}>{orderItem.name}</Text>
+              <Text style={styles.itemQuantityPrice}>
+                {orderItem.quantity}x · {((orderItem.price || 0) * orderItem.quantity).toFixed(2)} €
+              </Text>
+            </View>
           </View>
         ))}
       </View>
@@ -339,81 +385,30 @@ export default function OrdersScreen() {
       <View style={styles.orderFooter}>
         <View style={styles.orderTotal}>
           <Text style={styles.totalLabel}>Total: </Text>
-          <Text style={styles.totalAmount}>{item.total.toFixed(2)} €</Text>
+          <Text style={styles.totalAmount}>{(item.total || 0).toFixed(2)} €</Text>
         </View>
         <View style={styles.orderTime}>
           <Text style={styles.orderDate}>{formatDate(item.timestamp)}</Text>
         </View>
       </View>
-
-
-      {activeTab === 'history' && (
-        <View style={styles.orderActions}>
-          <TouchableOpacity 
-            style={styles.reorderButton}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              reorderItems(item);
-              router.push('/cart');
-            }}
-          >
-            <Text style={styles.reorderText}>Recommander</Text>
-          </TouchableOpacity>
-        </View>
-      )}
         </TouchableOpacity>
       </Animated.View>
     );
   };
 
   const renderEmptyState = () => {
-    const emptyAnimation = useRef({
-      opacity: new Animated.Value(0),
-      scale: new Animated.Value(0.8)
-    }).current;
-
-    // Animation d'apparition de l'état vide
-    useEffect(() => {
-      Animated.parallel([
-        Animated.timing(emptyAnimation.opacity, {
-          toValue: 1,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.spring(emptyAnimation.scale, {
-          toValue: 1,
-          tension: 100,
-          friction: 8,
-          useNativeDriver: true,
-        })
-      ]).start();
-    }, [activeTab]);
-
     return (
-      <Animated.View
-        style={[
-          styles.emptyState,
-          {
-            opacity: emptyAnimation.opacity,
-            transform: [{ scale: emptyAnimation.scale }]
-          }
-        ]}
-      >
+      <View style={styles.emptyState}>
         <Ionicons
-          name={activeTab === 'current' ? 'receipt-outline' : 'time-outline'}
+          name="receipt-outline"
           size={64}
           color='rgba(255, 255, 255, 0.6)'
         />
-        <Text style={styles.emptyTitle}>
-          {activeTab === 'current' ? 'Aucune commande en cours' : 'Aucun historique'}
-        </Text>
+        <Text style={styles.emptyTitle}>Aucune commande</Text>
         <Text style={styles.emptyMessage}>
-          {activeTab === 'current'
-            ? 'Passez votre première commande depuis le menu'
-            : 'Vos commandes précédentes apparaîtront ici'
-          }
+          Vos commandes apparaîtront ici
         </Text>
-      </Animated.View>
+      </View>
     );
   };
 
@@ -426,11 +421,11 @@ export default function OrdersScreen() {
   if (!isAuthenticated) {
     return (
       <LinearGradient
-        colors={['#000000', '#000000']}
+        colors={['#000000', '#111111', '#222222']}
         style={styles.container}
       >
         <StatusBar style="light" />
-        
+
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Mes Commandes</Text>
         </View>
@@ -443,7 +438,7 @@ export default function OrdersScreen() {
           </Text>
           <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
             <LinearGradient
-              colors={['#000000', '#000000']}
+              colors={[colors.secondary.main, colors.secondary.dark || '#E65100']}
               style={styles.loginButtonGradient}
             >
               <Text style={styles.loginButtonText}>Se connecter</Text>
@@ -454,56 +449,23 @@ export default function OrdersScreen() {
     );
   }
 
-  const currentData = activeTab === 'current' ? currentOrders : orderHistory;
-
   return (
     <LinearGradient
-      colors={['#000000', '#000000', '#000000']}
+      colors={['#000000', '#111111', '#222222']}
       style={styles.container}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
     >
       <StatusBar style="light" />
-      
+
       {/* Emojis flottants de fast food */}
       {floatingEmojis.map((animValue, index) => {
         const fastFoodEmojis = ['🍔', '🍟', '🍕', '🌮', '🌭', '🥪', '🥙', '🍗', '🥓', '🍖', '🧀', '🥯'];
         const currentEmoji = fastFoodEmojis[index % fastFoodEmojis.length];
-        
-        const trajectoryType = index % 4;
-        let startX, endX, startY, endY;
-        
-        switch (trajectoryType) {
-          case 0:
-            startX = Math.random() * 300 - 50;
-            endX = startX + (Math.random() - 0.5) * 200;
-            startY = 900;
-            endY = -100;
-            break;
-          case 1:
-            startX = -100;
-            endX = 400;
-            startY = 200 + Math.random() * 400;
-            endY = startY + (Math.random() - 0.5) * 300;
-            break;
-          case 2:
-            startX = 400;
-            endX = -100;
-            startY = 300 + Math.random() * 300;
-            endY = startY + (Math.random() - 0.5) * 200;
-            break;
-          case 3:
-            startX = Math.random() * 300 - 50;
-            endX = startX + (Math.random() - 0.5) * 150;
-            startY = -100;
-            endY = 900;
-            break;
-        }
-        
-        const amplitude = 20 + (index % 3) * 15;
-        
+        const trajectory = emojiTrajectories[index];
+
         return (
-          <Animated.View 
+          <Animated.View
             key={index}
             style={[
               styles.floatingEmoji,
@@ -512,20 +474,20 @@ export default function OrdersScreen() {
                   {
                     translateY: animValue.interpolate({
                       inputRange: [0, 1],
-                      outputRange: [startY, endY],
+                      outputRange: [trajectory.startY, trajectory.endY],
                     }),
                   },
                   {
                     translateX: animValue.interpolate({
                       inputRange: [0, 1],
-                      outputRange: [startX, endX],
+                      outputRange: [trajectory.startX, trajectory.endX],
                       extrapolate: 'clamp',
                     }),
                   },
                   {
                     translateX: animValue.interpolate({
                       inputRange: [0, 0.25, 0.5, 0.75, 1],
-                      outputRange: [0, amplitude, 0, -amplitude, 0],
+                      outputRange: [0, trajectory.amplitude, 0, -trajectory.amplitude, 0],
                       extrapolate: 'clamp',
                     }),
                   },
@@ -541,7 +503,7 @@ export default function OrdersScreen() {
           </Animated.View>
         );
       })}
-      
+
       {/* Header */}
       <Animated.View
         style={[
@@ -553,109 +515,17 @@ export default function OrdersScreen() {
         ]}
       >
         <Text style={styles.headerTitle}>Mes Commandes</Text>
-        
-        {/* Tabs */}
-        <Animated.View
-          style={[
-            styles.tabsContainer,
-            {
-              opacity: tabsAnimation.opacity,
-              transform: [{ scale: tabsAnimation.scale }]
-            }
-          ]}
-        >
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'current' && styles.activeTab]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setActiveTab('current');
-              // Réinitialiser et redémarrer les animations des commandes
-              setTimeout(() => {
-                orderAnimations.forEach((anim, index) => {
-                  anim.opacity.setValue(0);
-                  anim.translateY.setValue(50);
-                  anim.scale.setValue(0.9);
-
-                  setTimeout(() => {
-                    Animated.parallel([
-                      Animated.timing(anim.opacity, {
-                        toValue: 1,
-                        duration: 600,
-                        useNativeDriver: true,
-                      }),
-                      Animated.timing(anim.translateY, {
-                        toValue: 0,
-                        duration: 800,
-                        useNativeDriver: true,
-                      }),
-                      Animated.spring(anim.scale, {
-                        toValue: 1,
-                        tension: 100,
-                        friction: 8,
-                        useNativeDriver: true,
-                      })
-                    ]).start();
-                  }, index * 100);
-                });
-              }, 100);
-            }}
-          >
-            <Text style={[styles.tabText, activeTab === 'current' && styles.activeTabText]}>
-              En cours
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'history' && styles.activeTab]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setActiveTab('history');
-              // Réinitialiser et redémarrer les animations des commandes
-              setTimeout(() => {
-                orderAnimations.forEach((anim, index) => {
-                  anim.opacity.setValue(0);
-                  anim.translateY.setValue(50);
-                  anim.scale.setValue(0.9);
-
-                  setTimeout(() => {
-                    Animated.parallel([
-                      Animated.timing(anim.opacity, {
-                        toValue: 1,
-                        duration: 600,
-                        useNativeDriver: true,
-                      }),
-                      Animated.timing(anim.translateY, {
-                        toValue: 0,
-                        duration: 800,
-                        useNativeDriver: true,
-                      }),
-                      Animated.spring(anim.scale, {
-                        toValue: 1,
-                        tension: 100,
-                        friction: 8,
-                        useNativeDriver: true,
-                      })
-                    ]).start();
-                  }, index * 100);
-                });
-              }, 100);
-            }}
-          >
-            <Text style={[styles.tabText, activeTab === 'history' && styles.activeTabText]}>
-              Historique
-            </Text>
-          </TouchableOpacity>
-        </Animated.View>
       </Animated.View>
 
       {/* Orders List */}
       <FlatList
-        data={currentData}
+        data={userOrders}
         renderItem={renderOrderItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.id || item.firestoreId}
         style={styles.ordersList}
         contentContainerStyle={[
           styles.ordersContainer,
-          currentData.length === 0 && styles.emptyContainer
+          userOrders.length === 0 && styles.emptyContainer
         ]}
         ListEmptyComponent={renderEmptyState}
         showsVerticalScrollIndicator={false}
@@ -677,31 +547,7 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.xl,
     fontFamily: typography.fontFamily.title,
     color: colors.neutral.white,
-    marginBottom: spacing.lg,
     textAlign: 'center',
-  },
-  tabsContainer: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: borderRadius.lg,
-    padding: spacing.xs,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-    borderRadius: borderRadius.md,
-  },
-  activeTab: {
-    backgroundColor: colors.neutral.white,
-  },
-  tabText: {
-    fontSize: typography.fontSizes.base,
-    fontFamily: typography.fontFamily.medium,
-    color: colors.neutral.white,
-  },
-  activeTabText: {
-    color: '#000000',
   },
   ordersList: {
     flex: 1,
@@ -765,28 +611,35 @@ const styles = StyleSheet.create({
   },
   orderItems: {
     marginBottom: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.neutral.gray100,
+    paddingTop: spacing.md,
   },
   orderItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
   },
-  itemQuantity: {
-    fontSize: typography.fontSizes.sm,
-    fontFamily: typography.fontFamily.medium,
-    color: '#000000',
-    width: 30,
+  itemImage: {
+    width: 50,
+    height: 50,
+    borderRadius: borderRadius.md,
+    marginRight: spacing.sm,
+    backgroundColor: colors.neutral.gray100,
+  },
+  itemDetails: {
+    flex: 1,
   },
   itemName: {
-    flex: 1,
     fontSize: typography.fontSizes.sm,
-    color: colors.neutral.gray700,
-    marginLeft: spacing.sm,
-  },
-  itemPrice: {
-    fontSize: typography.fontSizes.sm,
-    fontFamily: typography.fontFamily.medium,
+    fontFamily: typography.fontFamily.semibold,
     color: colors.neutral.gray800,
+    marginBottom: 2,
+  },
+  itemQuantityPrice: {
+    fontSize: typography.fontSizes.xs,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray500,
   },
   orderFooter: {
     flexDirection: 'row',
@@ -807,7 +660,7 @@ const styles = StyleSheet.create({
   totalAmount: {
     fontSize: typography.fontSizes.lg,
     fontFamily: typography.fontFamily.bold,
-    color: '#000000',
+    color: colors.secondary.main,
   },
   orderTime: {
     alignItems: 'flex-end',
@@ -816,22 +669,6 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.xs,
     color: colors.neutral.gray500,
     marginTop: spacing.xs,
-  },
-  orderActions: {
-    marginTop: spacing.md,
-  },
-  reorderButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: '#000000',
-    alignItems: 'center',
-  },
-  reorderText: {
-    fontSize: typography.fontSizes.base,
-    fontFamily: typography.fontFamily.medium,
-    color: '#000000',
   },
   emptyState: {
     alignItems: 'center',
@@ -859,13 +696,13 @@ const styles = StyleSheet.create({
   loginTitle: {
     fontSize: typography.fontSizes.xl,
     fontFamily: typography.fontFamily.semibold,
-    color: colors.neutral.gray800,
+    color: colors.neutral.white,
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
   },
   loginMessage: {
     fontSize: typography.fontSizes.base,
-    color: colors.neutral.gray600,
+    color: 'rgba(255, 255, 255, 0.8)',
     textAlign: 'center',
     lineHeight: typography.lineHeights.normal * typography.fontSizes.base,
     marginBottom: spacing.xl,
@@ -883,7 +720,7 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.semibold,
     color: colors.neutral.white,
   },
-  
+
   // Styles pour les emojis flottants
   floatingEmoji: {
     position: 'absolute',

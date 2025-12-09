@@ -2378,6 +2378,7 @@ const productsByCategory = {
         reviews: 54,
         popular: false,
         customizable: true,
+        image: 'MenuKidss',
         customizationOptions: {
           plat: {
             title: 'Choix du plat',
@@ -2386,6 +2387,62 @@ const productsByCategory = {
             options: [
               { name: 'Cheeseburger', price: 0.00 },
               { name: 'Nuggets', price: 0.00 }
+            ]
+          }
+        }
+      },
+    ],
+    [ProductCategory.BRUNCH]: [
+      {
+        id: 'menu-brunch',
+        name: 'Menu Brunch',
+        description: '1 boisson + 1 recette salée + 1 dessert au choix',
+        price: 16.00,
+        rating: 95,
+        reviews: 48,
+        popular: true,
+        customizable: true,
+        image: productImages.brunch,
+        customizationOptions: {
+          boisson: {
+            title: 'Choisissez votre boisson',
+            required: true,
+            multiSelect: false,
+            options: [
+              { name: 'Jus d\'orange', price: 0.00 },
+              { name: 'Jus de fraise', price: 0.00 },
+              { name: 'Jus de citron', price: 0.00 },
+              { name: 'Jus de mangue', price: 0.00 },
+              { name: 'Café allongé', price: 0.00 },
+              { name: 'Chocolat au lait', price: 0.00 }
+            ]
+          },
+          recetteSalee: {
+            title: 'Choisissez votre recette salée',
+            required: true,
+            multiSelect: false,
+            options: [
+              { name: 'Toast poulet Boursin', price: 0.00 },
+              { name: 'Toast tomates burrata pesto', price: 2.00 },
+              { name: 'Gaufres poulet Boursin', price: 0.00 },
+              { name: 'Toast saumon', price: 2.00 }
+            ]
+          },
+          dessert: {
+            title: 'Choisissez votre dessert',
+            required: true,
+            multiSelect: false,
+            options: [
+              { name: 'Pancake topping Nutella', price: 0.00 },
+              { name: 'Pancake topping caramel', price: 0.00 },
+              { name: 'Pancake crème de speculoos', price: 0.00 },
+              { name: 'Pancake topping miel', price: 0.00 },
+              { name: 'Gaufre topping Nutella', price: 0.00 },
+              { name: 'Gaufre topping caramel', price: 0.00 },
+              { name: 'Gaufre crème de speculoos', price: 0.00 },
+              { name: 'Gaufre topping miel', price: 0.00 },
+              { name: 'En-cas fromage blanc musli + fruit', price: 0.00 },
+              { name: 'Tiramisu du moment', price: 0.00 }
             ]
           }
         }
@@ -3183,6 +3240,16 @@ const productsByCategory = {
         image: productImages.cocaCherry,
       },
       {
+        id: 'jus-bissap',
+        name: 'Jus de bissap',
+        description: 'Jus de fleurs d\'hibiscus.',
+        price: 2.00,
+        rating: null,
+        reviews: 0,
+        popular: false,
+        image: productImages.bissap,
+      },
+      {
         id: 'bouteille-cocacola-125',
         name: 'Bouteille Coca-cola 1.25 L',
         description: '',
@@ -3759,16 +3826,16 @@ const productsByCategory = {
         id: 'bowl-custom',
         name: 'Bowl',
         description: 'Bowl personnalisable avec taille et viandes au choix',
-        price: 10.50,
+        price: 8.00,
         rating: null,
         reviews: 0,
         popular: true,
         customizable: true,
+        image: productImages.bowls,
         sizes: {
-          'M': { name: 'M (1 viande)', price: 10.50 },
-          'L': { name: 'L (2 viandes)', price: 13.50 },
-          'XL': { name: 'XL (3 viandes)', price: 15.50 },
-          'XXL': { name: 'XXL (4 viandes)', price: 18.50 }
+          'M': { name: 'M (1 viande)', price: 8.00 },
+          'L': { name: 'L (2 viandes)', price: 10.00 },
+          'XL': { name: 'XL (3 viandes)', price: 12.00 }
         },
         customizationOptions: {
           viandes: {

@@ -1,10 +1,11 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
+import epsonBluetoothService from './EpsonBluetoothService';
 
 class PrinterService {
   constructor() {
-    this.printerName = 'Epson TM-M30III';
+    this.printerName = 'Epson TM-M30II';
     this.isConnected = false;
   }
 
@@ -600,19 +601,36 @@ class PrinterService {
     }
   }
 
-  // Impression manuelle avec choix d'imprimante
+  // Impression manuelle - directement sur l'imprimante Bluetooth
   async printManually(order) {
-    console.log('📱 Démarrage impression manuelle...');
-    console.log('👤 L\'utilisateur va choisir son imprimante');
+    console.log('🖨️ Impression directe sur imprimante Bluetooth...');
 
     try {
-      // Vérifier que l'impression est disponible
-      const isAvailable = await Print.isAvailableAsync();
-      if (!isAvailable) {
-        throw new Error('Service d\'impression non disponible sur cet appareil');
+      // PRIORITÉ 1: Imprimante Bluetooth Epson
+      const btStatus = epsonBluetoothService.getStatus();
+
+      if (btStatus.savedConfig || btStatus.isConnected) {
+        console.log('📱 Utilisation de l\'imprimante Bluetooth...');
+        const result = await epsonBluetoothService.printOrder(order);
+
+        if (result.success) {
+          return {
+            success: true,
+            message: 'Ticket imprimé sur ' + (btStatus.device?.name || 'imprimante Bluetooth'),
+          };
+        } else {
+          console.warn('⚠️ Bluetooth échoué:', result.error);
+          // Continuer vers le fallback
+        }
       }
 
-      // Utiliser la nouvelle méthode avec sélection native avancée
+      // FALLBACK: Utiliser le système natif iOS
+      console.log('🔄 Fallback vers impression native...');
+      const isAvailable = await Print.isAvailableAsync();
+      if (!isAvailable) {
+        throw new Error('Aucune imprimante disponible');
+      }
+
       return await this.printWithNativeSelection(order);
 
     } catch (error) {

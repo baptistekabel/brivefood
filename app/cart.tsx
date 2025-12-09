@@ -28,12 +28,14 @@ import { useActiveOrder } from '../src/context/ActiveOrderContext';
 import notificationService from '../src/services/notificationService';
 import { registerCustomerForOrderNotifications } from '../src/services/customerNotificationService';
 import OrderConfirmationPopup from '../src/components/customer/OrderConfirmationPopup';
+import * as Notifications from 'expo-notifications';
+import { registerCustomerForBroadcast } from '../src/services/broadcastNotificationService';
 
 export default function CartScreen() {
   const fontsLoaded = useFonts();
   const { orderItems, removeItem, addItem, clearOrder, getPromoDetails, selectFreeDessert, getAvailableDesserts, updateItemComment: updateOrderItemComment } = useOrder();
   const { createOrder } = useOrders();
-  const { userProfile } = useAuth();
+  const { user, userProfile } = useAuth();
   const {
     pendingOrder,
     showConfirmationPopup,
@@ -424,14 +426,46 @@ export default function CartScreen() {
         : userProfile?.name || 'Client BriveFood',
       firstName: userProfile?.firstName,
       lastName: userProfile?.lastName,
-      items: orderItems.map(item => ({
-        name: item.name,
-        quantity: item.quantity,
-        size: item.selectedSize || 'M',
-        price: item.price,
-        comment: itemComments[item.id] || null,
-        customizations: item.customizations || null
-      })),
+      customerEmail: user?.email || null,
+      userId: user?.uid || null,
+      items: orderItems.map(item => {
+        // Formater les personnalisations avec les noms pour l'impression
+        let formattedOptions = null;
+        if (item.customizations && item.customizationOptions) {
+          const optionsList = [];
+          Object.entries(item.customizations).forEach(([categoryKey, selectedOptions]) => {
+            const category = item.customizationOptions[categoryKey];
+            if (category && selectedOptions && selectedOptions.length > 0) {
+              selectedOptions.forEach(optionId => {
+                const option = category.options?.find(opt => opt.id === optionId);
+                if (option) {
+                  optionsList.push(option.name + (option.price > 0 ? ` (+${option.price.toFixed(2)}€)` : ''));
+                }
+              });
+            }
+          });
+          if (optionsList.length > 0) {
+            formattedOptions = optionsList.join(', ');
+          }
+        }
+
+        // Extraire l'ID de base du produit (sans le suffixe de taille)
+        const baseProductId = item.id?.split('_')[0] || item.id;
+
+        return {
+          id: baseProductId, // ID du produit pour retrouver l'image
+          productId: baseProductId, // Alias pour compatibilité
+          imageKey: item.imageKey || null, // Clé d'image si définie
+          name: item.name,
+          quantity: item.quantity,
+          size: item.selectedSize || null,
+          price: item.price,
+          comment: itemComments[item.id] || null,
+          customizations: item.customizations || null,
+          customizationOptions: item.customizationOptions || null, // Pour afficher les noms lisibles
+          options: formattedOptions // Options formatées pour l'impression
+        };
+      }),
       total: getTotal(),
       mode: orderMode,
       address: deliveryAddress?.label || null,
@@ -454,6 +488,58 @@ export default function CartScreen() {
       // Créer une commande en attente pour affichage dans le popup
       // NE PAS vider le panier maintenant - attendre la confirmation
       createPendingOrder(result.order);
+
+      // Demander les permissions de notifications après la première commande
+      // si pas encore accordées
+      setTimeout(async () => {
+        try {
+          const { status: existingStatus } = await Notifications.getPermissionsAsync();
+
+          if (existingStatus !== 'granted') {
+            const { status } = await Notifications.requestPermissionsAsync({
+              ios: {
+                allowAlert: true,
+                allowBadge: true,
+                allowSound: true,
+                allowAnnouncements: true,
+              },
+              android: {
+                allowAlert: true,
+                allowBadge: true,
+                allowSound: true,
+              },
+            });
+
+            if (status === 'granted') {
+              // Enregistrer le token pour les notifications broadcast
+              if (user?.uid && userProfile?.role === 'customer') {
+                const tokenData = await Notifications.getExpoPushTokenAsync({
+                  projectId: '81983664-a2fe-43e8-8c2f-6f2c2b98baac',
+                });
+
+                if (tokenData?.data) {
+                  await registerCustomerForBroadcast(user.uid, tokenData.data, {
+                    name: userProfile.name || `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim(),
+                    email: userProfile.email,
+                    phone: userProfile.phone,
+                    firstName: userProfile.firstName,
+                    lastName: userProfile.lastName,
+                  });
+                  console.log('✅ Token client enregistré après première commande');
+                }
+              }
+
+              Alert.alert(
+                '🔔 Notifications activées',
+                'Super ! Vous recevrez des notifications pour suivre vos commandes et découvrir nos offres exclusives.',
+                [{ text: 'Parfait !', style: 'default' }]
+              );
+            }
+          }
+        } catch (error) {
+          console.log('Erreur demande permissions notifications:', error);
+        }
+      }, 2000); // Attendre 2 secondes après la commande
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Erreur', 'Impossible de créer la commande. Veuillez réessayer.');

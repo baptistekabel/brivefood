@@ -12,7 +12,7 @@
       "supportsTablet": true,
       "requireFullScreen": false,
       "bundleIdentifier": "com.brivefood.app",
-      "buildNumber": "8",
+      "buildNumber": "9",
       "splash": {
         "image": "./assets/images/logoBrivefood.png",
         "resizeMode": "cover",
@@ -25,6 +25,11 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "Cette application utilise l'appareil photo pour permettre aux utilisateurs de prendre des photos de leurs commandes et d'améliorer leur expérience.",
+        "NSBluetoothAlwaysUsageDescription": "BriveFood utilise le Bluetooth pour se connecter à l'imprimante de tickets TM-M30II.",
+        "NSBluetoothPeripheralUsageDescription": "BriveFood utilise le Bluetooth pour imprimer automatiquement les tickets de commande.",
+        "UISupportedExternalAccessoryProtocols": [
+          "com.epson.escpos"
+        ],
         "UISupportedInterfaceOrientations": [
           "UIInterfaceOrientationPortrait",
           "UIInterfaceOrientationPortraitUpsideDown"
@@ -61,7 +66,12 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.BLUETOOTH_SCAN",
+        "android.permission.ACCESS_FINE_LOCATION"
       ]
     },
     "web": {
@@ -83,7 +93,8 @@
           }
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "./plugins/withEpsonPrinter"
     ],
     "experiments": {
       "typedRoutes": true,

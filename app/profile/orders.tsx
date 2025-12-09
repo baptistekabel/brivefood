@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,60 +14,35 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { colors, typography, spacing, borderRadius } from '../../src/constants/theme';
-
-interface Order {
-  id: string;
-  orderNumber: string;
-  date: string;
-  status: 'completed' | 'cancelled' | 'in_progress';
-  items: Array<{
-    name: string;
-    quantity: number;
-    price: number;
-  }>;
-  total: number;
-  deliveryMode: 'delivery' | 'takeaway' | 'dine-in';
-}
+import ProductImage from '../../src/components/common/ProductImage';
+import { useOrders } from '../../src/context/OrdersContext';
+import { useAuth } from '../../src/context/AuthContext';
+import { OrderStatus } from '../../src/types';
 
 export default function OrdersHistoryScreen() {
-  const [orders] = useState<Order[]>([
-    {
-      id: '1',
-      orderNumber: '#BR2024001',
-      date: '2024-01-15 19:30',
-      status: 'completed',
-      items: [
-        { name: 'Burger Classic', quantity: 2, price: 12.90 },
-        { name: 'Frites Cheddar', quantity: 1, price: 5.50 },
-        { name: 'Coca-Cola', quantity: 2, price: 2.90 },
-      ],
-      total: 34.20,
-      deliveryMode: 'delivery',
-    },
-    {
-      id: '2',
-      orderNumber: '#BR2024002',
-      date: '2024-01-10 20:15',
-      status: 'completed',
-      items: [
-        { name: 'Pizza 4 Fromages', quantity: 1, price: 15.90 },
-        { name: 'Salade César', quantity: 1, price: 8.50 },
-      ],
-      total: 24.40,
-      deliveryMode: 'takeaway',
-    },
-    {
-      id: '3',
-      orderNumber: '#BR2024003',
-      date: '2024-01-05 18:45',
-      status: 'cancelled',
-      items: [
-        { name: 'Tacos 3 Viandes', quantity: 1, price: 9.50 },
-      ],
-      total: 9.50,
-      deliveryMode: 'delivery',
-    },
-  ]);
+  const { orders: allOrders } = useOrders();
+  const { user, userProfile } = useAuth();
+
+  // Filtrer les commandes de l'utilisateur connecté
+  const userOrders = allOrders.filter(order => {
+    // Filtrer par email
+    if (user?.email && order.customerEmail === user.email) return true;
+    // Ou par userId
+    if (user?.uid && order.userId === user.uid) return true;
+    // Ou par nom du client (pour les anciennes commandes sans email/userId)
+    if (userProfile?.name && order.customerName === userProfile.name) return true;
+    // Ou par prénom + nom
+    if (userProfile?.firstName && userProfile?.lastName) {
+      const fullName = `${userProfile.firstName} ${userProfile.lastName}`;
+      if (order.customerName === fullName) return true;
+    }
+    return false;
+  }).sort((a, b) => {
+    // Trier par date décroissante (plus récent en premier)
+    const dateA = new Date(a.createdAt || a.orderDate || 0);
+    const dateB = new Date(b.createdAt || b.orderDate || 0);
+    return dateB.getTime() - dateA.getTime();
+  });
 
   // Animation pour les emojis flottants
   const floatingEmojis = useRef(
@@ -95,64 +70,76 @@ export default function OrdersHistoryScreen() {
     startFloatingEmojisAnimation();
   }, []);
 
-  const getStatusColor = (status: Order['status']) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed':
+      case OrderStatus.DELIVERED:
+      case OrderStatus.READY:
         return colors.status.success;
-      case 'cancelled':
+      case OrderStatus.CANCELLED:
         return colors.status.error;
-      case 'in_progress':
+      case OrderStatus.PREPARING:
+      case OrderStatus.PENDING:
         return colors.accent.main;
       default:
         return colors.neutral.gray400;
     }
   };
 
-  const getStatusText = (status: Order['status']) => {
+  const getStatusText = (status: string) => {
     switch (status) {
-      case 'completed':
+      case OrderStatus.DELIVERED:
+        return 'Livrée';
+      case OrderStatus.READY:
         return 'Terminée';
-      case 'cancelled':
+      case OrderStatus.CANCELLED:
         return 'Annulée';
-      case 'in_progress':
-        return 'En cours';
+      case OrderStatus.PREPARING:
+        return 'En préparation';
+      case OrderStatus.PENDING:
+        return 'En attente';
       default:
         return 'Inconnu';
     }
   };
 
-  const getStatusIcon = (status: Order['status']) => {
+  const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'completed':
+      case OrderStatus.DELIVERED:
+      case OrderStatus.READY:
         return 'checkmark-circle-outline';
-      case 'cancelled':
+      case OrderStatus.CANCELLED:
         return 'close-circle-outline';
-      case 'in_progress':
+      case OrderStatus.PREPARING:
+      case OrderStatus.PENDING:
         return 'time-outline';
       default:
         return 'help-circle-outline';
     }
   };
 
-  const getDeliveryModeText = (mode: Order['deliveryMode']) => {
+  const getDeliveryModeText = (mode: string) => {
     switch (mode) {
       case 'delivery':
         return 'Livraison';
+      case 'takeout':
       case 'takeaway':
         return 'À emporter';
+      case 'dine_in':
       case 'dine-in':
         return 'Sur place';
       default:
-        return 'Inconnu';
+        return mode || 'Inconnu';
     }
   };
 
-  const getDeliveryModeIcon = (mode: Order['deliveryMode']) => {
+  const getDeliveryModeIcon = (mode: string) => {
     switch (mode) {
       case 'delivery':
         return 'bicycle';
+      case 'takeout':
       case 'takeaway':
         return 'bag-outline';
+      case 'dine_in':
       case 'dine-in':
         return 'restaurant-outline';
       default:
@@ -240,7 +227,7 @@ export default function OrdersHistoryScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={[colors.primary.main, colors.secondary.main]}
+        colors={['#000000', '#111111', '#222222']}
         style={styles.gradientContainer}
       >
       <StatusBar style="light" backgroundColor="transparent" translucent />
@@ -259,17 +246,17 @@ export default function OrdersHistoryScreen() {
         >
           <Ionicons name="arrow-back" size={24} color={colors.neutral.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Historique</Text>
+        <Text style={styles.headerTitle}>Mes commandes</Text>
         <View style={styles.placeholder} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {orders.map((order) => (
-          <View key={order.id} style={styles.orderCard}>
+        {userOrders.map((order) => (
+          <View key={order.id || order.firestoreId} style={styles.orderCard}>
             {/* Header de la commande */}
             <View style={styles.orderHeader}>
               <View style={styles.orderHeaderLeft}>
-                <Text style={styles.orderNumber}>{order.orderNumber}</Text>
+                <Text style={styles.orderNumber}>#{order.id}</Text>
                 <View style={styles.statusContainer}>
                   <Ionicons
                     name={getStatusIcon(order.status)}
@@ -282,15 +269,17 @@ export default function OrdersHistoryScreen() {
                 </View>
               </View>
               <View style={styles.orderHeaderRight}>
-                <Text style={styles.orderDate}>{formatDate(order.date)}</Text>
+                <Text style={styles.orderDate}>
+                  {formatDate(order.createdAt || order.orderDate || '')}
+                </Text>
                 <View style={styles.deliveryMode}>
                   <Ionicons
-                    name={getDeliveryModeIcon(order.deliveryMode)}
+                    name={getDeliveryModeIcon(order.mode)}
                     size={14}
                     color={colors.neutral.gray500}
                   />
                   <Text style={styles.deliveryModeText}>
-                    {getDeliveryModeText(order.deliveryMode)}
+                    {getDeliveryModeText(order.mode)}
                   </Text>
                 </View>
               </View>
@@ -298,51 +287,38 @@ export default function OrdersHistoryScreen() {
 
             {/* Items de la commande */}
             <View style={styles.orderItems}>
-              {order.items.map((item, index) => (
+              {order.items?.map((item, index) => (
                 <View key={index} style={styles.orderItem}>
-                  <Text style={styles.itemQuantity}>{item.quantity}x</Text>
-                  <Text style={styles.itemName}>{item.name}</Text>
-                  <Text style={styles.itemPrice}>{item.price.toFixed(2)}€</Text>
+                  <ProductImage
+                    product={{
+                      name: item.name,
+                      id: item.id || item.productId,
+                      imageKey: item.imageKey
+                    }}
+                    style={styles.itemImage}
+                    resizeMode="cover"
+                  />
+                  <View style={styles.itemInfo}>
+                    <Text style={styles.itemName}>{item.name}</Text>
+                    <Text style={styles.itemQuantityPrice}>
+                      {item.quantity}x · {(item.price || 0).toFixed(2)}€
+                    </Text>
+                  </View>
                 </View>
               ))}
             </View>
 
-            {/* Total et actions */}
+            {/* Total */}
             <View style={styles.orderFooter}>
               <View style={styles.totalContainer}>
-                <Text style={styles.totalLabel}>Total :</Text>
-                <Text style={styles.totalAmount}>{order.total.toFixed(2)}€</Text>
-              </View>
-
-              <View style={styles.orderActions}>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => router.push(`/profile/order-details?id=${order.id}`)}
-                >
-                  <Ionicons name="eye-outline" size={18} color={colors.primary.main} />
-                  <Text style={styles.actionButtonText}>Détails</Text>
-                </TouchableOpacity>
-
-                {order.status === 'completed' && (
-                  <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => {
-                      // Logique pour recommander
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    }}
-                  >
-                    <Ionicons name="refresh-outline" size={18} color={colors.accent.main} />
-                    <Text style={[styles.actionButtonText, { color: colors.accent.main }]}>
-                      Recommander
-                    </Text>
-                  </TouchableOpacity>
-                )}
+                <Text style={styles.totalLabel}>Total</Text>
+                <Text style={styles.totalAmount}>{(order.total || 0).toFixed(2)}€</Text>
               </View>
             </View>
           </View>
         ))}
 
-        {orders.length === 0 && (
+        {userOrders.length === 0 && (
           <View style={styles.emptyState}>
             <Ionicons name="receipt-outline" size={64} color={colors.neutral.gray300} />
             <Text style={styles.emptyTitle}>Aucune commande</Text>
@@ -459,21 +435,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.sm,
   },
-  itemQuantity: {
-    fontSize: typography.fontSizes.sm,
-    fontFamily: typography.fontFamily.semibold,
-    color: colors.primary.main,
-    width: 30,
+  itemImage: {
+    width: 50,
+    height: 50,
+    borderRadius: borderRadius.md,
+    marginRight: spacing.sm,
+    backgroundColor: colors.neutral.gray100,
+  },
+  itemInfo: {
+    flex: 1,
   },
   itemName: {
-    flex: 1,
-    fontSize: typography.fontSizes.sm,
-    color: colors.neutral.gray700,
-  },
-  itemPrice: {
     fontSize: typography.fontSizes.sm,
     fontFamily: typography.fontFamily.semibold,
     color: colors.neutral.gray800,
+    marginBottom: 2,
+  },
+  itemQuantityPrice: {
+    fontSize: typography.fontSizes.xs,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray500,
   },
   orderFooter: {
     borderTopWidth: 1,
@@ -484,7 +465,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
   },
   totalLabel: {
     fontSize: typography.fontSizes.base,
@@ -494,23 +474,7 @@ const styles = StyleSheet.create({
   totalAmount: {
     fontSize: typography.fontSizes.lg,
     fontFamily: typography.fontFamily.bold,
-    color: colors.primary.main,
-  },
-  orderActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-  },
-  actionButtonText: {
-    fontSize: typography.fontSizes.sm,
-    fontFamily: typography.fontFamily.medium,
-    color: colors.primary.main,
-    marginLeft: spacing.xs,
+    color: colors.secondary.main,
   },
   emptyState: {
     flex: 1,

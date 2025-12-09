@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { 
-  onAuthStateChanged, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   signOut,
   updateProfile,
   sendEmailVerification,
@@ -11,9 +11,12 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { router } from 'expo-router';
+import { Alert } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { auth, db } from '../../config/firebase';
 import { UserRole } from '../types';
 import * as Haptics from 'expo-haptics';
+import { registerCustomerForBroadcast, removeCustomerFromBroadcast } from '../services/broadcastNotificationService';
 
 const AuthContext = createContext({});
 
@@ -23,6 +26,69 @@ export const useAuth = () => {
     throw new Error('useAuth must be used within AuthProvider');
   }
   return context;
+};
+
+// Fonction pour demander les permissions de notifications
+const requestNotificationPermissions = async () => {
+  try {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+
+    if (finalStatus === 'granted') {
+      Alert.alert(
+        '🔔 Notifications activées',
+        'Vous recevrez des notifications pour vos commandes, promotions et nouveautés !',
+        [{ text: 'Parfait !', style: 'default' }]
+      );
+    }
+
+    return finalStatus === 'granted';
+  } catch (error) {
+    console.log('Error requesting notification permissions:', error);
+    return false;
+  }
+};
+
+// Fonction pour enregistrer le token client pour les notifications broadcast
+const registerCustomerPushToken = async (userId, userProfile) => {
+  try {
+    // Vérifier si l'utilisateur est bien un client
+    if (!userProfile || userProfile.role !== 'customer') {
+      console.log('📱 Pas un client - pas d\'enregistrement pour broadcast');
+      return;
+    }
+
+    // Vérifier les permissions
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status !== 'granted') {
+      console.log('📱 Permissions notifications non accordées');
+      return;
+    }
+
+    // Obtenir le token push
+    const tokenData = await Notifications.getExpoPushTokenAsync({
+      projectId: '81983664-a2fe-43e8-8c2f-6f2c2b98baac',
+    });
+
+    if (tokenData?.data) {
+      // Enregistrer le token dans Firebase pour les broadcasts
+      await registerCustomerForBroadcast(userId, tokenData.data, {
+        name: userProfile.name || `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim(),
+        email: userProfile.email,
+        phone: userProfile.phone,
+        firstName: userProfile.firstName,
+        lastName: userProfile.lastName,
+      });
+      console.log('✅ Token client enregistré pour les notifications broadcast');
+    }
+  } catch (error) {
+    console.log('⚠️ Erreur enregistrement token broadcast:', error.message);
+  }
 };
 
 export const AuthProvider = ({ children }) => {
@@ -48,8 +114,8 @@ export const AuthProvider = ({ children }) => {
 
             // Redirection basée sur le rôle
             if (userData.role === 'admin') {
-              console.log('Redirecting admin to admin interface');
-              router.replace('/(admin)/dashboard');
+              console.log('Admin user detected - letting AdminAuthContext handle redirection');
+              // Ne pas rediriger automatiquement - laisser AdminAuthContext gérer
               setLoading(false);
               return;
             } else if (userData.role === 'delivery') {
@@ -57,9 +123,21 @@ export const AuthProvider = ({ children }) => {
               // Ne pas rediriger automatiquement - laisser DeliveryAuthContext gérer
               setLoading(false);
               return;
+            } else if (userData.role === 'customer') {
+              // Enregistrer le token pour les notifications broadcast
+              registerCustomerPushToken(user.uid, userData);
             }
           } else {
             console.log('No user profile found, checking if this might be a delivery user...');
+
+            // Vérifier si c'est un admin autorisé - ne pas créer de profil client
+            const adminEmails = ['admin@brivefood.com', 'kabelbaptiste971@gmail.com'];
+            if (adminEmails.includes(user.email)) {
+              console.log('Admin email detected - deferring to AdminAuthContext');
+              setUserProfile(null);
+              setLoading(false);
+              return;
+            }
 
             // Vérifier s'il s'agit d'un livreur en attente d'activation
             // Chercher dans les profils en attente par email
@@ -96,10 +174,27 @@ export const AuthProvider = ({ children }) => {
               await setDoc(doc(db, 'users', user.uid), defaultProfile);
               console.log('Default customer profile created successfully');
               setUserProfile(defaultProfile);
+
+              // Demander les permissions de notifications pour les nouveaux utilisateurs
+              setTimeout(async () => {
+                const granted = await requestNotificationPermissions();
+                if (granted) {
+                  // Enregistrer le token pour les notifications broadcast
+                  registerCustomerPushToken(user.uid, defaultProfile);
+                }
+              }, 1000);
             } catch (createError) {
               console.error('Error creating user profile:', createError);
               // Utiliser le profil par défaut même en cas d'erreur de création
               setUserProfile(defaultProfile);
+
+              // Demander les permissions même en cas d'erreur de création du profil
+              setTimeout(async () => {
+                const granted = await requestNotificationPermissions();
+                if (granted) {
+                  registerCustomerPushToken(user.uid, defaultProfile);
+                }
+              }, 1000);
             }
           }
         } catch (error) {
@@ -177,6 +272,15 @@ export const AuthProvider = ({ children }) => {
       await sendEmailVerification(user);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
+      // Demander les permissions de notifications pour les nouveaux inscrits
+      setTimeout(async () => {
+        const granted = await requestNotificationPermissions();
+        if (granted && userProfile.role === UserRole.CUSTOMER) {
+          // Enregistrer le token pour les notifications broadcast
+          registerCustomerPushToken(user.uid, userProfile);
+        }
+      }, 1500);
+
       return { success: true, user, emailSent: true };
     } catch (error) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -186,6 +290,12 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
+      // Supprimer le token du broadcast si c'est un client
+      if (user && userProfile?.role === 'customer') {
+        await removeCustomerFromBroadcast(user.uid);
+        console.log('🗑️ Token client supprimé du broadcast');
+      }
+
       await signOut(auth);
       setUser(null);
       setUserProfile(null);

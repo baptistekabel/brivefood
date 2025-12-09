@@ -26,15 +26,31 @@ export const AdminAuthProvider = ({ children }) => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log('Admin auth state changed:', user ? 'Admin logged in' : 'Admin logged out');
       setUser(user);
-      
+
       if (user) {
         try {
+          // Vérifier d'abord si c'est un admin autorisé (bypass)
+          const adminEmails = ['admin@brivefood.com', 'kabelbaptiste971@gmail.com'];
+          if (adminEmails.includes(user.email)) {
+            console.log('Admin autorisé détecté:', user.email);
+            const adminProfile = {
+              role: 'admin',
+              email: user.email,
+              name: user.email === 'kabelbaptiste971@gmail.com' ? 'Baptiste Kabel' : 'Administrateur BriveFood',
+              uid: user.uid,
+              emailVerified: true // Admin n'a pas besoin de vérifier son email
+            };
+            setUserProfile(adminProfile);
+            setLoading(false);
+            return;
+          }
+
           // Récupérer le profil utilisateur depuis Firestore
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           if (userDoc.exists()) {
             const userData = userDoc.data();
             console.log('Admin profile loaded:', userData);
-            
+
             // Vérifier si c'est un admin ou livreur
             if (userData.role === 'admin' || userData.role === 'delivery') {
               setUserProfile(userData);
@@ -63,17 +79,25 @@ export const AdminAuthProvider = ({ children }) => {
   const login = async (email, password, requestedType) => {
     try {
       console.log('Attempting admin login:', { email, requestedType });
-      
+
       // Se connecter avec Firebase
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-      
-      // Récupérer le profil utilisateur
+
+      // Vérifier si c'est un admin autorisé (bypass)
+      const adminEmails = ['admin@brivefood.com', 'kabelbaptiste971@gmail.com'];
+      if (adminEmails.includes(email) && requestedType === 'admin') {
+        console.log('Admin autorisé connecté:', email);
+        // Le profil sera défini automatiquement par onAuthStateChanged
+        return { success: true, type: 'admin' };
+      }
+
+      // Récupérer le profil utilisateur pour les autres cas
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       if (userDoc.exists()) {
         const userData = userDoc.data();
         console.log('Login successful, user role:', userData.role);
-        
+
         // Vérifier si le rôle correspond au type demandé
         if (userData.role === requestedType) {
           return { success: true, type: userData.role };

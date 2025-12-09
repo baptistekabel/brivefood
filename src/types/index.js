@@ -52,6 +52,7 @@ export const ProductCategory = {
   SALADES: 'salades',
   PETIT_FAIM_BRUSCHETTA: 'petit_faim_bruschetta',
   PETITES_FAIM: 'petites_faim',
+  BRUNCH: 'brunch',
   BOWLS: 'bowls',
   DESSERTS: 'desserts',
   BOISSONS: 'boissons'

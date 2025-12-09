@@ -17,7 +17,6 @@ import { colors, typography, spacing, borderRadius } from '../../src/constants/t
 import orderRatingService from '../../src/services/orderRatingService';
 import firebaseRatingService from '../../src/services/firebaseRatingService';
 import ratingsSyncService from '../../src/services/RatingsSyncService';
-import RealTimeRatingsWidget from '../../src/components/admin/RealTimeRatingsWidget';
 
 export default function AdminReviews() {
   const [ratings, setRatings] = useState([]);
@@ -286,9 +285,6 @@ export default function AdminReviews() {
       >
         <StatusBar style="light" />
 
-        {/* 🚀 Widget Temps Réel Ultra-Fiable */}
-        <RealTimeRatingsWidget />
-
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
@@ -301,26 +297,7 @@ export default function AdminReviews() {
             <Ionicons name="arrow-back" size={24} color={colors.neutral.white} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Avis clients</Text>
-          <View style={styles.headerButtons}>
-            <TouchableOpacity
-              style={styles.checkButton}
-              onPress={checkFirebase}
-            >
-              <Ionicons name="search" size={18} color={colors.neutral.white} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.syncButton, { backgroundColor: 'rgba(34, 197, 94, 0.3)' }]}
-              onPress={ultraReliableSync}
-            >
-              <Ionicons name="shield-checkmark" size={18} color="#22C55E" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.testButton}
-              onPress={addTestRating}
-            >
-              <Ionicons name="add" size={18} color={colors.neutral.white} />
-            </TouchableOpacity>
-          </View>
+          <View style={{ width: 40 }} />
         </View>
 
         {/* Content */}

@@ -8,6 +8,7 @@ import 'react-native-gesture-handler';
 
 
 import { AuthProvider } from '../src/context/AuthContext';
+import { ProductsProvider } from '../src/context/ProductsContext';
 import { OrderProvider } from '../src/context/OrderContext';
 import { OrdersProvider } from '../src/context/OrdersContext';
 import { LoyaltyProvider } from '../src/context/LoyaltyContext';
@@ -65,14 +66,15 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <AdminAuthProvider>
-        <DeliveryManagementProvider>
-          <DeliveryAuthProvider>
-            <OrderProvider>
-              <OrdersProvider>
-                <ActiveOrderProvider>
-                  <OrderRatingProvider>
-                    <LoyaltyProvider>
+      <ProductsProvider>
+        <AdminAuthProvider>
+          <DeliveryManagementProvider>
+            <DeliveryAuthProvider>
+              <OrderProvider>
+                <OrdersProvider>
+                  <ActiveOrderProvider>
+                    <OrderRatingProvider>
+                      <LoyaltyProvider>
                 <ThemeProvider value={BriveFoodTheme}>
             <View style={{ flex: 1, backgroundColor: '#000000' }}>
               <Stack>
@@ -115,14 +117,15 @@ export default function RootLayout() {
             <StatusBar style="auto" />
             </View>
             </ThemeProvider>
-                    </LoyaltyProvider>
-                  </OrderRatingProvider>
-                </ActiveOrderProvider>
-              </OrdersProvider>
-            </OrderProvider>
-          </DeliveryAuthProvider>
-        </DeliveryManagementProvider>
-      </AdminAuthProvider>
+                      </LoyaltyProvider>
+                    </OrderRatingProvider>
+                  </ActiveOrderProvider>
+                </OrdersProvider>
+              </OrderProvider>
+            </DeliveryAuthProvider>
+          </DeliveryManagementProvider>
+        </AdminAuthProvider>
+      </ProductsProvider>
     </AuthProvider>
   );
 }

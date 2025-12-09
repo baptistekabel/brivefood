@@ -22,8 +22,8 @@ import * as Haptics from 'expo-haptics';
 import { colors, typography, spacing, borderRadius } from '../../src/constants/theme';
 import { ProductCategory } from '../../src/types';
 import { useOrder } from '../../src/context/OrderContext';
+import { useProducts } from '../../src/context/ProductsContext';
 import productImages from '../../src/data/productImages';
-import productsByCategory from '../../src/data/products';
 import categoryInfo from '../../src/data/categories';
 import { calculateCustomizedPrice, isCustomizationComplete, getSizeDisplayText, getProductQuantity } from '../../src/utils/categoryUtils';
 import styles from '../../src/styles/CategoryScreen.styles';
@@ -32,6 +32,7 @@ import styles from '../../src/styles/CategoryScreen.styles';
 export default function CategoryScreen() {
   const { id } = useLocalSearchParams();
   const { addItem, orderItems, getItemCount } = useOrder();
+  const { getProductsByCategory, getProductById, productsByCategory: allProductsByCategory } = useProducts();
   const [selectedSizes, setSelectedSizes] = useState({});
   const [customizations, setCustomizations] = useState({});
   const [expandedCustomizations, setExpandedCustomizations] = useState({});
@@ -143,7 +144,7 @@ export default function CategoryScreen() {
 
   // Obtenir les données pour cette catégorie
   const currentCategory = categoryInfo[id] || categoryInfo[ProductCategory.PATES];
-  const products = productsByCategory[id] || [];
+  const products = getProductsByCategory(id);
 
   // Initialiser les tailles par défaut pour les bowls et tacos
   useEffect(() => {
@@ -349,7 +350,6 @@ export default function CategoryScreen() {
           case 'M': maxViandes = 1; break;
           case 'L': maxViandes = 2; break;
           case 'XL': maxViandes = 3; break;
-          case 'XXL': maxViandes = 4; break;
         }
 
         // Si on a trop de viandes sélectionnées, garder seulement les premières
@@ -374,14 +374,7 @@ export default function CategoryScreen() {
 
       // Gérer les sélections mutuellement exclusives pour certaines catégories
       // Chercher le produit dans toutes les catégories
-      let product = null;
-      for (const categoryProducts of Object.values(productsByCategory)) {
-        const foundProduct = categoryProducts.find(p => p.id === productId);
-        if (foundProduct) {
-          product = foundProduct;
-          break;
-        }
-      }
+      const product = getProductById(productId);
       const category = product?.customizationOptions?.[categoryKey];
 
       // Pour les catégories avec multiSelect = false ou maxSelections/maxSelection = 1
@@ -423,7 +416,6 @@ export default function CategoryScreen() {
               case 'M': maxViandes = 1; break;
               case 'L': maxViandes = 2; break;
               case 'XL': maxViandes = 3; break;
-              case 'XXL': maxViandes = 4; break;
             }
 
             // Si on a déjà atteint la limite, ne pas ajouter
@@ -513,7 +505,6 @@ export default function CategoryScreen() {
                           case 'M': maxViandes = 1; break;
                           case 'L': maxViandes = 2; break;
                           case 'XL': maxViandes = 3; break;
-                          case 'XXL': maxViandes = 4; break;
                         }
                         return (
                           <Text style={styles.selectionCounter}>
@@ -522,28 +513,30 @@ export default function CategoryScreen() {
                         );
                       })()}
                     </Text>
-                    {category.required && (
-                      <Text style={styles.requiredLabel}>Obligatoire</Text>
-                    )}
                   </View>
-                  <Text style={styles.customizationCategorySubtitle}>
-                    {category.subtitle}
-                    {/* Message explicatif pour les viandes */}
-                    {categoryKey === 'viandes' && product.sizes && (() => {
-                      const selectedSize = selectedSizes[product.id];
-                      if (selectedSize) {
-                        let maxViandes = 4;
-                        switch (selectedSize) {
-                          case 'M': maxViandes = 1; break;
-                          case 'L': maxViandes = 2; break;
-                          case 'XL': maxViandes = 3; break;
-                          case 'XXL': maxViandes = 4; break;
-                        }
-                        return ` (Max ${maxViandes} viande${maxViandes > 1 ? 's' : ''} pour la taille ${selectedSize})`;
+                  <View style={styles.customizationCategorySubtitle}>
+                    <Text style={styles.customizationCategorySubtitleText}>
+                      {category.subtitle}
+                    </Text>
+                  </View>
+                  {/* Message explicatif pour les viandes - séparé */}
+                  {categoryKey === 'viandes' && product.sizes && (() => {
+                    const selectedSize = selectedSizes[product.id];
+                    if (selectedSize) {
+                      let maxViandes = 4;
+                      switch (selectedSize) {
+                        case 'M': maxViandes = 1; break;
+                        case 'L': maxViandes = 2; break;
+                        case 'XL': maxViandes = 3; break;
                       }
-                      return '';
-                    })()}
-                  </Text>
+                      return (
+                        <Text style={styles.customizationHelperText}>
+                          Max {maxViandes} viande{maxViandes > 1 ? 's' : ''} pour la taille {selectedSize}
+                        </Text>
+                      );
+                    }
+                    return null;
+                  })()}
 
                   <View style={styles.customizationOptionsList}>
                     {(category.options || [])
@@ -558,6 +551,9 @@ export default function CategoryScreen() {
                       const isSelected = selectedOptions && selectedOptions.includes(optionId);
                       const maxSelectLimit = category.maxSelections || category.maxSelection;
 
+                      // Vérifier si c'est une catégorie à sélection unique
+                      const isSingleSelect = maxSelectLimit === 1 || category?.multiSelect === false;
+
                       // Calculer la limite effective pour les viandes dans les tacos
                       let effectiveLimit = maxSelectLimit;
                       if (categoryKey === 'viandes' && product.sizes) {
@@ -566,15 +562,16 @@ export default function CategoryScreen() {
                           case 'M': effectiveLimit = 1; break;
                           case 'L': effectiveLimit = 2; break;
                           case 'XL': effectiveLimit = 3; break;
-                          case 'XXL': effectiveLimit = 4; break;
                           default: effectiveLimit = maxSelectLimit || 4; break;
                         }
                       }
 
-                      const canSelect = !isSelected && (
+                      // Pour les sélections uniques, toujours permettre de cliquer
+                      // (cliquer sur une autre option la sélectionne et désélectionne l'ancienne)
+                      const canSelect = isSingleSelect || (!isSelected && (
                         !effectiveLimit ||
                         (selectedOptions ? selectedOptions.length : 0) < effectiveLimit
-                      );
+                      ));
 
                       return (
                         <TouchableOpacity
@@ -585,6 +582,7 @@ export default function CategoryScreen() {
                           ]}
                           onPress={() => {
                             if (isSelected || canSelect) {
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                               handleCustomizationChange(product.id, categoryKey, optionId, !isSelected);
                             }
                           }}
@@ -945,9 +943,9 @@ export default function CategoryScreen() {
                     )
                   ))}
                 </View>
-                {/* Deuxième ligne : XL et XXL */}
+                {/* Deuxième ligne : XL */}
                 <View style={styles.sizeButtonsRow}>
-                  {['XL', 'XXL'].map((size) => (
+                  {['XL'].map((size) => (
                     product.sizes[size] && (
                       <TouchableOpacity
                         key={size}

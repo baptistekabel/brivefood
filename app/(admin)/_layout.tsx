@@ -98,12 +98,12 @@ export default function AdminTabLayout() {
         }}
       />
       <Tabs.Screen
-        name="products"
+        name="products-manager"
         options={{
-          title: 'Gestion prix',
+          title: 'Produits',
           tabBarIcon: ({ color, focused, size }) => (
             <Ionicons
-              name={focused ? "pricetag" : "pricetag-outline"}
+              name={focused ? "cube" : "cube-outline"}
               size={focused ? size + 2 : size}
               color={color}
             />
@@ -176,6 +176,12 @@ export default function AdminTabLayout() {
         name="reviews"
         options={{
           href: null, // Cache cet écran des tabs - accessible via les statistiques
+        }}
+      />
+      <Tabs.Screen
+        name="printer-setup"
+        options={{
+          href: null, // Cache cet écran des tabs - accessible via les paramètres
         }}
       />
       </Tabs>

@@ -34,6 +34,54 @@ export default function ForgotPasswordScreen() {
     Array.from({ length: 15 }, () => new Animated.Value(0))
   ).current;
 
+  // Mémoriser les trajectoires pour éviter la réinitialisation lors des re-renders
+  const emojiTrajectories = useRef(
+    Array.from({ length: 15 }, (_, index) => {
+      const trajectoryType = index % 4;
+      let startX, endX, startY, endY;
+
+      switch (trajectoryType) {
+        case 0:
+          startX = Math.random() * 300 - 50;
+          endX = startX + (Math.random() - 0.5) * 200;
+          startY = 900;
+          endY = -100;
+          break;
+        case 1:
+          startX = -100;
+          endX = 400;
+          startY = 200 + Math.random() * 400;
+          endY = startY + (Math.random() - 0.5) * 300;
+          break;
+        case 2:
+          startX = 400;
+          endX = -100;
+          startY = 300 + Math.random() * 300;
+          endY = startY + (Math.random() - 0.5) * 200;
+          break;
+        case 3:
+          startX = Math.random() * 300 - 50;
+          endX = startX + (Math.random() - 0.5) * 150;
+          startY = -100;
+          endY = 900;
+          break;
+        default:
+          startX = 0;
+          endX = 0;
+          startY = 0;
+          endY = 0;
+      }
+
+      return {
+        startX,
+        endX,
+        startY,
+        endY,
+        amplitude: 20 + (index % 3) * 15
+      };
+    })
+  ).current;
+
   // Animation des emojis flottants
   useEffect(() => {
     const startFloatingEmojisAnimation = () => {
@@ -133,41 +181,12 @@ export default function ForgotPasswordScreen() {
           {floatingEmojis.map((animValue, index) => {
             const fastFoodEmojis = ['🍔', '🍟', '🍕', '🌮', '🌭', '🥪', '🥙', '🍗', '🥓', '🍖', '🧀', '🥯', '🌯', '🧈', '🫓'];
             const currentEmoji = fastFoodEmojis[index % fastFoodEmojis.length];
-            
-            const trajectoryType = index % 4;
-            let startX, endX, startY, endY;
-            
-            switch (trajectoryType) {
-              case 0:
-                startX = Math.random() * 300 - 50;
-                endX = startX + (Math.random() - 0.5) * 200;
-                startY = 900;
-                endY = -100;
-                break;
-              case 1:
-                startX = -100;
-                endX = 400;
-                startY = 200 + Math.random() * 400;
-                endY = startY + (Math.random() - 0.5) * 300;
-                break;
-              case 2:
-                startX = 400;
-                endX = -100;
-                startY = 300 + Math.random() * 300;
-                endY = startY + (Math.random() - 0.5) * 200;
-                break;
-              case 3:
-                startX = Math.random() * 300 - 50;
-                endX = startX + (Math.random() - 0.5) * 150;
-                startY = -100;
-                endY = 900;
-                break;
-            }
-            
-            const amplitude = 20 + (index % 3) * 15;
-            
+
+            // Utiliser les trajectoires mémorisées
+            const trajectory = emojiTrajectories[index];
+
             return (
-              <Animated.View 
+              <Animated.View
                 key={index}
                 style={[
                   styles.floatingEmoji,
@@ -176,20 +195,20 @@ export default function ForgotPasswordScreen() {
                       {
                         translateY: animValue.interpolate({
                           inputRange: [0, 1],
-                          outputRange: [startY, endY],
+                          outputRange: [trajectory.startY, trajectory.endY],
                         }),
                       },
                       {
                         translateX: animValue.interpolate({
                           inputRange: [0, 1],
-                          outputRange: [startX, endX],
+                          outputRange: [trajectory.startX, trajectory.endX],
                           extrapolate: 'clamp',
                         }),
                       },
                       {
                         translateX: animValue.interpolate({
                           inputRange: [0, 0.25, 0.5, 0.75, 1],
-                          outputRange: [0, amplitude, 0, -amplitude, 0],
+                          outputRange: [0, trajectory.amplitude, 0, -trajectory.amplitude, 0],
                           extrapolate: 'clamp',
                         }),
                       },
@@ -205,7 +224,7 @@ export default function ForgotPasswordScreen() {
               </Animated.View>
             );
           })}
-          
+
           <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
             <View style={styles.successContainer}>
               <View style={styles.modernIconContainer}>
@@ -256,41 +275,12 @@ export default function ForgotPasswordScreen() {
         {floatingEmojis.map((animValue, index) => {
           const fastFoodEmojis = ['🍔', '🍟', '🍕', '🌮', '🌭', '🥪', '🥙', '🍗', '🥓', '🍖', '🧀', '🥯', '🌯', '🧈', '🫓'];
           const currentEmoji = fastFoodEmojis[index % fastFoodEmojis.length];
-          
-          const trajectoryType = index % 4;
-          let startX, endX, startY, endY;
-          
-          switch (trajectoryType) {
-            case 0:
-              startX = Math.random() * 300 - 50;
-              endX = startX + (Math.random() - 0.5) * 200;
-              startY = 900;
-              endY = -100;
-              break;
-            case 1:
-              startX = -100;
-              endX = 400;
-              startY = 200 + Math.random() * 400;
-              endY = startY + (Math.random() - 0.5) * 300;
-              break;
-            case 2:
-              startX = 400;
-              endX = -100;
-              startY = 300 + Math.random() * 300;
-              endY = startY + (Math.random() - 0.5) * 200;
-              break;
-            case 3:
-              startX = Math.random() * 300 - 50;
-              endX = startX + (Math.random() - 0.5) * 150;
-              startY = -100;
-              endY = 900;
-              break;
-          }
-          
-          const amplitude = 20 + (index % 3) * 15;
-          
+
+          // Utiliser les trajectoires mémorisées
+          const trajectory = emojiTrajectories[index];
+
           return (
-            <Animated.View 
+            <Animated.View
               key={index}
               style={[
                 styles.floatingEmoji,
@@ -299,20 +289,20 @@ export default function ForgotPasswordScreen() {
                     {
                       translateY: animValue.interpolate({
                         inputRange: [0, 1],
-                        outputRange: [startY, endY],
+                        outputRange: [trajectory.startY, trajectory.endY],
                       }),
                     },
                     {
                       translateX: animValue.interpolate({
                         inputRange: [0, 1],
-                        outputRange: [startX, endX],
+                        outputRange: [trajectory.startX, trajectory.endX],
                         extrapolate: 'clamp',
                       }),
                     },
                     {
                       translateX: animValue.interpolate({
                         inputRange: [0, 0.25, 0.5, 0.75, 1],
-                        outputRange: [0, amplitude, 0, -amplitude, 0],
+                        outputRange: [0, trajectory.amplitude, 0, -trajectory.amplitude, 0],
                         extrapolate: 'clamp',
                       }),
                     },
@@ -328,7 +318,7 @@ export default function ForgotPasswordScreen() {
             </Animated.View>
           );
         })}
-        
+
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}

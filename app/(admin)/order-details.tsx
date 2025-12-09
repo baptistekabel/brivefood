@@ -20,6 +20,8 @@ import { useOrders } from '../../src/context/OrdersContext';
 import { isTablet, isLandscape } from '../../src/utils/deviceUtils';
 import printerService from '../../src/services/PrinterService';
 import remotePrinterService from '../../src/services/RemotePrinterService';
+import epsonBluetoothService from '../../src/services/EpsonBluetoothService';
+import ProductImage from '../../src/components/common/ProductImage';
 
 export default function AdminOrderDetails() {
   const { orderId } = useLocalSearchParams();
@@ -28,6 +30,7 @@ export default function AdminOrderDetails() {
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printingStatus, setPrintingStatus] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
 
   // Détection de l'appareil et orientation
   const isTabletDevice = isTablet();
@@ -225,37 +228,46 @@ export default function AdminOrderDetails() {
       styles.orderItem,
       isTabletDevice && isLandscapeMode && styles.orderItemTablet
     ]}>
-      <View style={styles.itemHeader}>
-        <Text style={[
-          styles.itemName,
-          isTabletDevice && isLandscapeMode && styles.itemNameTablet
-        ]}>
-          {item.name || 'Article sans nom'}
-        </Text>
+      <View style={styles.itemHeaderWithImage}>
+        <ProductImage
+          product={{
+            name: item.name,
+            id: item.id || item.productId,
+            imageKey: item.imageKey
+          }}
+          style={styles.itemImage}
+          resizeMode="cover"
+        />
+        <View style={styles.itemHeaderInfo}>
+          <Text style={[
+            styles.itemName,
+            isTabletDevice && isLandscapeMode && styles.itemNameTablet
+          ]}>
+            {item.name || 'Article sans nom'}
+          </Text>
+          <View style={styles.itemDetails}>
+            <Text style={[
+              styles.itemQuantity,
+              isTabletDevice && isLandscapeMode && styles.itemQuantityTablet
+            ]}>
+              {item.quantity || 0}x
+            </Text>
+            {item.size && (
+              <Text style={[
+                styles.itemSize,
+                isTabletDevice && isLandscapeMode && styles.itemSizeTablet
+              ]}>
+                • {item.size}
+              </Text>
+            )}
+          </View>
+        </View>
         <Text style={[
           styles.itemPrice,
           isTabletDevice && isLandscapeMode && styles.itemPriceTablet
         ]}>
-          {item.price ? item.price.toFixed(2) : '0.00'}€
+          {item.price ? (item.price * item.quantity).toFixed(2) : '0.00'}€
         </Text>
-      </View>
-
-      <View style={styles.itemDetails}>
-        <Text style={[
-          styles.itemQuantity,
-          isTabletDevice && isLandscapeMode && styles.itemQuantityTablet
-        ]}>
-          Quantité: {item.quantity || 0}
-        </Text>
-
-        {item.size && (
-          <Text style={[
-            styles.itemSize,
-            isTabletDevice && isLandscapeMode && styles.itemSizeTablet
-          ]}>
-            Taille: {item.size}
-          </Text>
-        )}
       </View>
 
       {item.customizations && Object.keys(item.customizations).length > 0 && (
@@ -299,7 +311,69 @@ export default function AdminOrderDetails() {
     );
   };
 
-  // Fonction pour ouvrir le modal d'impression
+  // Fonction pour impression directe (sans modal)
+  const handleDirectPrint = async () => {
+    if (isPrinting) return; // Éviter double clic
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsPrinting(true);
+
+    try {
+      // Préparation des données de commande pour l'impression
+      const orderForPrint = {
+        id: order.id,
+        customerName: order.customerName || (order.firstName && order.lastName
+          ? `${order.firstName} ${order.lastName}`
+          : 'Client BriveFood'),
+        firstName: order.firstName,
+        lastName: order.lastName,
+        phone: order.phone || '',
+        mode: order.mode?.toUpperCase() || 'TAKEOUT',
+        address: order.address || '',
+        items: order.items || [],
+        total: order.total || 0,
+        paymentMethod: order.paymentMethod || 'cash',
+        orderTime: order.orderTime || new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+        createdAt: order.createdAt || new Date().toISOString(),
+        deliveryFee: order.deliveryFee || 0
+      };
+
+      console.log('🖨️ Impression directe commande #' + order.id);
+
+      // Utiliser le service Epson Bluetooth
+      const printerStatus = epsonBluetoothService.getStatus();
+
+      if (printerStatus.isConnected || printerStatus.savedConfig) {
+        const printResult = await epsonBluetoothService.printOrder(orderForPrint);
+
+        if (printResult.success) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          Alert.alert('✅ Imprimé', `Ticket #${order.id} imprimé avec succès !`);
+        } else {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          Alert.alert('❌ Erreur', printResult.error || 'Échec de l\'impression');
+        }
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        Alert.alert(
+          'Imprimante non configurée',
+          'Configurez votre imprimante dans les paramètres.',
+          [
+            { text: 'Annuler', style: 'cancel' },
+            { text: 'Configurer', onPress: () => router.push('/(admin)/printer-setup') }
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('❌ Erreur impression directe:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Erreur', 'Impossible d\'imprimer le ticket');
+    } finally {
+      setIsPrinting(false);
+    }
+  };
+
+  // Fonction pour ouvrir le modal d'impression (gardée pour usage ultérieur si besoin)
   const handleOpenPrintModal = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setShowPrintModal(true);
@@ -524,10 +598,15 @@ export default function AdminOrderDetails() {
           <Text style={styles.headerTitle}>Commande #{order.id}</Text>
 
           <TouchableOpacity
-            style={styles.printButton}
-            onPress={handleOpenPrintModal}
+            style={[styles.printButton, isPrinting && styles.printButtonActive]}
+            onPress={handleDirectPrint}
+            disabled={isPrinting}
           >
-            <Ionicons name="print-outline" size={24} color={colors.neutral.white} />
+            {isPrinting ? (
+              <ActivityIndicator size="small" color={colors.neutral.white} />
+            ) : (
+              <Ionicons name="print-outline" size={24} color={colors.neutral.white} />
+            )}
           </TouchableOpacity>
         </View>
 
@@ -1002,6 +1081,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
+  printButtonActive: {
+    backgroundColor: 'rgba(255, 107, 53, 0.5)',
+    borderColor: 'rgba(255, 107, 53, 0.8)',
+  },
   content: {
     flex: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -1151,6 +1234,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: spacing.sm,
+  },
+  itemHeaderWithImage: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  itemImage: {
+    width: 60,
+    height: 60,
+    borderRadius: borderRadius.md,
+    marginRight: spacing.md,
+    backgroundColor: colors.neutral.gray100,
+  },
+  itemHeaderInfo: {
+    flex: 1,
+    marginRight: spacing.md,
   },
   itemName: {
     flex: 1,

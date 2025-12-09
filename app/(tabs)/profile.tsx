@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,10 +6,8 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  Switch,
   Animated,
 } from 'react-native';
-import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,214 +24,112 @@ export default function ProfileScreen() {
 
   const formatPhoneNumber = (phone) => {
     if (!phone) return '';
-    // Supprimer tous les caractères non numériques puis formatter 2 par 2
-    const cleaned = phone.replace(/\D/g, '');
-    return cleaned.replace(/(\d{2})(?=\d)/g, '$1 ');
+    const cleaned = phone.toString().replace(/\D/g, '');
+    return cleaned.match(/.{1,2}/g)?.join(' ') || cleaned;
   };
 
-  const [pushNotificationsEnabled, setPushNotificationsEnabled] = useState(false);
-
-  // Animations d'apparition
-  const headerAnimation = useRef({
-    opacity: new Animated.Value(0),
-    translateY: new Animated.Value(-30),
-    scale: new Animated.Value(0.9)
-  }).current;
-
-  const userCardAnimation = useRef({
-    opacity: new Animated.Value(0),
-    translateY: new Animated.Value(50),
-    scale: new Animated.Value(0.8)
-  }).current;
-
-  const menuSectionAnimation = useRef({
-    opacity: new Animated.Value(0),
-    translateX: new Animated.Value(-50)
-  }).current;
-
-  const notificationSectionAnimation = useRef({
-    opacity: new Animated.Value(0),
-    translateX: new Animated.Value(50)
-  }).current;
-
-  const logoutButtonAnimation = useRef({
-    opacity: new Animated.Value(0),
-    translateY: new Animated.Value(30),
-    scale: new Animated.Value(0.9)
-  }).current;
-
-  // Vérifier le statut des notifications au chargement
-  useEffect(() => {
-    checkNotificationStatus();
-  }, []);
-
-  const checkNotificationStatus = async () => {
-    try {
-      const { status } = await Notifications.getPermissionsAsync();
-      setPushNotificationsEnabled(status === 'granted');
-    } catch (error) {
-      console.error('Error checking notification status:', error);
+  // Obtenir les initiales de l'utilisateur
+  const getInitials = () => {
+    if (userProfile?.firstName && userProfile?.lastName) {
+      return `${userProfile.firstName[0]}${userProfile.lastName[0]}`.toUpperCase();
     }
-  };
-
-  const handlePushNotificationToggle = async () => {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-      if (!pushNotificationsEnabled) {
-        // Demander la permission
-        const { status } = await Notifications.requestPermissionsAsync();
-
-        if (status === 'granted') {
-          setPushNotificationsEnabled(true);
-          Alert.alert(
-            'Notifications activées',
-            'Vous recevrez désormais des notifications push.',
-            [{ text: 'OK' }]
-          );
-        } else {
-          Alert.alert(
-            'Permission refusée',
-            'Vous pouvez activer les notifications dans les paramètres de votre appareil.',
-            [{ text: 'OK' }]
-          );
-        }
-      } else {
-        // Informer l'utilisateur qu'il doit désactiver dans les paramètres
-        Alert.alert(
-          'Désactiver les notifications',
-          'Pour désactiver les notifications, rendez-vous dans les paramètres de votre appareil.',
-          [{ text: 'OK' }]
-        );
+    if (userProfile?.name) {
+      const parts = userProfile.name.split(' ');
+      if (parts.length >= 2) {
+        return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
       }
-    } catch (error) {
-      console.error('Error handling push notifications:', error);
-      Alert.alert(
-        'Erreur',
-        'Impossible de modifier les paramètres de notifications.',
-        [{ text: 'OK' }]
-      );
+      return userProfile.name.substring(0, 2).toUpperCase();
     }
+    return 'U';
   };
-  
-  // Animations pour les emojis flottants
-  const floatingEmojis = useRef(
-    Array.from({ length: 10 }, () => new Animated.Value(0))
+
+  // Animations
+  const headerAnimation = useRef(new Animated.Value(0)).current;
+  const cardAnimation = useRef(new Animated.Value(0)).current;
+  const menuAnimation = useRef(new Animated.Value(0)).current;
+
+  // Mémoriser les trajectoires des emojis
+  const emojiTrajectories = useRef(
+    Array.from({ length: 8 }, (_, index) => {
+      const trajectoryType = index % 4;
+      let startX, endX, startY, endY;
+
+      switch (trajectoryType) {
+        case 0:
+          startX = Math.random() * 300 - 50;
+          endX = startX + (Math.random() - 0.5) * 200;
+          startY = 900;
+          endY = -100;
+          break;
+        case 1:
+          startX = -100;
+          endX = 400;
+          startY = 200 + Math.random() * 400;
+          endY = startY + (Math.random() - 0.5) * 300;
+          break;
+        case 2:
+          startX = 400;
+          endX = -100;
+          startY = 300 + Math.random() * 300;
+          endY = startY + (Math.random() - 0.5) * 200;
+          break;
+        case 3:
+          startX = Math.random() * 300 - 50;
+          endX = startX + (Math.random() - 0.5) * 150;
+          startY = -100;
+          endY = 900;
+          break;
+        default:
+          startX = 0; endX = 0; startY = 0; endY = 0;
+      }
+      return { startX, endX, startY, endY, amplitude: 20 + (index % 3) * 15 };
+    })
   ).current;
 
-  // Animation des emojis flottants et animations d'apparition
+  const floatingEmojis = useRef(
+    Array.from({ length: 8 }, () => new Animated.Value(0))
+  ).current;
+
   useEffect(() => {
     if (!fontsLoaded) return;
 
-    // Animation d'apparition de l'en-tête
-    Animated.timing(headerAnimation.opacity, {
-      toValue: 1,
-      duration: 800,
-      useNativeDriver: true,
-    }).start();
-
-    Animated.timing(headerAnimation.translateY, {
-      toValue: 0,
-      duration: 800,
-      useNativeDriver: true,
-    }).start();
-
-    Animated.timing(headerAnimation.scale, {
-      toValue: 1,
-      duration: 800,
-      useNativeDriver: true,
-    }).start();
-
-    // Animation d'apparition de la carte utilisateur avec délai
-    setTimeout(() => {
-      Animated.timing(userCardAnimation.opacity, {
+    // Animations séquentielles
+    Animated.stagger(150, [
+      Animated.spring(headerAnimation, {
         toValue: 1,
-        duration: 600,
+        tension: 50,
+        friction: 8,
         useNativeDriver: true,
-      }).start();
-
-      Animated.timing(userCardAnimation.translateY, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }).start();
-
-      Animated.timing(userCardAnimation.scale, {
+      }),
+      Animated.spring(cardAnimation, {
         toValue: 1,
-        duration: 600,
+        tension: 50,
+        friction: 8,
         useNativeDriver: true,
-      }).start();
-    }, 200);
-
-    // Animation d'apparition de la section menu avec délai
-    setTimeout(() => {
-      Animated.timing(menuSectionAnimation.opacity, {
+      }),
+      Animated.spring(menuAnimation, {
         toValue: 1,
-        duration: 600,
+        tension: 50,
+        friction: 8,
         useNativeDriver: true,
-      }).start();
+      }),
+    ]).start();
 
-      Animated.timing(menuSectionAnimation.translateX, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }).start();
-    }, 400);
+    // Animation des emojis
+    floatingEmojis.forEach((animValue, index) => {
+      const delay = Math.random() * 2000;
+      const duration = 18000 + Math.random() * 12000;
 
-    // Animation d'apparition de la section notifications avec délai
-    setTimeout(() => {
-      Animated.timing(notificationSectionAnimation.opacity, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }).start();
-
-      Animated.timing(notificationSectionAnimation.translateX, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }).start();
-    }, 600);
-
-    // Animation d'apparition du bouton déconnexion avec délai
-    setTimeout(() => {
-      Animated.timing(logoutButtonAnimation.opacity, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }).start();
-
-      Animated.timing(logoutButtonAnimation.translateY, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }).start();
-
-      Animated.timing(logoutButtonAnimation.scale, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }).start();
-    }, 800);
-
-    const startFloatingEmojisAnimation = () => {
-      floatingEmojis?.forEach((animValue, index) => {
-        const delay = Math.random() * 1000;
-        const duration = 15000 + Math.random() * 15000;
-
-        setTimeout(() => {
-          Animated.loop(
-            Animated.timing(animValue, {
-              toValue: 1,
-              duration: duration,
-              useNativeDriver: true,
-            })
-          ).start();
-        }, delay);
-      });
-    };
-
-    startFloatingEmojisAnimation();
+      setTimeout(() => {
+        Animated.loop(
+          Animated.timing(animValue, {
+            toValue: 1,
+            duration: duration,
+            useNativeDriver: true,
+          })
+        ).start();
+      }, delay);
+    });
   }, [fontsLoaded]);
 
   if (!fontsLoaded) {
@@ -244,21 +140,20 @@ export default function ProfileScreen() {
     {
       id: 'personal-info',
       title: 'Informations personnelles',
-      subtitle: 'Gérer vos données',
+      subtitle: 'Modifier mon profil',
       icon: 'person-outline',
-      color: colors.primary.main,
+      gradient: [colors.secondary.main, colors.secondary.dark],
       action: () => router.push('/profile/edit'),
     },
     {
       id: 'orders',
-      title: 'Mes commandes',
-      subtitle: 'Historique et suivi',
+      title: 'Historique des commandes',
+      subtitle: 'Voir mes commandes passées',
       icon: 'receipt-outline',
-      color: colors.secondary.main,
+      gradient: [colors.accent.main, colors.accent.dark],
       action: () => router.push('/profile/orders'),
     },
   ];
-
 
   const handleLogout = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -286,76 +181,98 @@ export default function ProfileScreen() {
     router.push('/auth/login');
   };
 
-  const renderMenuItem = (item: any, isLast = false) => (
-    <TouchableOpacity
-      key={item.id}
-      style={[styles.menuItem, isLast && styles.lastMenuItem]}
-      onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        item.action();
-      }}
-    >
-      <View style={styles.menuItemLeft}>
-        <View style={[styles.menuItemIcon, { backgroundColor: `${item.color}15` }]}>
-          <Ionicons name={item.icon} size={22} color={item.color} />
-        </View>
-        <View style={styles.menuItemContent}>
-          <Text style={styles.menuItemText}>{item.title}</Text>
-          {item.subtitle && <Text style={styles.menuItemSubtitle}>{item.subtitle}</Text>}
-        </View>
-      </View>
-      <View style={styles.menuItemRight}>
-        <Ionicons name="chevron-forward" size={18} color={colors.neutral.gray400} />
-      </View>
-    </TouchableOpacity>
-  );
+  // Rendu des emojis flottants
+  const renderFloatingEmojis = () => {
+    const fastFoodEmojis = ['🍔', '🍟', '🍕', '🌮', '🌭', '🥪', '🍗', '🥤'];
 
-  const renderPushNotificationSetting = () => (
-    <TouchableOpacity style={styles.notificationItem} onPress={handlePushNotificationToggle}>
-      <View style={styles.notificationContent}>
-        <Text style={styles.notificationText}>Activer les notifications push</Text>
-        <Text style={styles.notificationSubtext}>
-          {pushNotificationsEnabled ? 'Notifications activées' : 'Touchez pour activer'}
-        </Text>
-      </View>
-      <View style={styles.notificationRight}>
-        <Ionicons
-          name={pushNotificationsEnabled ? "notifications" : "notifications-outline"}
-          size={20}
-          color={pushNotificationsEnabled ? colors.primary.main : colors.neutral.gray400}
-        />
-        <Ionicons name="chevron-forward" size={16} color={colors.neutral.gray400} style={{marginLeft: 8}} />
-      </View>
-    </TouchableOpacity>
-  );
+    return floatingEmojis.map((animValue, index) => {
+      const trajectory = emojiTrajectories[index];
+      const currentEmoji = fastFoodEmojis[index % fastFoodEmojis.length];
+
+      return (
+        <Animated.View
+          key={index}
+          style={[
+            styles.floatingEmoji,
+            {
+              transform: [
+                {
+                  translateY: animValue.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [trajectory.startY, trajectory.endY],
+                  }),
+                },
+                {
+                  translateX: animValue.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [trajectory.startX, trajectory.endX],
+                    extrapolate: 'clamp',
+                  }),
+                },
+                {
+                  translateX: animValue.interpolate({
+                    inputRange: [0, 0.25, 0.5, 0.75, 1],
+                    outputRange: [0, trajectory.amplitude, 0, -trajectory.amplitude, 0],
+                    extrapolate: 'clamp',
+                  }),
+                },
+              ],
+              opacity: animValue.interpolate({
+                inputRange: [0, 0.1, 0.9, 1],
+                outputRange: [0, 0.25, 0.25, 0],
+              }),
+            },
+          ]}
+        >
+          <Text style={styles.emojiText}>{currentEmoji}</Text>
+        </Animated.View>
+      );
+    });
+  };
 
   if (!isAuthenticated) {
     return (
       <LinearGradient
-        colors={['#000000', '#000000']}
+        colors={['#000000', '#111111', '#222222']}
         style={styles.container}
       >
         <StatusBar style="light" />
-        
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Mon Profil</Text>
-        </View>
+        {renderFloatingEmojis()}
 
-        {/* Login Prompt */}
         <View style={styles.loginPrompt}>
-          <Ionicons name="person-circle-outline" size={80} color={colors.neutral.gray300} />
-          <Text style={styles.loginTitle}>Connexion requise</Text>
+          <View style={styles.loginIconContainer}>
+            <LinearGradient
+              colors={[colors.secondary.main, colors.secondary.dark]}
+              style={styles.loginIconGradient}
+            >
+              <Ionicons name="person" size={50} color={colors.neutral.white} />
+            </LinearGradient>
+          </View>
+          <Text style={styles.loginTitle}>Bienvenue !</Text>
           <Text style={styles.loginMessage}>
-            Connectez-vous pour accéder à votre profil et gérer vos commandes
+            Connectez-vous pour accéder à votre profil et suivre vos commandes
           </Text>
           <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
             <LinearGradient
-              colors={[colors.primary.main, colors.primary.light]}
+              colors={[colors.secondary.main, colors.secondary.dark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
               style={styles.loginButtonGradient}
             >
+              <Ionicons name="log-in-outline" size={22} color={colors.neutral.white} />
               <Text style={styles.loginButtonText}>Se connecter</Text>
             </LinearGradient>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.registerLink}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push('/auth/register');
+            }}
+          >
+            <Text style={styles.registerLinkText}>
+              Pas encore de compte ? <Text style={styles.registerLinkBold}>S'inscrire</Text>
+            </Text>
           </TouchableOpacity>
         </View>
       </LinearGradient>
@@ -364,174 +281,152 @@ export default function ProfileScreen() {
 
   return (
     <LinearGradient
-      colors={['#000000', '#000000']}
+      colors={['#000000', '#111111', '#222222']}
       style={styles.container}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
     >
       <StatusBar style="light" />
-      
-      {/* Emojis flottants de fast food */}
-      {floatingEmojis?.map((animValue, index) => {
-        const fastFoodEmojis = ['🍔', '🍟', '🍕', '🌮', '🌭', '🥪', '🥙', '🍗', '🥓', '🍖'];
-        const currentEmoji = fastFoodEmojis[index % fastFoodEmojis.length];
-        
-        const trajectoryType = index % 4;
-        let startX, endX, startY, endY;
-        
-        switch (trajectoryType) {
-          case 0:
-            startX = Math.random() * 300 - 50;
-            endX = startX + (Math.random() - 0.5) * 200;
-            startY = 900;
-            endY = -100;
-            break;
-          case 1:
-            startX = -100;
-            endX = 400;
-            startY = 200 + Math.random() * 400;
-            endY = startY + (Math.random() - 0.5) * 300;
-            break;
-          case 2:
-            startX = 400;
-            endX = -100;
-            startY = 300 + Math.random() * 300;
-            endY = startY + (Math.random() - 0.5) * 200;
-            break;
-          case 3:
-            startX = Math.random() * 300 - 50;
-            endX = startX + (Math.random() - 0.5) * 150;
-            startY = -100;
-            endY = 900;
-            break;
-        }
-        
-        const amplitude = 20 + (index % 3) * 15;
-        
-        return (
-          <Animated.View 
-            key={index}
-            style={[
-              styles.floatingEmoji,
-              {
-                transform: [
-                  {
-                    translateY: animValue.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [startY, endY],
-                    }),
-                  },
-                  {
-                    translateX: animValue.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [startX, endX],
-                      extrapolate: 'clamp',
-                    }),
-                  },
-                  {
-                    translateX: animValue.interpolate({
-                      inputRange: [0, 0.25, 0.5, 0.75, 1],
-                      outputRange: [0, amplitude, 0, -amplitude, 0],
-                      extrapolate: 'clamp',
-                    }),
-                  },
-                ],
-                opacity: animValue.interpolate({
-                  inputRange: [0, 0.1, 0.9, 1],
-                  outputRange: [0, 0.35, 0.35, 0],
-                }),
-              },
-            ]}
-          >
-            <Text style={styles.emojiText}>{currentEmoji}</Text>
-          </Animated.View>
-        );
-      })}
-      
-      {/* Header */}
-      <Animated.View style={[
-        styles.header,
-        {
-          opacity: headerAnimation.opacity,
-          transform: [
-            { translateY: headerAnimation.translateY },
-            { scale: headerAnimation.scale }
-          ]
-        }
-      ]}>
-        <Text style={styles.headerTitle}>Mon Profil</Text>
-      </Animated.View>
+      {renderFloatingEmojis()}
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* User Info */}
-        <Animated.View style={[
-          styles.userCard,
-          {
-            opacity: userCardAnimation.opacity,
-            transform: [
-              { translateY: userCardAnimation.translateY },
-              { scale: userCardAnimation.scale }
-            ]
-          }
-        ]}>
-          <View style={styles.userInfo}>
-            <View style={styles.userDetails}>
-              <Text style={styles.userName}>{userProfile?.name || user?.displayName || 'Utilisateur'}</Text>
-              <Text style={styles.userEmail}>{user?.email}</Text>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Header avec titre */}
+        <Animated.View
+          style={[
+            styles.header,
+            {
+              opacity: headerAnimation,
+              transform: [
+                {
+                  translateY: headerAnimation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-30, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <Text style={styles.headerTitle}>Mon Profil</Text>
+        </Animated.View>
+
+        {/* Carte utilisateur premium */}
+        <Animated.View
+          style={[
+            styles.userCardContainer,
+            {
+              opacity: cardAnimation,
+              transform: [
+                {
+                  translateY: cardAnimation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [50, 0],
+                  }),
+                },
+                {
+                  scale: cardAnimation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.9, 1],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <LinearGradient
+            colors={['rgba(255,255,255,0.12)', 'rgba(255,255,255,0.05)']}
+            style={styles.userCard}
+          >
+            {/* Avatar avec initiales */}
+            <View style={styles.avatarContainer}>
+              <LinearGradient
+                colors={[colors.secondary.main, colors.secondary.dark]}
+                style={styles.avatar}
+              >
+                <Text style={styles.avatarText}>{getInitials()}</Text>
+              </LinearGradient>
+              <View style={styles.onlineIndicator} />
+            </View>
+
+            {/* Infos utilisateur */}
+            <View style={styles.userInfo}>
+              <Text style={styles.userName}>
+                {userProfile?.firstName && userProfile?.lastName
+                  ? `${userProfile.firstName} ${userProfile.lastName}`
+                  : userProfile?.name || 'Utilisateur'}
+              </Text>
+              <View style={styles.userEmailRow}>
+                <Ionicons name="mail-outline" size={14} color="rgba(255,255,255,0.6)" />
+                <Text style={styles.userEmail}>{user?.email}</Text>
+              </View>
               {userProfile?.phone && (
-                <Text style={styles.userPhone}>
-                  {formatPhoneNumber(userProfile.phone)}
-                </Text>
+                <View style={styles.userPhoneRow}>
+                  <Ionicons name="call-outline" size={14} color="rgba(255,255,255,0.6)" />
+                  <Text style={styles.userPhone}>{formatPhoneNumber(userProfile.phone)}</Text>
+                </View>
               )}
             </View>
-          </View>
+          </LinearGradient>
         </Animated.View>
 
-
-        {/* Menu Principal */}
-        <Animated.View style={[
-          styles.section,
-          {
-            opacity: menuSectionAnimation.opacity,
-            transform: [{ translateX: menuSectionAnimation.translateX }]
-          }
-        ]}>
+        {/* Menu */}
+        <Animated.View
+          style={[
+            styles.menuSection,
+            {
+              opacity: menuAnimation,
+              transform: [
+                {
+                  translateX: menuAnimation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-50, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
           <Text style={styles.sectionTitle}>Mon Compte</Text>
-          <View style={styles.menuCard}>
-            {menuItems.map((item, index) => 
-              renderMenuItem(item, index === menuItems.length - 1)
-            )}
-          </View>
+
+          {menuItems.map((item, index) => (
+            <TouchableOpacity
+              key={item.id}
+              style={styles.menuItem}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                item.action();
+              }}
+            >
+              <View style={styles.menuItemLeft}>
+                <LinearGradient
+                  colors={item.gradient}
+                  style={styles.menuItemIcon}
+                >
+                  <Ionicons name={item.icon} size={20} color={colors.neutral.white} />
+                </LinearGradient>
+                <View style={styles.menuItemContent}>
+                  <Text style={styles.menuItemTitle}>{item.title}</Text>
+                  <Text style={styles.menuItemSubtitle}>{item.subtitle}</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.4)" />
+            </TouchableOpacity>
+          ))}
         </Animated.View>
 
-        {/* Notifications */}
-        <Animated.View style={[
-          styles.section,
-          {
-            opacity: notificationSectionAnimation.opacity,
-            transform: [{ translateX: notificationSectionAnimation.translateX }]
-          }
-        ]}>
-          <Text style={styles.sectionTitle}>Notifications</Text>
-          <View style={styles.menuCard}>
-            {renderPushNotificationSetting()}
-          </View>
-        </Animated.View>
-
-
-        {/* Logout */}
-        <Animated.View style={[
-          styles.section,
-          {
-            opacity: logoutButtonAnimation.opacity,
-            transform: [
-              { translateY: logoutButtonAnimation.translateY },
-              { scale: logoutButtonAnimation.scale }
-            ]
-          }
-        ]}>
+        {/* Bouton déconnexion */}
+        <Animated.View
+          style={[
+            styles.logoutSection,
+            {
+              opacity: menuAnimation,
+            },
+          ]}
+        >
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Ionicons name="log-out-outline" size={20} color={colors.status.error} />
+            <Ionicons name="log-out-outline" size={20} color="#ff6b6b" />
             <Text style={styles.logoutText}>Déconnexion</Text>
           </TouchableOpacity>
         </Animated.View>
@@ -546,84 +441,116 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    paddingTop: spacing.xl + 20,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
-  },
-  headerTitle: {
-    fontSize: typography.fontSizes.xl,
-    fontFamily: typography.fontFamily.title,
-    color: colors.neutral.white,
-    textAlign: 'center',
-  },
-  content: {
+  scrollView: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: 20,
+  },
+  header: {
+    paddingTop: 60,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.white,
+    textAlign: 'center',
+  },
+
+  // Carte utilisateur
+  userCardContainer: {
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+  },
   userCard: {
-    backgroundColor: colors.neutral.white,
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.md,
-    borderRadius: borderRadius.lg,
+    borderRadius: 20,
     padding: spacing.lg,
-    elevation: 4,
-    shadowColor: colors.neutral.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginRight: spacing.md,
+  },
+  avatar: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  avatarText: {
+    fontSize: 26,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.white,
+  },
+  onlineIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.secondary.main,
+    borderWidth: 3,
+    borderColor: '#111111',
   },
   userInfo: {
-    alignItems: 'center',
-  },
-  userDetails: {
-    alignItems: 'center',
+    flex: 1,
   },
   userName: {
-    fontSize: typography.fontSizes.xl,
+    fontSize: 20,
     fontFamily: typography.fontFamily.bold,
-    color: colors.neutral.gray800,
-    marginBottom: spacing.xs,
-    textAlign: 'center',
+    color: colors.neutral.white,
+    marginBottom: 6,
+  },
+  userEmailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
   },
   userEmail: {
-    fontSize: typography.fontSizes.base,
-    color: colors.neutral.gray600,
-    textAlign: 'center',
-  },
-  userPhone: {
-    fontSize: typography.fontSizes.sm,
-    color: colors.neutral.gray500,
-    textAlign: 'center',
-    marginTop: spacing.xs,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.6)',
     fontFamily: typography.fontFamily.medium,
   },
-  section: {
-    marginTop: spacing.xl,
+  userPhoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  userPhone: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.6)',
+    fontFamily: typography.fontFamily.medium,
+  },
+  // Menu
+  menuSection: {
+    paddingHorizontal: spacing.lg,
   },
   sectionTitle: {
-    fontSize: typography.fontSizes.lg,
-    fontFamily: typography.fontFamily.title,
+    fontSize: 18,
+    fontFamily: typography.fontFamily.bold,
     color: colors.neutral.white,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.sm,
-  },
-  menuCard: {
-    backgroundColor: colors.neutral.white,
-    marginHorizontal: spacing.lg,
-    borderRadius: borderRadius.lg,
-    overflow: 'hidden',
+    marginBottom: spacing.md,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral.gray100,
-  },
-  lastMenuItem: {
-    borderBottomWidth: 0,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 16,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
   },
   menuItemLeft: {
     flexDirection: 'row',
@@ -633,7 +560,7 @@ const styles = StyleSheet.create({
   menuItemIcon: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.md,
@@ -641,103 +568,116 @@ const styles = StyleSheet.create({
   menuItemContent: {
     flex: 1,
   },
-  menuItemText: {
-    fontSize: typography.fontSizes.base,
-    fontFamily: typography.fontFamily.medium,
-    color: colors.neutral.gray800,
+  menuItemTitle: {
+    fontSize: 15,
+    fontFamily: typography.fontFamily.semibold,
+    color: colors.neutral.white,
     marginBottom: 2,
   },
   menuItemSubtitle: {
-    fontSize: typography.fontSizes.sm,
-    color: colors.neutral.gray500,
-  },
-  menuItemRight: {
-    paddingLeft: spacing.sm,
-  },
-  notificationItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral.gray100,
-  },
-  notificationContent: {
-    flex: 1,
-  },
-  notificationText: {
-    fontSize: typography.fontSizes.base,
+    fontSize: 12,
     fontFamily: typography.fontFamily.medium,
-    color: colors.neutral.gray800,
-    marginBottom: 2,
+    color: 'rgba(255,255,255,0.5)',
   },
-  notificationSubtext: {
-    fontSize: typography.fontSizes.sm,
-    color: colors.neutral.gray500,
-  },
-  notificationRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
+
+  // Déconnexion
+  logoutSection: {
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.xl,
   },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.neutral.white,
-    marginHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.lg,
+    backgroundColor: 'rgba(255,107,107,0.1)',
+    borderRadius: 16,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,107,107,0.2)',
+    gap: spacing.sm,
   },
   logoutText: {
-    fontSize: typography.fontSizes.base,
-    fontFamily: typography.fontFamily.medium,
-    color: colors.status.error,
-    marginLeft: spacing.sm,
+    fontSize: 15,
+    fontFamily: typography.fontFamily.semibold,
+    color: '#ff6b6b',
   },
+
+  // Login prompt
   loginPrompt: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: spacing.xl,
   },
+  loginIconContainer: {
+    marginBottom: spacing.xl,
+  },
+  loginIconGradient: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
   loginTitle: {
-    fontSize: typography.fontSizes.xl,
-    fontFamily: typography.fontFamily.semibold,
-    color: colors.neutral.gray800,
-    marginTop: spacing.lg,
+    fontSize: 28,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.white,
     marginBottom: spacing.sm,
   },
   loginMessage: {
-    fontSize: typography.fontSizes.base,
-    color: colors.neutral.gray600,
+    fontSize: 15,
+    fontFamily: typography.fontFamily.medium,
+    color: 'rgba(255,255,255,0.6)',
     textAlign: 'center',
-    lineHeight: typography.lineHeights.normal * typography.fontSizes.base,
+    lineHeight: 22,
     marginBottom: spacing.xl,
+    paddingHorizontal: spacing.md,
   },
   loginButton: {
-    borderRadius: borderRadius.lg,
+    borderRadius: 16,
+    overflow: 'hidden',
+    width: '100%',
+    maxWidth: 280,
   },
   loginButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
-    borderRadius: borderRadius.lg,
+    gap: spacing.sm,
   },
   loginButtonText: {
-    fontSize: typography.fontSizes.lg,
-    fontFamily: typography.fontFamily.semibold,
+    fontSize: 17,
+    fontFamily: typography.fontFamily.bold,
     color: colors.neutral.white,
   },
-  bottomSpacer: {
-    height: 100,
+  registerLink: {
+    marginTop: spacing.lg,
   },
-  
-  // Styles pour les emojis flottants
+  registerLinkText: {
+    fontSize: 14,
+    fontFamily: typography.fontFamily.medium,
+    color: 'rgba(255,255,255,0.5)',
+  },
+  registerLinkBold: {
+    fontFamily: typography.fontFamily.bold,
+    color: colors.secondary.main,
+  },
+
+  // Emojis
   floatingEmoji: {
     position: 'absolute',
     zIndex: -1,
   },
   emojiText: {
-    fontSize: 24,
+    fontSize: 22,
+  },
+
+  bottomSpacer: {
+    height: 100,
   },
 });

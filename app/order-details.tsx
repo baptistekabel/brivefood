@@ -18,6 +18,7 @@ import { colors, typography, spacing, borderRadius } from '../src/constants/them
 import { useActiveOrder } from '../src/context/ActiveOrderContext';
 import useFonts from '../src/hooks/useFonts';
 import LoadingScreen from '../src/components/common/LoadingScreen';
+import ProductImage from '../src/components/common/ProductImage';
 
 export default function OrderDetailsScreen() {
   const fontsLoaded = useFonts();
@@ -134,35 +135,97 @@ export default function OrderDetailsScreen() {
     );
   };
 
-  const renderOrderItem = ({ item }) => (
-    <View style={styles.orderItem}>
-      <View style={styles.itemHeader}>
-        <Text style={styles.itemName}>{item.name}</Text>
-        <Text style={styles.itemPrice}>{item.price.toFixed(2)}€</Text>
-      </View>
+  // Fonction pour formater les personnalisations avec les noms lisibles
+  const formatCustomizations = (customizations, customizationOptions) => {
+    if (!customizations || !customizationOptions) return null;
 
-      <View style={styles.itemDetails}>
-        <Text style={styles.itemQuantity}>Quantité: {item.quantity}</Text>
-        {item.size && (
-          <Text style={styles.itemSize}>Taille: {item.size}</Text>
-        )}
-        {item.comment && (
-          <Text style={styles.itemComment}>Note: {item.comment}</Text>
-        )}
-      </View>
+    const formattedCustomizations = [];
 
-      {item.customizations && (
-        <View style={styles.customizations}>
-          <Text style={styles.customizationsTitle}>Personnalisations:</Text>
-          {Object.entries(item.customizations).map(([category, options], index) => (
-            <Text key={index} style={styles.customizationText}>
-              • {options.join(', ')}
-            </Text>
-          ))}
+    Object.entries(customizations).forEach(([categoryKey, selectedOptions]) => {
+      const category = customizationOptions[categoryKey];
+      if (category && selectedOptions && selectedOptions.length > 0) {
+        const selectedItems = selectedOptions.map(optionId => {
+          const option = category.options?.find(opt => opt.id === optionId);
+          if (option) {
+            return option.price > 0 ? `${option.name} (+${option.price.toFixed(2)}€)` : option.name;
+          }
+          // Fallback si l'option n'est pas trouvée (afficher l'ID formaté)
+          return optionId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        }).filter(Boolean);
+
+        if (selectedItems.length > 0) {
+          formattedCustomizations.push({
+            categoryTitle: category.title || categoryKey,
+            items: selectedItems
+          });
+        }
+      }
+    });
+
+    return formattedCustomizations.length > 0 ? formattedCustomizations : null;
+  };
+
+  const renderOrderItem = ({ item }) => {
+    // Formater les personnalisations si disponibles
+    const formattedCustomizations = item.customizations && item.customizationOptions
+      ? formatCustomizations(item.customizations, item.customizationOptions)
+      : null;
+
+    return (
+      <View style={styles.orderItem}>
+        <View style={styles.itemMainRow}>
+          {/* Image du produit - utilise le même composant que la liste des produits */}
+          <ProductImage
+            product={item}
+            style={styles.itemImage}
+            resizeMode="cover"
+          />
+
+          {/* Informations du produit */}
+          <View style={styles.itemContent}>
+            <View style={styles.itemHeader}>
+              <Text style={styles.itemName} numberOfLines={2}>{item.name}</Text>
+              <Text style={styles.itemPrice}>{item.price.toFixed(2)}€</Text>
+            </View>
+
+            <View style={styles.itemDetails}>
+              <View style={styles.itemBadges}>
+                <View style={styles.quantityBadge}>
+                  <Text style={styles.quantityBadgeText}>x{item.quantity}</Text>
+                </View>
+                {item.size && (
+                  <View style={styles.sizeBadge}>
+                    <Text style={styles.sizeBadgeText}>{item.size}</Text>
+                  </View>
+                )}
+              </View>
+              {item.comment && (
+                <Text style={styles.itemComment} numberOfLines={2}>
+                  <Ionicons name="chatbubble-outline" size={12} color={colors.neutral.gray500} /> {item.comment}
+                </Text>
+              )}
+            </View>
+          </View>
         </View>
-      )}
-    </View>
-  );
+
+        {formattedCustomizations && formattedCustomizations.length > 0 && (
+          <View style={styles.customizations}>
+            <Text style={styles.customizationsTitle}>Personnalisations :</Text>
+            {formattedCustomizations.map((category, index) => (
+              <View key={index} style={styles.customizationCategory}>
+                <Text style={styles.customizationCategoryTitle}>{category.categoryTitle} :</Text>
+                {category.items.map((itemName, itemIndex) => (
+                  <Text key={itemIndex} style={styles.customizationText}>
+                    • {itemName}
+                  </Text>
+                ))}
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+    );
+  };
 
   return (
     <LinearGradient
@@ -455,27 +518,67 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.neutral.gray200,
   },
+  itemMainRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  itemImage: {
+    width: 70,
+    height: 70,
+    borderRadius: borderRadius.lg,
+    marginRight: spacing.md,
+    backgroundColor: colors.neutral.gray100,
+  },
+  itemContent: {
+    flex: 1,
+  },
   itemHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   itemName: {
-    fontSize: typography.fontSizes.lg,
+    fontSize: typography.fontSizes.base,
     fontFamily: typography.fontFamily.bold,
     color: colors.neutral.gray800,
     flex: 1,
     marginRight: spacing.sm,
   },
   itemPrice: {
-    fontSize: typography.fontSizes.lg,
+    fontSize: typography.fontSizes.base,
     fontFamily: typography.fontFamily.bold,
     color: '#000000',
   },
   itemDetails: {
     gap: spacing.xs,
-    marginBottom: spacing.sm,
+  },
+  itemBadges: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  quantityBadge: {
+    backgroundColor: colors.neutral.gray800,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+  },
+  quantityBadgeText: {
+    fontSize: typography.fontSizes.xs,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.white,
+  },
+  sizeBadge: {
+    backgroundColor: colors.neutral.gray200,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+  },
+  sizeBadgeText: {
+    fontSize: typography.fontSizes.xs,
+    fontFamily: typography.fontFamily.semibold,
+    color: colors.neutral.gray700,
   },
   itemQuantity: {
     fontSize: typography.fontSizes.base,
@@ -488,15 +591,18 @@ const styles = StyleSheet.create({
     color: colors.neutral.gray600,
   },
   itemComment: {
-    fontSize: typography.fontSizes.base,
+    fontSize: typography.fontSizes.sm,
     fontFamily: typography.fontFamily.medium,
-    color: colors.neutral.gray600,
+    color: colors.neutral.gray500,
     fontStyle: 'italic',
+    marginTop: spacing.xs,
   },
   customizations: {
     backgroundColor: colors.neutral.gray50,
     padding: spacing.sm,
     borderRadius: borderRadius.md,
+    marginTop: spacing.sm,
+    marginLeft: 86, // Aligné avec le contenu (70px image + 16px margin)
   },
   customizationsTitle: {
     fontSize: typography.fontSizes.sm,
@@ -508,6 +614,17 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.sm,
     fontFamily: typography.fontFamily.medium,
     color: colors.neutral.gray700,
+    marginLeft: spacing.sm,
+    marginTop: 2,
+  },
+  customizationCategory: {
+    marginBottom: spacing.xs,
+  },
+  customizationCategoryTitle: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.semibold,
+    color: colors.neutral.gray800,
+    marginTop: spacing.xs,
   },
   totalSection: {
     paddingHorizontal: spacing.lg,

@@ -29,9 +29,10 @@ export default function AdminSettings() {
   const [notificationMessage, setNotificationMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
 
-  const handleTabletSettings = () => {
+
+  const handlePrinterSettings = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push('/(admin)/tablet-setup');
+    router.push('/(admin)/printer-setup');
   };
 
   const handleDeliverySettings = () => {
@@ -159,11 +160,11 @@ export default function AdminSettings() {
       title: 'Configuration Restaurant',
       items: [
         {
-          icon: 'tablet-portrait-outline',
-          title: 'Configuration Tablette',
-          subtitle: 'Paramétrage de l\'impression automatique',
-          color: '#000000',
-          onPress: handleTabletSettings,
+          icon: 'wifi-outline',
+          title: 'Imprimante WiFi',
+          subtitle: 'Configurer l\'imprimante TM-M30II pour tickets automatiques',
+          color: '#2196F3',
+          onPress: handlePrinterSettings,
         },
         {
           icon: 'bicycle-outline',
@@ -262,19 +263,6 @@ export default function AdminSettings() {
               </View>
             </View>
           ))}
-
-          {/* Info Section */}
-          <View style={styles.infoSection}>
-            <View style={styles.infoCard}>
-              <Ionicons name="information-circle" size={24} color="#2196F3" />
-              <View style={styles.infoContent}>
-                <Text style={styles.infoTitle}>BriveFood Admin</Text>
-                <Text style={styles.infoText}>
-                  Interface d'administration pour la gestion du restaurant
-                </Text>
-              </View>
-            </View>
-          </View>
 
           <View style={{ height: 100 }} />
         </ScrollView>
@@ -457,36 +445,6 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.neutral.gray100,
     marginLeft: spacing.lg + 48 + spacing.md, // Align with text
-  },
-  infoSection: {
-    marginTop: spacing.lg,
-  },
-  infoCard: {
-    backgroundColor: colors.neutral.white,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: colors.neutral.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  infoContent: {
-    marginLeft: spacing.md,
-    flex: 1,
-  },
-  infoTitle: {
-    fontSize: typography.fontSizes.base,
-    fontFamily: typography.fontFamily.bold,
-    color: colors.neutral.gray800,
-    marginBottom: spacing.xs / 2,
-  },
-  infoText: {
-    fontSize: typography.fontSizes.sm,
-    color: colors.neutral.gray600,
-    lineHeight: typography.lineHeights.normal * typography.fontSizes.sm,
   },
   // Modal styles
   modalOverlay: {

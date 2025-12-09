@@ -249,69 +249,19 @@ export default function RestaurantStatusControl({ style }) {
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* Contrôles avancés */}
-        <View style={styles.advancedControls}>
+        {/* Bouton retour au mode automatique */}
+        {status.mode === 'manual' && (
           <TouchableOpacity
-            style={styles.advancedButton}
-            onPress={() => {
-              Alert.alert(
-                'Ouvrir le restaurant',
-                'Voulez-vous ouvrir le restaurant immédiatement ?',
-                [
-                  { text: 'Annuler', style: 'cancel' },
-                  {
-                    text: 'Ouvrir',
-                    onPress: () => forceStatus(true, 'Ouvert manuellement'),
-                    style: 'default'
-                  }
-                ]
-              );
-            }}
+            style={styles.autoButton}
+            onPress={handleClearOverride}
             activeOpacity={0.7}
           >
-            <Ionicons name="play-circle-outline" size={18} color="#22C55E" />
-            <Text style={[styles.advancedButtonText, { color: '#22C55E' }]}>
-              Ouvrir
+            <Ionicons name="refresh-circle-outline" size={18} color="#6B7280" />
+            <Text style={[styles.autoButtonText]}>
+              Retour au mode automatique
             </Text>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.advancedButton}
-            onPress={() => {
-              Alert.alert(
-                'Fermer le restaurant',
-                'Voulez-vous fermer le restaurant immédiatement ?',
-                [
-                  { text: 'Annuler', style: 'cancel' },
-                  {
-                    text: 'Fermer',
-                    onPress: () => forceStatus(false, 'Fermé manuellement'),
-                    style: 'destructive'
-                  }
-                ]
-              );
-            }}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="pause-circle-outline" size={18} color="#EF4444" />
-            <Text style={[styles.advancedButtonText, { color: '#EF4444' }]}>
-              Fermer
-            </Text>
-          </TouchableOpacity>
-
-          {status.mode === 'manual' && (
-            <TouchableOpacity
-              style={styles.advancedButton}
-              onPress={handleClearOverride}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="refresh-circle-outline" size={18} color="#6B7280" />
-              <Text style={[styles.advancedButtonText, { color: '#6B7280' }]}>
-                Auto
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
+        )}
       </View>
 
       {/* Modal de configuration avancée */}
@@ -481,12 +431,7 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.bold,
     color: colors.neutral.white,
   },
-  advancedControls: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  advancedButton: {
-    flex: 1,
+  autoButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -498,9 +443,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.neutral.gray50,
     gap: spacing.xs,
   },
-  advancedButtonText: {
+  autoButtonText: {
     fontSize: typography.fontSizes.sm,
     fontFamily: typography.fontFamily.semibold,
+    color: '#6B7280',
   },
   modalOverlay: {
     flex: 1,

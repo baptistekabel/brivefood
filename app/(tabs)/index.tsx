@@ -52,6 +52,11 @@ export default function HomeScreen() {
     Array.from({ length: 25 }, () => new Animated.Value(0))
   ).current;
 
+  // Animation pour le carrousel des offres
+  const [currentPromoIndex, setCurrentPromoIndex] = useState(0);
+  const promoScrollRef = useRef(null);
+  const promoScrollValue = useRef(new Animated.Value(0)).current;
+
   const navigateToMenu = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push('/menu');
@@ -117,6 +122,16 @@ export default function HomeScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const snapchatUrl = "https://www.snapchat.com/add/brive-food";
     Linking.openURL(snapchatUrl);
+  };
+
+  // Gérer le scroll manuel du carrousel
+  const handlePromoScroll = (event) => {
+    const offsetX = event.nativeEvent.contentOffset.x;
+    const pageIndex = Math.round(offsetX / width);
+
+    if (pageIndex !== currentPromoIndex) {
+      setCurrentPromoIndex(pageIndex);
+    }
   };
 
   const checkRestaurantStatus = async () => {
@@ -307,6 +322,29 @@ export default function HomeScreen() {
     startFloatingEmojisAnimation();
     startEntranceAnimations();
 
+    // Animation automatique du carrousel des offres avec défilement fluide
+    const startPromoCarousel = () => {
+      const intervalId = setInterval(() => {
+        setCurrentPromoIndex(prevIndex => {
+          const newIndex = (prevIndex + 1) % 2;
+
+          // Scroll automatique fluide vers la bonne page
+          if (promoScrollRef.current) {
+            promoScrollRef.current.scrollTo({
+              x: newIndex * width,
+              animated: true,
+            });
+          }
+
+          return newIndex;
+        });
+      }, 4500); // Change toutes les 4.5 secondes pour laisser le temps de lire
+
+      return intervalId;
+    };
+
+    const promoInterval = startPromoCarousel();
+
     // Initialiser le service et écouter les changements
     initializeStatusService();
 
@@ -323,6 +361,7 @@ export default function HomeScreen() {
 
     return () => {
       clearInterval(statusInterval);
+      clearInterval(promoInterval);
       removeListener();
     };
   }, []);
@@ -552,7 +591,7 @@ export default function HomeScreen() {
             </Text>
           )}
 
-        {/* Bandeau Promo - Design Simple et Élégant */}
+        {/* Carrousel des Offres Spéciales avec défilement fluide et manuel */}
         <Animated.View
           style={[
             styles.promoBanner,
@@ -562,29 +601,75 @@ export default function HomeScreen() {
             }
           ]}
         >
-          <View style={styles.promoBannerContainer}>
-            <LinearGradient
-              colors={['#FF6B6B', '#FF8E88', '#FFA4A4']}
-              style={styles.promoGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0.8 }}
+          <View style={styles.promoCarouselContainer}>
+            <ScrollView
+              ref={promoScrollRef}
+              horizontal={true}
+              pagingEnabled={true}
+              showsHorizontalScrollIndicator={false}
+              onScroll={handlePromoScroll}
+              scrollEventThrottle={16}
+              style={styles.promoScrollView}
+              contentContainerStyle={styles.promoScrollContent}
             >
-              <View style={styles.promoContent}>
-                <View style={styles.promoLeft}>
-                  <View style={styles.promoBadge}>
-                    <Text style={styles.promoBadgeText}>OFFRE SPÉCIALE</Text>
-                  </View>
-                  <Text style={styles.promoMainText}>Dessert offert</Text>
-                  <Text style={styles.promoCondition}>dès 20€ d'achat</Text>
-                </View>
+              {/* Première offre - Dessert offert */}
+              <View style={styles.promoSlide}>
+                <LinearGradient
+                  colors={['#FF6B6B', '#FF8E88', '#FFA4A4']}
+                  style={styles.promoGradientFull}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0.8 }}
+                >
+                  <View style={styles.promoContentFull}>
+                    <View style={styles.promoLeft}>
+                      <View style={styles.promoBadge}>
+                        <Text style={styles.promoBadgeText}>OFFRE SPÉCIALE</Text>
+                      </View>
+                      <Text style={styles.promoMainText}>Dessert offert</Text>
+                      <Text style={styles.promoCondition}>dès 20€ d'achat</Text>
+                    </View>
 
-                <View style={styles.promoRight}>
-                  <View style={styles.promoIconContainer}>
-                    <Ionicons name="gift" size={32} color="#FFFFFF" />
+                    <View style={styles.promoRight}>
+                      <View style={styles.promoIconContainer}>
+                        <Ionicons name="gift" size={32} color="#FFFFFF" />
+                      </View>
+                    </View>
                   </View>
-                </View>
+                </LinearGradient>
               </View>
-            </LinearGradient>
+
+              {/* Deuxième offre - Brunch weekend */}
+              <View style={styles.promoSlide}>
+                <LinearGradient
+                  colors={['#F59E0B', '#FBBF24', '#FCD34D']}
+                  style={styles.promoGradientFull}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0.8 }}
+                >
+                  <View style={styles.promoContentFull}>
+                    <View style={styles.promoLeft}>
+                      <View style={styles.promoBadge}>
+                        <Text style={styles.promoBadgeText}>WEEKEND SPECIAL</Text>
+                      </View>
+                      <Text style={styles.promoMainText}>Brunch le weekend</Text>
+                      <Text style={styles.promoCondition}>samedi et dimanche de 10h30 à 15h</Text>
+                    </View>
+
+                    <View style={styles.promoRight}>
+                      <View style={styles.promoIconContainer}>
+                        <Ionicons name="sunny" size={32} color="#FFFFFF" />
+                      </View>
+                    </View>
+                  </View>
+                </LinearGradient>
+              </View>
+            </ScrollView>
+
+            {/* Indicateurs de pagination */}
+            <View style={styles.promoIndicators}>
+              <View style={[styles.promoIndicator, currentPromoIndex === 0 && styles.promoIndicatorActive]} />
+              <View style={[styles.promoIndicator, currentPromoIndex === 1 && styles.promoIndicatorActive]} />
+            </View>
           </View>
         </Animated.View>
 
@@ -1558,6 +1643,41 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 12,
   },
+  // Nouveaux styles pour le carrousel ScrollView
+  promoCarouselContainer: {
+    borderRadius: borderRadius.xl,
+    overflow: 'hidden',
+    elevation: 8,
+    shadowColor: colors.neutral.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    height: 120, // Hauteur fixe pour éviter le rognage
+    position: 'relative',
+  },
+  promoScrollView: {
+    flex: 1,
+  },
+  promoScrollContent: {
+    flexDirection: 'row',
+  },
+  promoSlide: {
+    width: width - (spacing.lg * 2), // Largeur exacte de l'écran moins les marges
+    height: 120,
+  },
+  promoGradientFull: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
+    flex: 1,
+    justifyContent: 'center',
+    borderRadius: borderRadius.xl,
+  },
+  promoContentFull: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flex: 1,
+  },
   promoGradient: {
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.lg,
@@ -1610,6 +1730,26 @@ const styles = StyleSheet.create({
   },
   promoArrow: {
     opacity: 0.8,
+  },
+  promoIndicators: {
+    position: 'absolute',
+    bottom: 10,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  promoIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+  },
+  promoIndicatorActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    width: 20,
   },
 
   // Styles pour les réseaux sociaux

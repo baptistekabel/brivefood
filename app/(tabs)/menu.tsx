@@ -26,14 +26,14 @@ const { width } = Dimensions.get('window');
 // Images représentatives par catégorie
 const categoryImages = {
   [ProductCategory.PIZZA]: [
-    require('../../assets/images/pizzas/pizzaMargherita.jpg'),
-    require('../../assets/images/pizzas/pizza4Fromages.png'),
-    require('../../assets/images/pizzas/pizzaChevreMiel.jpg')
+    require('../../assets/images/nouveauxProduits/margaritha.png'),
+    require('../../assets/images/nouveauxProduits/pizza4fromages.png'),
+    require('../../assets/images/nouveauxProduits/pizzaFermiere.png')
   ],
   [ProductCategory.BURGER]: [
-    require('../../assets/images/burgers/burgerClassic.png'),
-    require('../../assets/images/burgers/doubleCheeseBurger.png'),
-    require('../../assets/images/burgers/chickenBurger.png')
+    require('../../assets/images/nouveauxProduits/FrenchyBurger.png'),
+    require('../../assets/images/nouveauxProduits/DoubleCheese.png'),
+    require('../../assets/images/nouveauxProduits/ChickenBurger.png')
   ],
   [ProductCategory.PATES]: [
     require('../../assets/images/pates/patebolognaise.jpg'),
@@ -41,34 +41,34 @@ const categoryImages = {
     require('../../assets/images/pates/patesaumon.png')
   ],
   [ProductCategory.SALADES]: [
-    require('../../assets/images/salades/saladeChevreMiel.png'),
+    require('../../assets/images/nouveauxProduits/saladeChicken.png'),
     require('../../assets/images/salades/saladeSaumon.png'),
     require('../../assets/images/salades/saladeTomateMozza.png')
   ],
   [ProductCategory.DESSERTS]: [
-    require('../../assets/images/desserts/tiramisuSpeculosCaramel.png'),
-    require('../../assets/images/desserts/MilkshakeVanille.png'),
-    require('../../assets/images/desserts/Gaufre.png')
+    require('../../assets/images/nouveauxProduits/Gaufre.png'),
+    require('../../assets/images/nouveauxProduits/Milkshake.png'),
+    require('../../assets/images/nouveauxProduits/kinderBueno.png')
   ],
   [ProductCategory.TEX_MEX]: [
-    require('../../assets/images/tex-mex/tenders.png'),
-    require('../../assets/images/tex-mex/nuggets.png'),
-    require('../../assets/images/tex-mex/onionRings.png')
+    require('../../assets/images/nouveauxProduits/NUGGETS.png'),
+    require('../../assets/images/nouveauxProduits/ChilliCheese.png'),
+    require('../../assets/images/nouveauxProduits/OignonsRings.png')
   ],
   [ProductCategory.PETITES_FAIM]: [
-    require('../../assets/images/petitesFaims/hotDog.png'),
-    require('../../assets/images/petitesFaims/croque.png'),
-    require('../../assets/images/petitesFaims/cheese.png')
+    require('../../assets/images/nouveauxProduits/HotDog.png'),
+    require('../../assets/images/nouveauxProduits/CroqueMonsieur.png'),
+    require('../../assets/images/nouveauxProduits/Cheese.png')
   ],
   [ProductCategory.PETIT_FAIM_BRUSCHETTA]: [
-    require('../../assets/images/petiteFaimBruschetta/bruschettaMargarita.png'),
+    require('../../assets/images/nouveauxProduits/BRUSHETA POULET CURRY.png'),
     require('../../assets/images/petiteFaimBruschetta/bruschetta4Fromages.png'),
     require('../../assets/images/petiteFaimBruschetta/bruschettaChevreMiel.png')
   ],
   [ProductCategory.FRITES_GARNIES]: [
-    require('../../assets/images/frites/fritesCheddar.png'),
-    require('../../assets/images/frites/fritesCheddarBacon.png'),
-    require('../../assets/images/frites/barquetteFrites.png')
+    require('../../assets/images/nouveauxProduits/FritesCheddarBacon.png'),
+    require('../../assets/images/nouveauxProduits/fritesFromage.png'),
+    require('../../assets/images/nouveauxProduits/frites.png')
   ],
   [ProductCategory.BOISSONS]: [
     require('../../assets/images/boissons/coca.png'),
@@ -76,21 +76,30 @@ const categoryImages = {
     require('../../assets/images/boissons/sprite.png')
   ],
   [ProductCategory.LASAGNES]: [
-    require('../../assets/images/lasagnes/lasagneBolognaise.png'),
+    require('../../assets/images/nouveauxProduits/lasagneBolognaise.png'),
     require('../../assets/images/lasagnes/lasagnePoulet.png'),
     require('../../assets/images/lasagnes/lasagneSaumon.png')
   ],
   [ProductCategory.FORMULES_PIZZA_DUO]: [
-    require('../../assets/images/formuleDuo.png')
+    require('../../assets/images/nouveauxProduits/FormulePizza.Duo.png')
   ],
   [ProductCategory.FORMULES_PIZZA_TRIO]: [
     require('../../assets/images/formuleTrio.png')
   ],
   [ProductCategory.TACOS]: [
-    require('../../assets/images/tacos/menuTacos.png')
+    require('../../assets/images/nouveauxProduits/MenuTacos.png')
   ],
   [ProductCategory.SANDWICH_AMERICAIN]: [
-    require('../../assets/images/sandwichAmericain.png')
+    require('../../assets/images/nouveauxProduits/AmericainSimple.png')
+  ],
+  [ProductCategory.MENU_KIDS]: [
+    require('../../assets/images/nouveauxProduits/MenuKidss.png')
+  ],
+  [ProductCategory.BRUNCH]: [
+    require('../../assets/images/nouveauxProduits/brunch.png')
+  ],
+  [ProductCategory.BOWLS]: [
+    require('../../assets/images/nouveauxProduits/bowls.png')
   ]
 };
 
@@ -350,6 +359,9 @@ export default function MenuScreen() {
       { id: 'petitfaim5', name: 'Ptit Cheese' },
       { id: 'petitfaim6', name: 'Croq chèvre miel' },
     ],
+    [ProductCategory.BRUNCH]: [
+      { id: 'menu-brunch', name: 'Menu Brunch' },
+    ],
     [ProductCategory.TEX_MEX]: [
       { id: 'texmex1', name: 'Sticks Mozza x 3' },
       { id: 'texmex2', name: 'Tenders x 3' },
@@ -465,11 +477,9 @@ export default function MenuScreen() {
       id: ProductCategory.FORMULES_PIZZA_DUO,
       name: 'Formules Duo',
       subtitle: '2 pizzas + boisson',
-      emoji: '👫',
       color: '#000000',
       gradient: ['#000000', '#000000'],
-      items: getRealItemCount(ProductCategory.FORMULES_PIZZA_DUO),
-      popular: true
+      items: getRealItemCount(ProductCategory.FORMULES_PIZZA_DUO)
     },
     {
       id: ProductCategory.FORMULES_PIZZA_TRIO,
@@ -588,6 +598,15 @@ export default function MenuScreen() {
       color: '#F59E0B',
       gradient: ['#F59E0B', '#FBBF24'],
       items: getRealItemCount(ProductCategory.FRITES_GARNIES)
+    },
+    {
+      id: ProductCategory.BRUNCH,
+      name: 'Brunch',
+      subtitle: 'Spécialités brunch',
+      emoji: '🥐',
+      color: '#F97316',
+      gradient: ['#F97316', '#FB923C'],
+      items: getRealItemCount(ProductCategory.BRUNCH)
     },
     // Catégories spécialisées
     {
@@ -708,7 +727,7 @@ export default function MenuScreen() {
                 {/* Badge populaire pour formules duo */}
                 {category.popular && (
                   <View style={styles.popularBadge}>
-                    <Text style={styles.popularText}>⭐</Text>
+                    <Text style={styles.popularText}>HOT</Text>
                   </View>
                 )}
               </View>
@@ -716,7 +735,7 @@ export default function MenuScreen() {
               {/* Texte */}
               <View style={styles.cardText}>
                 <Text style={styles.categoryName}>
-                  {category.name}
+                  {category.name.toUpperCase()}
                 </Text>
                 <Text style={styles.categorySubtitle}>
                   {category.subtitle}
@@ -728,7 +747,7 @@ export default function MenuScreen() {
                 <View style={styles.arrowCircle}>
                   <Ionicons
                     name="arrow-forward"
-                    size={14}
+                    size={16}
                     color={colors.neutral.white}
                   />
                 </View>
@@ -760,7 +779,7 @@ export default function MenuScreen() {
             {/* Texte */}
             <View style={styles.cardText}>
               <Text style={styles.categoryName}>
-                {category.name}
+                {category.name.toUpperCase()}
               </Text>
               <Text style={styles.categorySubtitle}>
                 {category.subtitle}
@@ -772,7 +791,7 @@ export default function MenuScreen() {
                 <View style={styles.arrowCircle}>
                   <Ionicons
                     name="arrow-forward"
-                    size={14}
+                    size={16}
                     color={colors.neutral.white}
                   />
                 </View>
@@ -1048,17 +1067,22 @@ const styles = StyleSheet.create({
   },
   categoryCard: {
     marginBottom: spacing.sm,
-    borderRadius: 24,
+    borderRadius: 28,
     overflow: 'hidden',
     shadowColor: colors.neutral.black,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
   cardGradient: {
     flex: 1,
     position: 'relative',
+    borderRadius: 26,
+    overflow: 'hidden',
   },
   backgroundImage: {
     position: 'absolute',
@@ -1112,10 +1136,17 @@ const styles = StyleSheet.create({
     lineHeight: 1,
   },
   itemCountBadge: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs / 2,
-    borderRadius: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    shadowColor: colors.neutral.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   itemCountText: {
     fontSize: typography.fontSizes.xs,
@@ -1123,11 +1154,18 @@ const styles = StyleSheet.create({
     color: colors.neutral.white,
   },
   popularBadge: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    paddingHorizontal: spacing.xs,
+    backgroundColor: '#FF6B6B',
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs / 2,
-    borderRadius: 8,
+    borderRadius: 16,
     marginLeft: spacing.xs,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    shadowColor: '#FF6B6B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 4,
   },
   popularText: {
     fontSize: typography.fontSizes.xs,
@@ -1135,6 +1173,7 @@ const styles = StyleSheet.create({
   cardText: {
     flex: 1,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   categoryName: {
     fontSize: typography.fontSizes.sm,
@@ -1142,23 +1181,35 @@ const styles = StyleSheet.create({
     color: colors.neutral.white,
     marginBottom: spacing.xs / 2,
     lineHeight: typography.lineHeights.tight * typography.fontSizes.sm,
+    textShadowColor: 'rgba(255, 255, 255, 0.4)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 6,
+    textAlign: 'center',
   },
   categorySubtitle: {
     fontSize: typography.fontSizes.xs,
     fontFamily: typography.fontFamily.medium,
     color: 'rgba(255,255,255,0.8)',
     lineHeight: typography.lineHeights.normal * typography.fontSizes.xs,
+    textAlign: 'center',
   },
   cardArrow: {
     alignSelf: 'flex-end',
   },
   arrowCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.35)',
+    shadowColor: colors.neutral.black,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 4,
   },
 
   cardOverlay: {
@@ -1167,7 +1218,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     zIndex: 2,
   },
 

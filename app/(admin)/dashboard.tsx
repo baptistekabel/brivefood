@@ -10,7 +10,10 @@ import {
   Alert,
   TextInput,
   Keyboard,
+  Animated,
 } from 'react-native';
+import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,8 +26,10 @@ import { isTablet, isLandscape } from '../../src/utils/deviceUtils';
 import notificationService from '../../src/services/notificationService';
 import adminNotificationService, { registerAdminForNotifications } from '../../src/services/adminNotificationService';
 import remotePrinterService from '../../src/services/RemotePrinterService';
+import epsonBluetoothService from '../../src/services/EpsonBluetoothService';
 import RestaurantStatusControl from '../../src/components/admin/RestaurantStatusControl';
 import restaurantStatusService from '../../src/services/restaurantStatusService';
+import ProductImage from '../../src/components/common/ProductImage';
 
 export default function AdminDashboard() {
   const { orders, loading, refreshOrders, updateOrderStatus } = useOrders();
@@ -33,6 +38,7 @@ export default function AdminDashboard() {
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [printerConnected, setPrinterConnected] = useState(false);
   const previousOrdersCount = useRef(0);
 
   console.log('📊 [DASHBOARD] Orders from Firestore:', orders.length);
@@ -49,18 +55,25 @@ export default function AdminDashboard() {
         await restaurantStatusService.initialize();
         console.log('✅ Service de statut restaurant initialisé');
 
+        // Initialiser l'imprimante Bluetooth
+        const printerStatus = epsonBluetoothService.getStatus();
+        setPrinterConnected(printerStatus.isConnected);
+
+        // Tenter une reconnexion automatique si config sauvegardée
+        if (printerStatus.savedConfig && !printerStatus.isConnected) {
+          console.log('🖨️ Tentative reconnexion imprimante Bluetooth...');
+          const reconnectResult = await epsonBluetoothService.reconnect();
+          if (reconnectResult.success) {
+            setPrinterConnected(true);
+            console.log('✅ Imprimante Bluetooth reconnectée');
+          } else {
+            console.log('⚠️ Reconnexion imprimante échouée:', reconnectResult.error);
+          }
+        }
+
         // await notificationService.initialize();
         console.log('🔔 Notifications désactivées temporairement (focus sur impression)');
 
-        // Enregistrement push notifications désactivé temporairement
-        // const token = await notificationService.getPushToken();
-        // if (token) {
-        //   await registerAdminForNotifications(token, {
-        //     platform: 'admin',
-        //     deviceId: 'admin-dashboard',
-        //   });
-        //   console.log('✅ Admin enregistré pour les notifications push');
-        // }
       } catch (error) {
         console.error('❌ Erreur initialisation services:', error);
       }
@@ -68,78 +81,150 @@ export default function AdminDashboard() {
 
     initServices();
 
+    // Vérifier le statut de l'imprimante périodiquement
+    const printerCheckInterval = setInterval(async () => {
+      const status = epsonBluetoothService.getStatus();
+      setPrinterConnected(status.isConnected);
+    }, 10000); // Toutes les 10 secondes
+
     // Cleanup au démontage
     return () => {
       // notificationService.cleanup();
       restaurantStatusService.cleanup();
+      clearInterval(printerCheckInterval);
     };
   }, []);
 
-  // Détecter les nouvelles commandes et envoyer des notifications
+  // Référence pour tracker les commandes déjà imprimées (persiste pendant la session)
+  const printedOrdersRef = useRef<Set<string>>(new Set());
+  const isPrintingRef = useRef(false);
+
+  // Charger les commandes déjà imprimées au démarrage
   useEffect(() => {
-    if (!loading && orders.length > 0) {
-      // Au premier chargement, initialiser le compteur
-      if (previousOrdersCount.current === 0) {
-        previousOrdersCount.current = orders.length;
+    const loadPrintedOrders = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('@printed_orders_today');
+        if (stored) {
+          const data = JSON.parse(stored);
+          // Vérifier si c'est le même jour
+          const today = new Date().toDateString();
+          if (data.date === today && data.orders) {
+            printedOrdersRef.current = new Set(data.orders);
+            console.log('📋 [AUTO-PRINT] Commandes déjà imprimées chargées:', data.orders.length);
+          }
+        }
+      } catch (error) {
+        console.error('Erreur chargement commandes imprimées:', error);
+      }
+    };
+    loadPrintedOrders();
+  }, []);
+
+  // Sauvegarder les commandes imprimées
+  const savePrintedOrder = async (orderId: string) => {
+    printedOrdersRef.current.add(orderId);
+    try {
+      const data = {
+        date: new Date().toDateString(),
+        orders: Array.from(printedOrdersRef.current)
+      };
+      await AsyncStorage.setItem('@printed_orders_today', JSON.stringify(data));
+    } catch (error) {
+      console.error('Erreur sauvegarde commande imprimée:', error);
+    }
+  };
+
+  // Détecter les nouvelles commandes et imprimer automatiquement
+  useEffect(() => {
+    // Éviter les exécutions multiples simultanées
+    if (loading || orders.length === 0 || isPrintingRef.current) {
+      return;
+    }
+
+    const printNewOrders = async () => {
+      // Trouver les nouvelles commandes PENDING non imprimées
+      const newOrdersToPrint = orders.filter(order =>
+        order.status === OrderStatus.PENDING &&
+        !printedOrdersRef.current.has(order.id)
+      );
+
+      if (newOrdersToPrint.length === 0) {
         return;
       }
 
-      // Si on a plus de commandes qu'avant, c'est une nouvelle commande
-      if (orders.length > previousOrdersCount.current) {
-        const newOrdersCount = orders.length - previousOrdersCount.current;
-        console.log(`🆕 ${newOrdersCount} nouvelle(s) commande(s) détectée(s)`);
+      console.log(`📊 [AUTO-PRINT] ${newOrdersToPrint.length} nouvelle(s) commande(s) à imprimer`);
 
-        // Trouver la/les nouvelle(s) commande(s) (les plus récentes)
-        const sortedOrders = [...orders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        const newOrders = sortedOrders.slice(0, newOrdersCount);
+      // Vérifier si on accepte les commandes
+      if (!acceptingOrders) {
+        console.log('🔕 [AUTO-PRINT] Commandes arrêtées - pas d\'impression');
+        // Marquer quand même comme "vues" pour ne pas réimprimer plus tard
+        newOrdersToPrint.forEach(order => savePrintedOrder(order.id));
+        return;
+      }
 
-        // Traitement des nouvelles commandes SEULEMENT si on accepte les commandes
-        if (acceptingOrders) {
-          newOrders.forEach(async (order) => {
-            if (order.status === OrderStatus.PENDING) { // Seulement pour les nouvelles commandes
-              console.log(`🆕 Nouvelle commande détectée: #${order.id}`);
+      // Bloquer les impressions multiples
+      isPrintingRef.current = true;
 
-              // Vibration pour attirer l'attention
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-              // Impression automatique du ticket
-              try {
-                // Préparation des données de commande pour l'impression
-                const orderForPrint = {
-                  id: order.id,
-                  customerName: order.customerName || 'Client BriveFood',
-                  phone: order.phone || '',
-                  mode: order.mode?.toUpperCase() || 'TAKEOUT',
-                  address: order.address || '',
-                  items: order.items || [],
-                  total: order.total || 0,
-                  paymentMethod: order.paymentMethod || 'cash',
-                  createdAt: order.createdAt || new Date().toISOString(),
-                  deliveryFee: order.deliveryFee || 0
-                };
-
-                console.log(`🖨️ Impression automatique commande #${order.id}`);
-                const printResult = await remotePrinterService.printOrder(orderForPrint);
-
-                if (printResult.success) {
-                  console.log(`✅ Ticket imprimé automatiquement pour #${order.id}`);
-                } else {
-                  console.warn(`⚠️ Échec impression automatique pour #${order.id}:`, printResult.error);
-                }
-              } catch (printError) {
-                console.error(`❌ Erreur impression automatique pour #${order.id}:`, printError);
-              }
-            }
-          });
-        } else {
-          console.log('🔕 Nouvelles commandes détectées mais notifications désactivées (Arrêt des commandes)');
+      for (const order of newOrdersToPrint) {
+        // Double vérification
+        if (printedOrdersRef.current.has(order.id)) {
+          continue;
         }
 
-        // Mettre à jour le compteur
-        previousOrdersCount.current = orders.length;
+        console.log(`🆕 [AUTO-PRINT] Impression commande #${order.id}`);
+
+        // Marquer immédiatement comme imprimée
+        await savePrintedOrder(order.id);
+
+        // Vibration
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+        try {
+          const orderForPrint = {
+            id: order.id,
+            customerName: order.customerName || order.firstName || 'Client BriveFood',
+            firstName: order.firstName,
+            lastName: order.lastName,
+            phone: order.phone || '',
+            mode: order.mode?.toUpperCase() || 'TAKEOUT',
+            address: order.address || '',
+            items: order.items || [],
+            total: order.total || 0,
+            paymentMethod: order.paymentMethod || 'cash',
+            orderTime: order.orderTime || new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+            createdAt: order.createdAt || new Date().toISOString(),
+            deliveryFee: order.deliveryFee || 0
+          };
+
+          const printerStatus = epsonBluetoothService.getStatus();
+
+          if (printerStatus.autoPrintEnabled && (printerStatus.isConnected || printerStatus.savedConfig)) {
+            const printResult = await epsonBluetoothService.printOrder(orderForPrint);
+
+            if (printResult.success) {
+              console.log(`✅ [AUTO-PRINT] Ticket imprimé pour #${order.id}`);
+              setPrinterConnected(true);
+            } else {
+              console.warn(`⚠️ [AUTO-PRINT] Échec: ${printResult.error}`);
+              setPrinterConnected(false);
+            }
+          } else {
+            console.warn('⚠️ [AUTO-PRINT] Imprimante non configurée');
+          }
+
+        } catch (printError) {
+          console.error(`❌ [AUTO-PRINT] Erreur pour #${order.id}:`, printError);
+        }
+
+        // Petit délai entre les impressions
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
-    }
-  }, [orders, loading]);
+
+      isPrintingRef.current = false;
+    };
+
+    printNewOrders();
+  }, [orders, loading, acceptingOrders]);
 
   // Plus besoin de loadOrdersDirectly - Firestore se synchronise automatiquement
   // Plus besoin d'auto-refresh - le listener Firestore met à jour en temps réel
@@ -214,6 +299,130 @@ export default function AdminDashboard() {
       console.error('Error updating order status:', error);
       Alert.alert('Erreur', 'Impossible de mettre à jour la commande.');
     }
+  };
+
+  // Obtenir le statut suivant pour le swipe
+  const getNextStatus = (currentStatus: string, orderMode: string) => {
+    const statusOrder = orderMode === OrderMode.DELIVERY
+      ? [OrderStatus.PENDING, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.IN_DELIVERY, OrderStatus.DELIVERED]
+      : [OrderStatus.PENDING, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.DELIVERED];
+
+    const currentIndex = statusOrder.indexOf(currentStatus);
+    if (currentIndex < statusOrder.length - 1) {
+      return statusOrder[currentIndex + 1];
+    }
+    return null;
+  };
+
+  // Obtenir le statut précédent pour le swipe
+  const getPreviousStatus = (currentStatus: string, orderMode: string) => {
+    const statusOrder = orderMode === OrderMode.DELIVERY
+      ? [OrderStatus.PENDING, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.IN_DELIVERY, OrderStatus.DELIVERED]
+      : [OrderStatus.PENDING, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.DELIVERED];
+
+    const currentIndex = statusOrder.indexOf(currentStatus);
+    if (currentIndex > 0) {
+      return statusOrder[currentIndex - 1];
+    }
+    return null;
+  };
+
+  // Changer le statut via swipe (sans modal)
+  const handleSwipeStatusChange = async (order: any, newStatus: string) => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      const success = await updateOrderStatus(order.id, newStatus, {
+        manualStatusChange: true,
+        triggerRating: newStatus === OrderStatus.DELIVERED || newStatus === OrderStatus.READY
+      });
+
+      if (success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert('Erreur', 'Impossible de mettre à jour la commande.');
+      }
+    } catch (error) {
+      console.error('Error updating order status:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  };
+
+  // Rendu de l'action swipe droite (statut suivant)
+  const renderRightActions = (order: any, progress: Animated.AnimatedInterpolation<number>, dragX: Animated.AnimatedInterpolation<number>) => {
+    const nextStatus = getNextStatus(order.status, order.mode);
+    if (!nextStatus) return null;
+
+    const scale = progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.8, 1],
+      extrapolate: 'clamp',
+    });
+
+    const opacity = progress.interpolate({
+      inputRange: [0, 0.5, 1],
+      outputRange: [0, 0.8, 1],
+      extrapolate: 'clamp',
+    });
+
+    return (
+      <Animated.View style={[
+        styles.swipeAction,
+        styles.swipeActionRight,
+        {
+          opacity,
+          transform: [{ scale }]
+        }
+      ]}>
+        <TouchableOpacity
+          style={[styles.swipeButton, { backgroundColor: getStatusColor(nextStatus) }]}
+          onPress={() => handleSwipeStatusChange(order, nextStatus)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="chevron-forward-circle" size={28} color="white" />
+          <Text style={styles.swipeButtonText}>{getStatusLabel(nextStatus, order.mode)}</Text>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
+
+  // Rendu de l'action swipe gauche (statut précédent)
+  const renderLeftActions = (order: any, progress: Animated.AnimatedInterpolation<number>, dragX: Animated.AnimatedInterpolation<number>) => {
+    const prevStatus = getPreviousStatus(order.status, order.mode);
+    if (!prevStatus) return null;
+
+    const scale = progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.8, 1],
+      extrapolate: 'clamp',
+    });
+
+    const opacity = progress.interpolate({
+      inputRange: [0, 0.5, 1],
+      outputRange: [0, 0.8, 1],
+      extrapolate: 'clamp',
+    });
+
+    return (
+      <Animated.View style={[
+        styles.swipeAction,
+        styles.swipeActionLeft,
+        {
+          opacity,
+          transform: [{ scale }]
+        }
+      ]}>
+        <TouchableOpacity
+          style={[styles.swipeButton, { backgroundColor: getStatusColor(prevStatus) }]}
+          onPress={() => handleSwipeStatusChange(order, prevStatus)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="chevron-back-circle" size={28} color="white" />
+          <Text style={styles.swipeButtonText}>{getStatusLabel(prevStatus, order.mode)}</Text>
+        </TouchableOpacity>
+      </Animated.View>
+    );
   };
 
   // Obtenir les statuts disponibles selon le mode et le statut actuel
@@ -449,22 +658,56 @@ export default function AdminDashboard() {
   };
 
 
+  // Refs pour les swipeables
+  const swipeableRefs = useRef<{ [key: string]: Swipeable | null }>({});
+
   const renderOrderCard = (order: any) => (
-    <TouchableOpacity
+    <Swipeable
+      ref={(ref) => { swipeableRefs.current[order.id] = ref; }}
       key={order.id}
-      style={[
-        styles.orderCard,
-        isTabletDevice && isLandscapeMode && styles.orderCardTablet
-      ]}
-      onPress={() => {
+      renderRightActions={(progress, dragX) => renderRightActions(order, progress, dragX)}
+      renderLeftActions={(progress, dragX) => renderLeftActions(order, progress, dragX)}
+      onSwipeableWillOpen={(direction) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        router.push(`/(admin)/order-details?orderId=${order.id}`);
       }}
-      onLongPress={() => {
-        openStatusMenu(order);
+      onSwipeableOpen={(direction) => {
+        // Fermer le swipeable après l'action
+        setTimeout(() => {
+          swipeableRefs.current[order.id]?.close();
+        }, 100);
+
+        if (direction === 'right') {
+          const nextStatus = getNextStatus(order.status, order.mode);
+          if (nextStatus) handleSwipeStatusChange(order, nextStatus);
+        } else if (direction === 'left') {
+          const prevStatus = getPreviousStatus(order.status, order.mode);
+          if (prevStatus) handleSwipeStatusChange(order, prevStatus);
+        }
       }}
-      delayLongPress={500}
+      overshootLeft={false}
+      overshootRight={false}
+      overshootFriction={8}
+      friction={1.5}
+      leftThreshold={80}
+      rightThreshold={80}
+      enableTrackpadTwoFingerGesture
+      containerStyle={styles.swipeableContainer}
     >
+      <TouchableOpacity
+        style={[
+          styles.orderCard,
+          isTabletDevice && isLandscapeMode && styles.orderCardTablet
+        ]}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          router.push(`/(admin)/order-details?orderId=${order.id}`);
+        }}
+        onLongPress={() => {
+          openStatusMenu(order);
+        }}
+        delayLongPress={500}
+        activeOpacity={0.9}
+      >
       <View style={styles.orderHeader}>
         <View style={styles.orderIdSection}>
           <Text style={[
@@ -535,19 +778,44 @@ export default function AdminDashboard() {
           )}
 
           {order.items && order.items.length > 0 && (
-            <View>
+            <View style={styles.orderItemsContainer}>
               <Text style={[
                 styles.orderItems,
                 isTabletDevice && isLandscapeMode && styles.orderItemsTablet
               ]}>
                 {order.items.length} article{order.items.length > 1 ? 's' : ''}
               </Text>
-              <Text style={[
-                styles.orderItemsPreview,
-                isTabletDevice && isLandscapeMode && styles.orderItemsPreviewTablet
-              ]} numberOfLines={1}>
-                {order.items.map((item: any) => `${item.quantity}x ${item.name}`).join(', ')}
-              </Text>
+              <View style={styles.orderItemsList}>
+                {order.items.slice(0, 3).map((item: any, index: number) => (
+                  <View key={index} style={styles.orderItemWithImage}>
+                    <ProductImage
+                      product={{
+                        name: item.name,
+                        id: item.id || item.productId,
+                        imageKey: item.imageKey
+                      }}
+                      style={styles.orderItemImage}
+                      resizeMode="cover"
+                    />
+                    <View style={styles.orderItemDetails}>
+                      <Text style={[
+                        styles.orderItemName,
+                        isTabletDevice && isLandscapeMode && styles.orderItemNameTablet
+                      ]} numberOfLines={1}>
+                        {item.name}
+                      </Text>
+                      <Text style={styles.orderItemQuantity}>
+                        {item.quantity}x · {(item.price * item.quantity).toFixed(2)}€
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+                {order.items.length > 3 && (
+                  <Text style={styles.moreItemsText}>
+                    +{order.items.length - 3} autre{order.items.length - 3 > 1 ? 's' : ''}
+                  </Text>
+                )}
+              </View>
             </View>
           )}
         </View>
@@ -578,10 +846,11 @@ export default function AdminDashboard() {
         return null;
       })()}
     </TouchableOpacity>
+    </Swipeable>
   );
 
   return (
-    <>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <Stack.Screen options={{ headerShown: false }} />
       <LinearGradient
         colors={['#000000', '#000000', '#000000']}
@@ -592,28 +861,30 @@ export default function AdminDashboard() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>Commandes ({orders.length})</Text>
-            <Text style={[styles.headerSubtitle, {
-              color: acceptingOrders ? colors.neutral.gray300 : '#fbbf24'
-            }]}>
-              {acceptingOrders ? 'Gestion des commandes' : 'Arrêt des commandes activé'}
+            <Text style={styles.headerTitle}>Commandes</Text>
+            <Text style={[styles.headerSubtitle, { color: colors.neutral.gray300 }]}>
+              Gestion des commandes
             </Text>
           </View>
           <View style={styles.headerActions}>
+            {/* Indicateur imprimante */}
             <TouchableOpacity
-              style={styles.statusIndicator}
+              style={styles.printerIndicator}
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                setAcceptingOrders(!acceptingOrders);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/(admin)/printer-setup');
               }}
             >
-              <View style={[styles.statusDot, {
-                backgroundColor: loading ? '#fbbf24' : acceptingOrders ? '#22C55E' : '#ef4444'
+              <Ionicons
+                name="print"
+                size={16}
+                color={printerConnected ? '#22C55E' : '#ef4444'}
+              />
+              <View style={[styles.printerDot, {
+                backgroundColor: printerConnected ? '#22C55E' : '#ef4444'
               }]} />
-              <Text style={[styles.statusText, { color: '#FFFFFF' }]}>
-                {loading ? 'Connexion...' : acceptingOrders ? 'En ligne' : 'Arrêt commandes'}
-              </Text>
             </TouchableOpacity>
+
             <TouchableOpacity
               style={styles.settingsButton}
               onPress={() => {
@@ -925,7 +1196,7 @@ export default function AdminDashboard() {
         </Modal>
 
       </LinearGradient>
-    </>
+    </GestureHandlerRootView>
   );
 }
 
@@ -988,6 +1259,27 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  printerIndicator: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  printerDot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.2)',
   },
   statusDot: {
     width: 10,
@@ -1218,6 +1510,45 @@ const styles = StyleSheet.create({
   },
   orderItemsPreviewTablet: {
     fontSize: typography.fontSizes.sm,
+  },
+  orderItemsContainer: {
+    marginTop: spacing.xs,
+  },
+  orderItemsList: {
+    marginTop: spacing.xs,
+  },
+  orderItemWithImage: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  orderItemImage: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.sm,
+    marginRight: spacing.sm,
+    backgroundColor: colors.neutral.gray100,
+  },
+  orderItemDetails: {
+    flex: 1,
+  },
+  orderItemName: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray800,
+  },
+  orderItemNameTablet: {
+    fontSize: typography.fontSizes.base,
+  },
+  orderItemQuantity: {
+    fontSize: typography.fontSizes.xs,
+    color: colors.neutral.gray500,
+  },
+  moreItemsText: {
+    fontSize: typography.fontSizes.xs,
+    color: colors.neutral.gray500,
+    fontStyle: 'italic',
+    marginTop: spacing.xs,
   },
   orderPricing: {
     alignItems: 'flex-end',
@@ -1837,5 +2168,49 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.base,
     fontFamily: typography.fontFamily.bold,
     color: colors.neutral.white,
+  },
+
+  // Styles pour le swipe
+  swipeableContainer: {
+    borderRadius: borderRadius.lg,
+    overflow: 'visible',
+  },
+  swipeAction: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 100,
+  },
+  swipeActionRight: {
+    alignItems: 'flex-start',
+    paddingLeft: spacing.xs,
+    marginLeft: -spacing.xs,
+  },
+  swipeActionLeft: {
+    alignItems: 'flex-end',
+    paddingRight: spacing.xs,
+    marginRight: -spacing.xs,
+  },
+  swipeButton: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 90,
+    borderRadius: borderRadius.lg,
+    marginVertical: 0,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  swipeButtonText: {
+    color: colors.neutral.white,
+    fontSize: 10,
+    fontFamily: typography.fontFamily.bold,
+    textAlign: 'center',
+    marginTop: 4,
+    lineHeight: 12,
   },
 });
