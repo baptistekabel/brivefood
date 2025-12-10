@@ -326,13 +326,13 @@ export const ActiveOrderProvider = ({ children }) => {
   const getEstimatedTime = (mode) => {
     switch (mode) {
       case 'dine_in':
-        return '20 min';
+        return '15-25 min';
       case 'takeout':
-        return '20 min';
+        return '15-25 min';
       case 'delivery':
-        return '45 min';
+        return '30-45 min';
       default:
-        return '20 min';
+        return '15-25 min';
     }
   };
 

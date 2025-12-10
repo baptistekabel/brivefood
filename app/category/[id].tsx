@@ -36,6 +36,7 @@ export default function CategoryScreen() {
   const [selectedSizes, setSelectedSizes] = useState({});
   const [customizations, setCustomizations] = useState({});
   const [expandedCustomizations, setExpandedCustomizations] = useState({});
+  const [productComments, setProductComments] = useState({});
 
   // Modal state for image zoom
   const [imageModalVisible, setImageModalVisible] = useState(false);
@@ -157,6 +158,33 @@ export default function CategoryScreen() {
           [product.id]: defaultSize
         }));
       }
+      // Déplier automatiquement les options pour les tacos et bowls
+      if ((id === ProductCategory.TACOS || id === ProductCategory.BOWLS) && product.customizable) {
+        setExpandedCustomizations(prev => ({
+          ...prev,
+          [product.id]: true
+        }));
+      }
+    }
+    // Déplier automatiquement les options pour les lasagnes
+    if (id === ProductCategory.LASAGNES && products.length > 0) {
+      const expanded = {};
+      products.forEach(product => {
+        if (product.customizable) {
+          expanded[product.id] = true;
+        }
+      });
+      setExpandedCustomizations(prev => ({ ...prev, ...expanded }));
+    }
+    // Déplier automatiquement les options pour le menu kids
+    if (id === ProductCategory.MENU_KIDS && products.length > 0) {
+      const expanded = {};
+      products.forEach(product => {
+        if (product.customizable) {
+          expanded[product.id] = true;
+        }
+      });
+      setExpandedCustomizations(prev => ({ ...prev, ...expanded }));
     }
   }, [id, products]);
 
@@ -290,30 +318,36 @@ export default function CategoryScreen() {
 
   // Fonction pour ajouter au panier (maintenant ouvre la modal sauf pour les boissons)
   const handleAddToCart = (product, selectedSize = 'M', event = null) => {
-    // Si c'est une boisson, ajouter directement au panier sans modal de commentaire
-    if (id === ProductCategory.BOISSONS) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      // Déclencher l'animation
-      triggerCartAnimation(product, event);
+    // Déclencher l'animation
+    triggerCartAnimation(product, event);
 
-      // Ajouter directement au panier
-      if (product.sizes && product.sizes[selectedSize]) {
-        const productWithSize = {
-          ...product,
-          id: `${product.id}_${selectedSize}`,
-          price: product.sizes[selectedSize].price,
-          selectedSize: selectedSize,
-          name: `${product.name} (${product.sizes[selectedSize].name})`
-        };
-        addItem(productWithSize);
-      } else {
-        addItem(product);
-      }
+    // Récupérer le commentaire inline
+    const comment = productComments[product.id] || undefined;
+
+    // Ajouter directement au panier avec le commentaire
+    if (product.sizes && product.sizes[selectedSize]) {
+      const productWithSize = {
+        ...product,
+        id: `${product.id}_${selectedSize}`,
+        price: product.sizes[selectedSize].price,
+        selectedSize: selectedSize,
+        name: `${product.name} (${product.sizes[selectedSize].name})`,
+        comment: comment
+      };
+      addItem(productWithSize);
     } else {
-      // Pour les autres catégories, ouvrir le modal de commentaire
-      openCommentModal(product, selectedSize);
+      addItem({ ...product, comment: comment });
     }
+
+    // Réinitialiser le commentaire après l'ajout
+    setProductComments(prev => ({ ...prev, [product.id]: '' }));
+
+    // Retour au menu après l'ajout
+    setTimeout(() => {
+      router.back();
+    }, 300);
   };
 
   // Fonction pour ajouter au panier avec personnalisations
@@ -323,9 +357,53 @@ export default function CategoryScreen() {
       return;
     }
 
-    // Ouvrir le modal de commentaire au lieu d'ajouter directement
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Déclencher l'animation
+    triggerCartAnimation(product, event);
+
+    // Récupérer le commentaire inline
+    const comment = productComments[product.id] || undefined;
+    const productCustomizations = customizations[product.id] || {};
     const selectedSize = selectedSizes[product.id];
-    openCommentModal(product, selectedSize);
+
+    // Créer le produit personnalisé avec commentaire
+    const customizedProduct = {
+      ...product,
+      price: calculateCustomizedPrice(product, selectedSizes, customizations),
+      selectedCustomizations: productCustomizations,
+      customizationOptions: product.customizationOptions,
+      comment: comment,
+      ...(selectedSize && product.sizes && {
+        selectedSize: selectedSize,
+        id: `${product.id}_${selectedSize}`,
+        name: `${product.name} (${product.sizes[selectedSize].name})`
+      })
+    };
+
+    addItem(customizedProduct);
+
+    // Réinitialiser les personnalisations et le commentaire après l'ajout
+    setCustomizations(prev => {
+      const newCustomizations = { ...prev };
+      if (product.customizationOptions) {
+        newCustomizations[product.id] = {};
+        Object.keys(product.customizationOptions).forEach(categoryKey => {
+          newCustomizations[product.id][categoryKey] = [];
+        });
+      }
+      return newCustomizations;
+    });
+    setExpandedCustomizations(prev => ({
+      ...prev,
+      [product.id]: false
+    }));
+    setProductComments(prev => ({ ...prev, [product.id]: '' }));
+
+    // Retour au menu après l'ajout
+    setTimeout(() => {
+      router.back();
+    }, 300);
   };
 
 
@@ -350,6 +428,7 @@ export default function CategoryScreen() {
           case 'M': maxViandes = 1; break;
           case 'L': maxViandes = 2; break;
           case 'XL': maxViandes = 3; break;
+          case 'XXL': maxViandes = 4; break;
         }
 
         // Si on a trop de viandes sélectionnées, garder seulement les premières
@@ -416,6 +495,7 @@ export default function CategoryScreen() {
               case 'M': maxViandes = 1; break;
               case 'L': maxViandes = 2; break;
               case 'XL': maxViandes = 3; break;
+              case 'XXL': maxViandes = 4; break;
             }
 
             // Si on a déjà atteint la limite, ne pas ajouter
@@ -465,28 +545,37 @@ export default function CategoryScreen() {
     const isExpanded = expandedCustomizations[product.id];
     const productCustomizations = customizations[product.id] || {};
 
+    // Pour les tacos, lasagnes, bowls et menu kids, ne pas afficher le toggle (toujours déplié)
+    const isTacos = id === ProductCategory.TACOS;
+    const isLasagnes = id === ProductCategory.LASAGNES;
+    const isBowls = id === ProductCategory.BOWLS;
+    const isMenuKids = id === ProductCategory.MENU_KIDS;
+    const alwaysExpanded = isTacos || isLasagnes || isBowls || isMenuKids;
+
     return (
       <View style={styles.customizationContainer}>
-        <TouchableOpacity
-          style={styles.customizationToggle}
-          onPress={() => {
-            setExpandedCustomizations(prev => ({
-              ...prev,
-              [product.id]: !prev[product.id]
-            }));
-          }}
-        >
-          <Text style={styles.customizationToggleText}>
-            Personnaliser votre {product.name}
-          </Text>
-          <Ionicons
-            name={isExpanded ? "chevron-up" : "chevron-down"}
-            size={20}
-            color={colors.neutral.gray600}
-          />
-        </TouchableOpacity>
+        {!alwaysExpanded ? (
+          <TouchableOpacity
+            style={styles.customizationToggle}
+            onPress={() => {
+              setExpandedCustomizations(prev => ({
+                ...prev,
+                [product.id]: !prev[product.id]
+              }));
+            }}
+          >
+            <Text style={styles.customizationToggleText}>
+              {id === 'pizza' ? `Ajouter une boisson à la ${product.name}` : `Personnaliser votre ${product.name}`}
+            </Text>
+            <Ionicons
+              name={isExpanded ? "chevron-up" : "chevron-down"}
+              size={20}
+              color={colors.neutral.gray600}
+            />
+          </TouchableOpacity>
+        ) : null}
 
-        {isExpanded && (
+        {(isExpanded || alwaysExpanded) && (
           <View style={styles.customizationOptions}>
             {Object.entries(product.customizationOptions).map(([categoryKey, category]) => {
               const selectedOptions = productCustomizations[categoryKey] || [];
@@ -505,6 +594,7 @@ export default function CategoryScreen() {
                           case 'M': maxViandes = 1; break;
                           case 'L': maxViandes = 2; break;
                           case 'XL': maxViandes = 3; break;
+                          case 'XXL': maxViandes = 4; break;
                         }
                         return (
                           <Text style={styles.selectionCounter}>
@@ -528,6 +618,7 @@ export default function CategoryScreen() {
                         case 'M': maxViandes = 1; break;
                         case 'L': maxViandes = 2; break;
                         case 'XL': maxViandes = 3; break;
+                        case 'XXL': maxViandes = 4; break;
                       }
                       return (
                         <Text style={styles.customizationHelperText}>
@@ -627,6 +718,24 @@ export default function CategoryScreen() {
                 </View>
               );
             })}
+
+            {/* Champ de commentaire */}
+            <View style={styles.inlineCommentContainer}>
+              <Text style={styles.inlineCommentLabel}>
+                <Ionicons name="chatbubble-outline" size={14} color={colors.neutral.gray600} /> Commentaire (optionnel)
+              </Text>
+              <TextInput
+                style={styles.inlineCommentInput}
+                placeholder="Ex: Sans oignon, bien cuit..."
+                placeholderTextColor={colors.neutral.gray400}
+                value={productComments[product.id] || ''}
+                onChangeText={(text) => setProductComments(prev => ({ ...prev, [product.id]: text }))}
+                maxLength={200}
+                multiline={true}
+                numberOfLines={2}
+                textAlignVertical="top"
+              />
+            </View>
 
             {/* Bouton d'ajout au panier personnalisé */}
             <TouchableOpacity
@@ -736,23 +845,42 @@ export default function CategoryScreen() {
         {product.customizable ? (
           renderCustomizationOptions(product)
         ) : (
-          /* Bouton d'ajout stylisé */
-          <TouchableOpacity
-            style={styles.addToCartButtonStyled}
-            onPress={() => handleAddToCart(product, selectedSize)}
-          >
-            <LinearGradient
-              colors={['#000000', '#000000']}
-              style={styles.addToCartGradientStyled}
+          <>
+            {/* Champ de commentaire */}
+            <View style={styles.inlineCommentContainer}>
+              <Text style={styles.inlineCommentLabel}>
+                <Ionicons name="chatbubble-outline" size={14} color={colors.neutral.gray600} /> Commentaire (optionnel)
+              </Text>
+              <TextInput
+                style={styles.inlineCommentInput}
+                placeholder="Ex: Sans oignon, bien cuit..."
+                placeholderTextColor={colors.neutral.gray400}
+                value={productComments[product.id] || ''}
+                onChangeText={(text) => setProductComments(prev => ({ ...prev, [product.id]: text }))}
+                maxLength={200}
+                multiline={true}
+                numberOfLines={2}
+                textAlignVertical="top"
+              />
+            </View>
+            {/* Bouton d'ajout stylisé */}
+            <TouchableOpacity
+              style={styles.addToCartButtonStyled}
+              onPress={() => handleAddToCart(product, selectedSize)}
             >
-              <View style={styles.addToCartContentStyled}>
-                <Ionicons name="cart" size={18} color={colors.neutral.white} />
-                <Text style={styles.addToCartTextStyled}>
-                  {isInCart ? 'Ajouter encore' : 'Ajouter au panier'}
-                </Text>
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
+              <LinearGradient
+                colors={['#000000', '#000000']}
+                style={styles.addToCartGradientStyled}
+              >
+                <View style={styles.addToCartContentStyled}>
+                  <Ionicons name="cart" size={18} color={colors.neutral.white} />
+                  <Text style={styles.addToCartTextStyled}>
+                    {isInCart ? 'Ajouter encore' : 'Ajouter au panier'}
+                  </Text>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          </>
         )}
       </View>
     </View>
@@ -825,23 +953,42 @@ export default function CategoryScreen() {
         {product.customizable ? (
           renderCustomizationOptions(product)
         ) : (
-          /* Bouton d'ajout standard */
-          <TouchableOpacity
-            style={styles.addToCartButton}
-            onPress={() => handleAddToCart(product, selectedSize)}
-          >
-            <LinearGradient
-              colors={['#000000', '#000000']}
-              style={styles.addToCartGradient}
+          <>
+            {/* Champ de commentaire */}
+            <View style={styles.inlineCommentContainer}>
+              <Text style={styles.inlineCommentLabel}>
+                <Ionicons name="chatbubble-outline" size={14} color={colors.neutral.gray600} /> Commentaire (optionnel)
+              </Text>
+              <TextInput
+                style={styles.inlineCommentInput}
+                placeholder="Ex: Sans oignon, bien cuit..."
+                placeholderTextColor={colors.neutral.gray400}
+                value={productComments[product.id] || ''}
+                onChangeText={(text) => setProductComments(prev => ({ ...prev, [product.id]: text }))}
+                maxLength={200}
+                multiline={true}
+                numberOfLines={2}
+                textAlignVertical="top"
+              />
+            </View>
+            {/* Bouton d'ajout standard */}
+            <TouchableOpacity
+              style={styles.addToCartButton}
+              onPress={() => handleAddToCart(product, selectedSize)}
             >
-              <View style={styles.addToCartContent}>
-                <Ionicons name="cart" size={16} color={colors.neutral.white} />
-                <Text style={styles.addToCartText}>
-                  {isInCart ? 'Ajouter encore' : 'Ajouter au panier'}
-                </Text>
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
+              <LinearGradient
+                colors={['#000000', '#000000']}
+                style={styles.addToCartGradient}
+              >
+                <View style={styles.addToCartContent}>
+                  <Ionicons name="cart" size={16} color={colors.neutral.white} />
+                  <Text style={styles.addToCartText}>
+                    {isInCart ? 'Ajouter encore' : 'Ajouter au panier'}
+                  </Text>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          </>
         )}
       </View>
     </View>
@@ -914,63 +1061,32 @@ export default function CategoryScreen() {
           {product.sizes && (
             <View style={styles.sizeSelector}>
               <Text style={styles.sizeLabel}>Taille :</Text>
-              <View style={styles.sizeButtonsGrid}>
-                {/* Première ligne : M et L */}
-                <View style={styles.sizeButtonsRow}>
-                  {['M', 'L'].map((size) => (
-                    product.sizes[size] && (
-                      <TouchableOpacity
-                        key={size}
-                        style={[
-                          styles.sizeButton,
-                          selectedSize === size && styles.sizeButtonActive
-                        ]}
-                        onPress={() => {
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                          setSelectedSizes(prev => ({
-                            ...prev,
-                            [product.id]: size
-                          }));
-                        }}
-                      >
-                        <Text style={[
-                          styles.sizeButtonText,
-                          selectedSize === size && styles.sizeButtonTextActive
-                        ]}>
-                          {getSizeDisplayText(product, size)}
-                        </Text>
-                      </TouchableOpacity>
-                    )
-                  ))}
-                </View>
-                {/* Deuxième ligne : XL */}
-                <View style={styles.sizeButtonsRow}>
-                  {['XL'].map((size) => (
-                    product.sizes[size] && (
-                      <TouchableOpacity
-                        key={size}
-                        style={[
-                          styles.sizeButton,
-                          selectedSize === size && styles.sizeButtonActive
-                        ]}
-                        onPress={() => {
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                          setSelectedSizes(prev => ({
-                            ...prev,
-                            [product.id]: size
-                          }));
-                        }}
-                      >
-                        <Text style={[
-                          styles.sizeButtonText,
-                          selectedSize === size && styles.sizeButtonTextActive
-                        ]}>
-                          {getSizeDisplayText(product, size)}
-                        </Text>
-                      </TouchableOpacity>
-                    )
-                  ))}
-                </View>
+              <View style={styles.sizeButtonsVertical}>
+                {['M', 'L', 'XL', 'XXL'].map((size) => (
+                  product.sizes[size] && (
+                    <TouchableOpacity
+                      key={size}
+                      style={[
+                        styles.sizeButtonFull,
+                        selectedSize === size && styles.sizeButtonActive
+                      ]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setSelectedSizes(prev => ({
+                          ...prev,
+                          [product.id]: size
+                        }));
+                      }}
+                    >
+                      <Text style={[
+                        styles.sizeButtonText,
+                        selectedSize === size && styles.sizeButtonTextActive
+                      ]}>
+                        {getSizeDisplayText(product, size)}
+                      </Text>
+                    </TouchableOpacity>
+                  )
+                ))}
               </View>
             </View>
           )}
@@ -988,6 +1104,59 @@ export default function CategoryScreen() {
           )}
         </View>
       </View>
+    );
+  };
+
+  // Rendu d'une boisson (grille 3 colonnes)
+  const renderBoissonCard = (product) => {
+    const quantity = getProductQuantity(orderItems, product.id);
+    const isInCart = quantity > 0;
+    const hasValidImage = product.image && product.image !== null && product.image !== undefined;
+
+    return (
+      <TouchableOpacity
+        key={product.id}
+        style={styles.boissonCard}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          triggerCartAnimation(product, null);
+          addItem(product);
+          // Retour au menu après l'ajout
+          setTimeout(() => {
+            router.back();
+          }, 300);
+        }}
+        activeOpacity={0.8}
+      >
+        {isInCart && (
+          <View style={styles.boissonQuantityBadge}>
+            <Text style={styles.boissonQuantityText}>{quantity}</Text>
+          </View>
+        )}
+        <View style={styles.boissonImageContainer}>
+          {hasValidImage ? (
+            <Image source={product.image} style={styles.boissonImage} />
+          ) : (
+            <View style={styles.boissonNoImage}>
+              <Ionicons name="water" size={20} color={colors.primary.main} />
+            </View>
+          )}
+        </View>
+        <View style={styles.boissonInfo}>
+          <View style={styles.boissonTextContainer}>
+            <Text style={styles.boissonName} numberOfLines={2}>{product.name}</Text>
+            {product.description ? (
+              <Text style={styles.boissonDescription} numberOfLines={1}>{product.description}</Text>
+            ) : null}
+          </View>
+          <View style={styles.boissonBottomContainer}>
+            <Text style={styles.boissonPrice}>{product.price.toFixed(2)}€</Text>
+            <View style={styles.boissonAddButton}>
+              <Text style={styles.boissonAddButtonText}>Ajouter</Text>
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
     );
   };
 
@@ -1200,6 +1369,11 @@ export default function CategoryScreen() {
                   return renderProduct(product);
                 }
               })
+            ) : id === ProductCategory.BOISSONS ? (
+              // Pour les boissons, afficher en grille 3 colonnes
+              <View style={styles.boissonsGrid}>
+                {products.map(renderBoissonCard)}
+              </View>
             ) : (
               // Pour les autres catégories, afficher tous les produits
               products.map(renderProduct)

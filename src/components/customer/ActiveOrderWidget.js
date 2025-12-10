@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,34 @@ export default function ActiveOrderWidget({ onPress }) {
   const { activeOrder, getStatusText, getStatusColor, completeActiveOrder } = useActiveOrder();
   const { triggerRatingRequest } = useOrderRating();
   const previousStatusRef = useRef(null);
+  const [elapsedTime, setElapsedTime] = useState('00:00');
+
+  // Chronomètre qui défile depuis la création de la commande
+  useEffect(() => {
+    if (!activeOrder?.createdAt) return;
+
+    const updateElapsedTime = () => {
+      const createdAt = new Date(activeOrder.createdAt).getTime();
+      const now = Date.now();
+      const diffMs = now - createdAt;
+
+      const totalSeconds = Math.floor(diffMs / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+
+      // Formater en MM:SS
+      const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      setElapsedTime(formattedTime);
+    };
+
+    // Mettre à jour immédiatement
+    updateElapsedTime();
+
+    // Puis toutes les secondes
+    const interval = setInterval(updateElapsedTime, 1000);
+
+    return () => clearInterval(interval);
+  }, [activeOrder?.createdAt]);
 
   // Surveiller le signal de fermeture automatique après notation
   useEffect(() => {
@@ -185,7 +213,9 @@ export default function ActiveOrderWidget({ onPress }) {
               </View>
 
               <View style={styles.timeRow}>
-                <Ionicons name="timer-outline" size={14} color={colors.neutral.gray400} />
+                <Ionicons name="time-outline" size={14} color={colors.accent.main} />
+                <Text style={styles.elapsedTimeText}>{elapsedTime}</Text>
+                <Text style={styles.timeSeparator}>•</Text>
                 <Text style={styles.timeText}>~{activeOrder.estimatedTime}</Text>
               </View>
             </View>
@@ -340,6 +370,17 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.sm,
     fontFamily: typography.fontFamily.medium,
     color: colors.neutral.gray400,
+  },
+  elapsedTimeText: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.accent.main,
+  },
+  timeSeparator: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray500,
+    marginHorizontal: spacing.xs / 2,
   },
   rightSection: {
     alignItems: 'flex-end',

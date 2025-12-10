@@ -124,6 +124,13 @@ export default function HomeScreen() {
     Linking.openURL(snapchatUrl);
   };
 
+  const openGoogleReview = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Lien direct vers les avis Google de Brive Food
+    const googleReviewUrl = "https://www.google.com/search?sca_esv=73e86a78892c9231&si=AMgyJEtREmoPL4P1I5IDCfuA8gybfVI2d5Uj7QMwYCZHKDZ-E6CE8-ogxkRJSHGB_v1ap1XBap_MMV-WRxmGsNt9rZz6wvYssWYBTNwxmBqXPbdIl6bgTi9rfLoXKb8msfqyk7uFTi1a&q=Brive+food+Avis&sa=X&ved=2ahUKEwi1ru6dwrKRAxXTQ6QEHcv7BdMQ0bkNegQIIhAE&biw=1080&bih=735&dpr=2";
+    Linking.openURL(googleReviewUrl);
+  };
+
   // Gérer le scroll manuel du carrousel
   const handlePromoScroll = (event) => {
     const offsetX = event.nativeEvent.contentOffset.x;
@@ -625,8 +632,8 @@ export default function HomeScreen() {
                       <View style={styles.promoBadge}>
                         <Text style={styles.promoBadgeText}>OFFRE SPÉCIALE</Text>
                       </View>
-                      <Text style={styles.promoMainText}>Dessert offert</Text>
-                      <Text style={styles.promoCondition}>dès 20€ d'achat</Text>
+                      <Text style={styles.promoMainText}>PROMO DU MOMENT</Text>
+                      <Text style={styles.promoCondition}>Dessert offert</Text>
                     </View>
 
                     <View style={styles.promoRight}>
@@ -828,6 +835,49 @@ export default function HomeScreen() {
               </LinearGradient>
             </TouchableOpacity>
           </View>
+        </Animated.View>
+
+        {/* Section Avis Google */}
+        <Animated.View
+          style={[
+            styles.reviewSection,
+            {
+              opacity: infoOpacity,
+              transform: [{ translateX: infoTranslateX }]
+            }
+          ]}
+        >
+          <Text style={styles.sectionTitle}>Donnez votre avis</Text>
+
+          <TouchableOpacity style={styles.reviewCard} onPress={openGoogleReview}>
+            <LinearGradient
+              colors={['#FFFFFF', '#F8F9FA']}
+              style={styles.reviewCardGradient}
+            >
+              <View style={styles.reviewContent}>
+                <View style={styles.reviewLeft}>
+                  <Image
+                    source={{ uri: 'https://www.google.com/images/branding/googleg/1x/googleg_standard_color_128dp.png' }}
+                    style={styles.googleLogo}
+                  />
+                  <View style={styles.reviewTextContainer}>
+                    <Text style={styles.reviewTitle}>Laissez un avis sur Google</Text>
+                    <Text style={styles.reviewSubtext}>Votre avis compte pour nous !</Text>
+                  </View>
+                </View>
+                <View style={styles.reviewStars}>
+                  <Ionicons name="star" size={18} color="#FBBC04" />
+                  <Ionicons name="star" size={18} color="#FBBC04" />
+                  <Ionicons name="star" size={18} color="#FBBC04" />
+                  <Ionicons name="star" size={18} color="#FBBC04" />
+                  <Ionicons name="star" size={18} color="#FBBC04" />
+                </View>
+              </View>
+              <View style={styles.reviewArrow}>
+                <Ionicons name="chevron-forward" size={24} color={colors.neutral.gray400} />
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
         </Animated.View>
 
 
@@ -1800,5 +1850,65 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
 
+  // Styles pour la section Avis Google
+  reviewSection: {
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing['2xl'],
+  },
+  reviewCard: {
+    borderRadius: borderRadius.xl,
+    overflow: 'hidden',
+    elevation: 8,
+    shadowColor: colors.neutral.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+  },
+  reviewCardGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+  },
+  reviewContent: {
+    flex: 1,
+    flexDirection: 'column',
+    gap: spacing.sm,
+  },
+  reviewLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  googleLogo: {
+    width: 40,
+    height: 40,
+    resizeMode: 'contain',
+    marginTop: 4,
+    alignSelf: 'center',
+  },
+  reviewTextContainer: {
+    flex: 1,
+  },
+  reviewTitle: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.gray800,
+    marginBottom: 2,
+  },
+  reviewSubtext: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray500,
+  },
+  reviewStars: {
+    flexDirection: 'row',
+    gap: 2,
+    marginLeft: 56,
+  },
+  reviewArrow: {
+    marginLeft: spacing.sm,
+  },
 
 });

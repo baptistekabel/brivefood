@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const OrderContext = createContext();
+const FIRST_ORDER_KEY = '@brivefood_has_ordered';
 
 export const useOrder = () => {
   const context = useContext(OrderContext);
@@ -16,6 +18,64 @@ export const OrderProvider = ({ children }) => {
   const [orderTotal, setOrderTotal] = useState(0);
   const [promoApplied, setPromoApplied] = useState(false);
   const [selectedFreeDessert, setSelectedFreeDessert] = useState(null);
+  const [isFirstOrder, setIsFirstOrder] = useState(false);
+  const [firstOrderCheeseAdded, setFirstOrderCheeseAdded] = useState(false);
+
+  // Vérifier si c'est la première commande au chargement
+  useEffect(() => {
+    const checkFirstOrder = async () => {
+      try {
+        const hasOrdered = await AsyncStorage.getItem(FIRST_ORDER_KEY);
+        setIsFirstOrder(hasOrdered !== 'true');
+      } catch (error) {
+        console.error('Erreur vérification première commande:', error);
+        setIsFirstOrder(false);
+      }
+    };
+    checkFirstOrder();
+  }, []);
+
+  // Marquer que l'utilisateur a commandé
+  const markAsHasOrdered = async () => {
+    try {
+      await AsyncStorage.setItem(FIRST_ORDER_KEY, 'true');
+      setIsFirstOrder(false);
+    } catch (error) {
+      console.error('Erreur marquage première commande:', error);
+    }
+  };
+
+  // Petit cheese offert pour la première commande
+  const getFirstOrderCheese = () => ({
+    id: 'first-order-cheese-offert',
+    name: 'Petit Cheese Offert',
+    description: 'Cadeau de bienvenue !',
+    price: 0,
+    originalPrice: 6.50,
+    isFirstOrderGift: true,
+    image: require('../../assets/images/nouveauxProduits/Cheese.png')
+  });
+
+  // Ajouter automatiquement le petit cheese si première commande
+  const addFirstOrderCheese = () => {
+    if (isFirstOrder && !firstOrderCheeseAdded) {
+      const cheese = getFirstOrderCheese();
+      setOrderItems(prevItems => {
+        const alreadyHasCheese = prevItems.some(item => item.id === 'first-order-cheese-offert');
+        if (!alreadyHasCheese) {
+          return [...prevItems, { ...cheese, quantity: 1 }];
+        }
+        return prevItems;
+      });
+      setFirstOrderCheeseAdded(true);
+    }
+  };
+
+  // Supprimer le cheese offert si le panier est vidé
+  const removeFirstOrderCheese = () => {
+    setOrderItems(prevItems => prevItems.filter(item => item.id !== 'first-order-cheese-offert'));
+    setFirstOrderCheeseAdded(false);
+  };
 
   // Types de commande avec leurs informations
   const orderTypes = {
@@ -52,15 +112,27 @@ export const OrderProvider = ({ children }) => {
   const addItem = (item) => {
     setOrderItems(prevItems => {
       const existingItem = prevItems.find(i => i.id === item.id);
+
+      let newItems;
       if (existingItem) {
-        return prevItems.map(i =>
+        newItems = prevItems.map(i =>
           i.id === item.id
             ? { ...i, quantity: i.quantity + 1, comment: item.comment || i.comment }
             : i
         );
       } else {
-        return [...prevItems, { ...item, quantity: 1 }];
+        newItems = [...prevItems, { ...item, quantity: 1 }];
       }
+
+      // Si c'est la première commande et qu'on n'a pas encore ajouté le cheese offert
+      // et que c'est le premier article ajouté au panier
+      if (isFirstOrder && !firstOrderCheeseAdded && !prevItems.some(i => i.id === 'first-order-cheese-offert')) {
+        const cheese = getFirstOrderCheese();
+        newItems = [...newItems, { ...cheese, quantity: 1 }];
+        setFirstOrderCheeseAdded(true);
+      }
+
+      return newItems;
     });
   };
 
@@ -229,7 +301,12 @@ export const OrderProvider = ({ children }) => {
     getPromoDetails,
     checkAndApplyPromo,
     getAvailableDesserts,
-    selectFreeDessert
+    selectFreeDessert,
+    // Première commande
+    isFirstOrder,
+    markAsHasOrdered,
+    getFirstOrderCheese,
+    firstOrderCheeseAdded
   };
 
   return (

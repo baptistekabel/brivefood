@@ -33,7 +33,7 @@ import { registerCustomerForBroadcast } from '../src/services/broadcastNotificat
 
 export default function CartScreen() {
   const fontsLoaded = useFonts();
-  const { orderItems, removeItem, addItem, clearOrder, getPromoDetails, selectFreeDessert, getAvailableDesserts, updateItemComment: updateOrderItemComment } = useOrder();
+  const { orderItems, removeItem, addItem, clearOrder, getPromoDetails, selectFreeDessert, getAvailableDesserts, markAsHasOrdered } = useOrder();
   const { createOrder } = useOrders();
   const { user, userProfile } = useAuth();
   const {
@@ -477,6 +477,9 @@ export default function CartScreen() {
     const result = await createOrder(orderData);
 
     if (result.success) {
+      // Marquer que l'utilisateur a commandé (pour la promo première commande)
+      await markAsHasOrdered();
+
       // Confirmer l'utilisation des récompenses avec le numéro de commande
       const rewardsDiscount = calculateActiveRewardsDiscount(getSubtotal(), getDeliveryFee());
       if (rewardsDiscount.hasActiveRewards) {
@@ -545,16 +548,6 @@ export default function CartScreen() {
       Alert.alert('Erreur', 'Impossible de créer la commande. Veuillez réessayer.');
     }
   };
-
-  const updateItemComment = (itemId, comment) => {
-    setItemComments(prev => ({
-      ...prev,
-      [itemId]: comment
-    }));
-    // Aussi mettre à jour le commentaire dans le contexte
-    updateOrderItemComment(itemId, comment);
-  };
-
 
   const addRecommendedItem = (item) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -736,22 +729,6 @@ export default function CartScreen() {
           </View>
         )}
 
-        {/* Section pleine largeur pour commentaire - sauf pour les boissons */}
-        {item.category !== ProductCategory.BOISSONS && (
-          <View style={styles.commentSection}>
-            <Text style={styles.commentLabel}>Commentaire (optionnel) :</Text>
-            <TextInput
-              style={styles.commentInput}
-              placeholder="Ajoutez un commentaire pour ce produit..."
-              value={itemComments[item.id] || item.comment || ''}
-              onChangeText={(text) => updateItemComment(item.id, text)}
-              multiline
-              numberOfLines={2}
-              maxLength={150}
-              placeholderTextColor={colors.neutral.gray400}
-            />
-          </View>
-        )}
       </View>
     );
   };
@@ -1360,7 +1337,7 @@ export default function CartScreen() {
 
                       <View style={styles.confirmationRow}>
                         <Ionicons name="time" size={20} color="#000000" />
-                        <Text style={styles.confirmationLabel}>Temps d'attente :</Text>
+                        <Text style={styles.confirmationLabel}>Délai approximatif :</Text>
                         <Text style={styles.confirmationValue}>{orderConfirmation?.waitTime}</Text>
                       </View>
 
@@ -1906,42 +1883,6 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.lg,
     fontFamily: typography.fontFamily.semibold,
     color: colors.neutral.white,
-  },
-  commentSection: {
-    marginTop: spacing.xs,
-    marginBottom: spacing.sm,
-    padding: spacing.md,
-    backgroundColor: colors.neutral.white,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.neutral.gray200,
-    shadowColor: colors.neutral.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  commentLabel: {
-    fontSize: typography.fontSizes.sm,
-    fontFamily: typography.fontFamily.semibold,
-    color: colors.neutral.gray800,
-    marginBottom: spacing.sm,
-    paddingBottom: spacing.xs,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral.gray100,
-  },
-  commentInput: {
-    borderWidth: 1,
-    borderColor: colors.neutral.gray300,
-    borderRadius: borderRadius.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    fontSize: typography.fontSizes.sm,
-    fontFamily: typography.fontFamily.regular,
-    color: colors.neutral.gray800,
-    backgroundColor: colors.neutral.gray50,
-    minHeight: 50,
-    textAlignVertical: 'top',
   },
   // Styles pour les recommandations
   recommendationsSection: {

@@ -12,7 +12,7 @@
       "supportsTablet": true,
       "requireFullScreen": false,
       "bundleIdentifier": "com.brivefood.app",
-      "buildNumber": "9",
+      "buildNumber": "10",
       "splash": {
         "image": "./assets/images/logoBrivefood.png",
         "resizeMode": "cover",

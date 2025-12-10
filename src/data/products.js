@@ -1091,7 +1091,7 @@ const productsByCategory = {
               { id: 'brazil', name: 'Brazil', price: 0.00 },
               { id: 'curry', name: 'Curry', price: 0.00 },
               { id: 'barbecue', name: 'Barbecue', price: 0.00 },
-              { id: 'sriracha', name: 'Sriracha "pimenté', price: 0.00 },
+              { id: 'sriracha-pimente', name: 'Sriracha "pimenté', price: 0.00 },
               { id: 'harissa', name: 'Harissa', price: 0.00 },
               { id: 'algerienne', name: 'Algérienne', price: 0.00 },
               { id: 'andalouse', name: 'Andalouse', price: 0.00 },
@@ -1100,7 +1100,7 @@ const productsByCategory = {
               { id: 'sauce-poivre', name: 'Sauce Poivre', price: 0.00 },
               { id: 'chili-tai', name: 'Chili Tai', price: 0.00 },
               { id: 'moutarde', name: 'Moutarde', price: 0.00 },
-              { id: 'boursin', name: 'Boursin', price: 1.50, popular: true }
+              { id: 'boursin', name: 'Boursin', price: 1.00, popular: true }
             ]
           },
           frites: {
@@ -1108,7 +1108,7 @@ const productsByCategory = {
             required: false,
             multiSelect: false,
             options: [
-              { id: 'frites-oui', name: 'Oui', price: 1.50, popular: true },
+              { id: 'frites-oui', name: 'Oui', price: 1.00, popular: true },
               { id: 'frites-non', name: 'Non', price: 0.00 }
             ]
           },
@@ -1180,7 +1180,7 @@ const productsByCategory = {
               { id: 'sauce-poivre', name: 'Sauce Poivre', price: 0.00 },
               { id: 'chili-tai', name: 'Chili Tai', price: 0.00 },
               { id: 'moutarde', name: 'Moutarde', price: 0.00 },
-              { id: 'boursin', name: 'Boursin', price: 1.50, popular: true }
+              { id: 'boursin', name: 'Boursin', price: 1.00, popular: true }
             ]
           },
           frites: {
@@ -1188,7 +1188,7 @@ const productsByCategory = {
             required: false,
             multiSelect: false,
             options: [
-              { id: 'frites-oui', name: 'Oui', price: 1.50, popular: true },
+              { id: 'frites-oui', name: 'Oui', price: 1.00, popular: true },
               { id: 'frites-non', name: 'Non', price: 0.00 }
             ]
           },
@@ -1260,7 +1260,7 @@ const productsByCategory = {
               { id: 'sauce-poivre', name: 'Sauce Poivre', price: 0.00 },
               { id: 'chili-tai', name: 'Chili Tai', price: 0.00 },
               { id: 'moutarde', name: 'Moutarde', price: 0.00 },
-              { id: 'boursin', name: 'Boursin', price: 1.50, popular: true }
+              { id: 'boursin', name: 'Boursin', price: 1.00, popular: true }
             ]
           },
           frites: {
@@ -1268,7 +1268,7 @@ const productsByCategory = {
             required: false,
             multiSelect: false,
             options: [
-              { id: 'frites-oui', name: 'Oui', price: 1.50, popular: true },
+              { id: 'frites-oui', name: 'Oui', price: 1.00, popular: true },
               { id: 'frites-non', name: 'Non', price: 0.00 }
             ]
           },
@@ -1297,7 +1297,7 @@ const productsByCategory = {
       {
         id: 'burger4',
         name: 'Burger Chèvre Miel',
-        description: 'Steak 120g, fromage de chèvre, oignon grillés, salade, sauce au choix',
+        description: 'Buns, steak 120g, fromage de chèvre, oignons grillés, salade, sauce au choix.',
         price: 13.50,
         rating: 66,
         reviews: 3,
@@ -1340,7 +1340,7 @@ const productsByCategory = {
               { id: 'sauce-poivre', name: 'Sauce Poivre', price: 0.00 },
               { id: 'chili-tai', name: 'Chili Tai', price: 0.00 },
               { id: 'moutarde', name: 'Moutarde', price: 0.00 },
-              { id: 'boursin', name: 'Boursin', price: 1.50, popular: true }
+              { id: 'boursin', name: 'Boursin', price: 1.00, popular: true }
             ]
           },
           frites: {
@@ -1348,7 +1348,7 @@ const productsByCategory = {
             required: false,
             multiSelect: false,
             options: [
-              { id: 'frites-oui', name: 'Oui', price: 1.50, popular: true },
+              { id: 'frites-oui', name: 'Oui', price: 1.00, popular: true },
               { id: 'frites-non', name: 'Non', price: 0.00 }
             ]
           },
@@ -1420,7 +1420,7 @@ const productsByCategory = {
               { id: 'sauce-poivre', name: 'Sauce Poivre', price: 0.00 },
               { id: 'chili-tai', name: 'Chili Tai', price: 0.00 },
               { id: 'moutarde', name: 'Moutarde', price: 0.00 },
-              { id: 'boursin', name: 'Boursin', price: 1.50, popular: true }
+              { id: 'boursin', name: 'Boursin', price: 1.00, popular: true }
             ]
           },
           frites: {
@@ -1428,7 +1428,7 @@ const productsByCategory = {
             required: false,
             multiSelect: false,
             options: [
-              { id: 'frites-oui', name: 'Oui', price: 1.50, popular: true },
+              { id: 'frites-oui', name: 'Oui', price: 1.00, popular: true },
               { id: 'frites-non', name: 'Non', price: 0.00 }
             ]
           },
@@ -1500,7 +1500,7 @@ const productsByCategory = {
               { id: 'sauce-poivre', name: 'Sauce Poivre', price: 0.00 },
               { id: 'chili-tai', name: 'Chili Tai', price: 0.00 },
               { id: 'moutarde', name: 'Moutarde', price: 0.00 },
-              { id: 'boursin', name: 'Boursin', price: 1.50, popular: true }
+              { id: 'boursin', name: 'Boursin', price: 1.00, popular: true }
             ]
           },
           frites: {
@@ -1508,7 +1508,7 @@ const productsByCategory = {
             required: false,
             multiSelect: false,
             options: [
-              { id: 'frites-oui', name: 'Oui', price: 1.50, popular: true },
+              { id: 'frites-oui', name: 'Oui', price: 1.00, popular: true },
               { id: 'frites-non', name: 'Non', price: 0.00 }
             ]
           },
@@ -1580,7 +1580,7 @@ const productsByCategory = {
               { id: 'sauce-poivre', name: 'Sauce Poivre', price: 0.00 },
               { id: 'chili-tai', name: 'Chili Tai', price: 0.00 },
               { id: 'moutarde', name: 'Moutarde', price: 0.00 },
-              { id: 'boursin', name: 'Boursin', price: 1.50, popular: true }
+              { id: 'boursin', name: 'Boursin', price: 1.00, popular: true }
             ]
           },
           frites: {
@@ -1588,7 +1588,7 @@ const productsByCategory = {
             required: false,
             multiSelect: false,
             options: [
-              { id: 'frites-oui', name: 'Oui', price: 1.50, popular: true },
+              { id: 'frites-oui', name: 'Oui', price: 1.00, popular: true },
               { id: 'frites-non', name: 'Non', price: 0.00 }
             ]
           },
@@ -1660,7 +1660,7 @@ const productsByCategory = {
               { id: 'sauce-poivre', name: 'Sauce Poivre', price: 0.00 },
               { id: 'chili-tai', name: 'Chili Tai', price: 0.00 },
               { id: 'moutarde', name: 'Moutarde', price: 0.00 },
-              { id: 'boursin', name: 'Boursin', price: 1.50, popular: true }
+              { id: 'boursin', name: 'Boursin', price: 1.00, popular: true }
             ]
           },
           frites: {
@@ -1668,7 +1668,7 @@ const productsByCategory = {
             required: false,
             multiSelect: false,
             options: [
-              { id: 'frites-oui', name: 'Oui', price: 1.50, popular: true },
+              { id: 'frites-oui', name: 'Oui', price: 1.00, popular: true },
               { id: 'frites-non', name: 'Non', price: 0.00 }
             ]
           },
@@ -1697,7 +1697,7 @@ const productsByCategory = {
       {
         id: 'burger9',
         name: 'Burger Classique',
-        description: 'Steak 120g, double cheddar, salade, oignon, sauce burger.',
+        description: 'Buns, steak 120g, double cheddar, salade, oignon, sauce au choix.',
         price: 13.00,
         rating: null,
         reviews: 0,
@@ -1739,7 +1739,7 @@ const productsByCategory = {
               { id: 'sauce-poivre', name: 'Sauce Poivre', price: 0.00 },
               { id: 'chili-tai', name: 'Chili Tai', price: 0.00 },
               { id: 'moutarde', name: 'Moutarde', price: 0.00 },
-              { id: 'boursin', name: 'Boursin', price: 1.50, popular: true }
+              { id: 'boursin', name: 'Boursin', price: 1.00, popular: true }
             ]
           },
           frites: {
@@ -1747,7 +1747,7 @@ const productsByCategory = {
             required: false,
             multiSelect: false,
             options: [
-              { id: 'frites-oui', name: 'Oui', price: 1.50, popular: true },
+              { id: 'frites-oui', name: 'Oui', price: 1.00, popular: true },
               { id: 'frites-non', name: 'Non', price: 0.00 }
             ]
           },
@@ -1783,6 +1783,86 @@ const productsByCategory = {
         popular: false,
         image: productImages.veggieBurger,
       },
+      {
+        id: 'burger11',
+        name: 'Burger Bleu',
+        description: 'Buns, steak 120g, sauce bleu, salade, tomate, oignon, sauce au choix.',
+        price: 13.50,
+        rating: null,
+        reviews: 0,
+        popular: false,
+        image: productImages.burgerClassic,
+        customizable: true,
+        customizationOptions: {
+          steak: {
+            title: 'Nombre de steak',
+            required: true,
+            multiSelect: false,
+            options: [
+              { id: 'simple-steak', name: 'Simple Steak', price: 0.00 },
+              { id: 'double-steak', name: 'Double Steak', price: 3.00 },
+              { id: 'triple-steak', name: 'Triple Steak', price: 6.00 }
+            ]
+          },
+          sauce: {
+            title: 'Sauce',
+            required: true,
+            multiSelect: true,
+            minSelection: 1,
+            maxSelection: 2,
+            options: [
+              { id: 'pas-sauce', name: 'Pas de sauce', price: 0.00 },
+              { id: 'biggy-burger', name: 'Biggy burger', price: 0.00 },
+              { id: 'samourai', name: 'Samouraï', price: 0.00 },
+              { id: 'ketchup', name: 'Ketchup', price: 0.00 },
+              { id: 'mayonnaise', name: 'Mayonnaise', price: 0.00 },
+              { id: 'sauce-blanche', name: 'Sauce blanche', price: 0.00 },
+              { id: 'brazil', name: 'Brazil', price: 0.00 },
+              { id: 'curry', name: 'Curry', price: 0.00 },
+              { id: 'barbecue', name: 'Barbecue', price: 0.00 },
+              { id: 'sriracha-pimente', name: 'Sriracha "pimenté', price: 0.00 },
+              { id: 'harissa', name: 'Harissa', price: 0.00 },
+              { id: 'algerienne', name: 'Algérienne', price: 0.00 },
+              { id: 'andalouse', name: 'Andalouse', price: 0.00 },
+              { id: 'big-mac', name: 'Big Mac', price: 0.00 },
+              { id: 'marocaine', name: 'Marocaine', price: 0.00 },
+              { id: 'sauce-poivre', name: 'Sauce Poivre', price: 0.00 },
+              { id: 'chili-tai', name: 'Chili Tai', price: 0.00 },
+              { id: 'moutarde', name: 'Moutarde', price: 0.00 },
+              { id: 'boursin', name: 'Boursin', price: 1.00, popular: true }
+            ]
+          },
+          frites: {
+            title: 'Frites',
+            required: false,
+            multiSelect: false,
+            options: [
+              { id: 'frites-oui', name: 'Oui', price: 1.00, popular: true },
+              { id: 'frites-non', name: 'Non', price: 0.00 }
+            ]
+          },
+          boisson: {
+            title: 'Boisson',
+            subtitle: 'Ajoutez une boisson à votre burger.',
+            required: false,
+            maxSelections: 1,
+            options: [
+              { id: 'cocacola', name: 'Coca-Cola', price: 1.50 },
+              { id: 'cocacola-cherry', name: 'Coca-Cola Cherry', price: 1.50 },
+              { id: 'fanta-fruit-dragon', name: 'Fanta Fruit du Dragon', price: 1.50 },
+              { id: 'fanta-berry', name: 'Fanta Berry (Fruits rouges)', price: 1.50 },
+              { id: 'fanta-strawberry', name: 'Fanta Strawberry (Fraise)', price: 1.50 },
+              { id: 'fanta-pineapple', name: 'Fanta Pineapple (Ananas)', price: 1.50 },
+              { id: 'orangina', name: 'Orangina', price: 1.50 },
+              { id: 'sprite', name: 'Sprite', price: 1.50 },
+              { id: 'oasis-tropical', name: 'Oasis Tropical', price: 1.50 },
+              { id: 'capri-sun', name: 'Capri Sun', price: 1.50 },
+              { id: 'eau-plate', name: 'Eau plate', price: 1.50 },
+              { id: 'eau-gazeuse', name: 'Eau gazeuse', price: 1.50 }
+            ]
+          }
+        }
+      },
     ],
     [ProductCategory.LASAGNES]: [
       {
@@ -1804,6 +1884,25 @@ const productsByCategory = {
             options: [
               { id: 'salade-verte-lasagne1', name: 'Salade verte', price: 1.50 },
               { id: 'pas-de-salade-lasagne1', name: 'Sans supplément', price: 0.00 }
+            ]
+          },
+          boisson: {
+            title: 'Boisson',
+            required: false,
+            maxSelections: 1,
+            options: [
+              { id: 'cocacola-lasagne1', name: 'Coca-Cola', price: 1.50 },
+              { id: 'cocacola-cherry-lasagne1', name: 'Coca-Cola Cherry', price: 1.50 },
+              { id: 'fanta-fruit-dragon-lasagne1', name: 'Fanta Fruit du Dragon', price: 1.50 },
+              { id: 'fanta-berry-lasagne1', name: 'Fanta Berry (Fruits rouges)', price: 1.50 },
+              { id: 'fanta-strawberry-lasagne1', name: 'Fanta Strawberry (Fraise)', price: 1.50 },
+              { id: 'fanta-pineapple-lasagne1', name: 'Fanta Pineapple (Ananas)', price: 1.50 },
+              { id: 'orangina-lasagne1', name: 'Orangina', price: 1.50 },
+              { id: 'sprite-lasagne1', name: 'Sprite', price: 1.50 },
+              { id: 'oasis-tropical-lasagne1', name: 'Oasis Tropical', price: 1.50 },
+              { id: 'capri-sun-lasagne1', name: 'Capri Sun', price: 1.50 },
+              { id: 'eau-plate-lasagne1', name: 'Eau plate', price: 1.50 },
+              { id: 'eau-gazeuse-lasagne1', name: 'Eau gazeuse', price: 1.50 }
             ]
           }
         }
@@ -1828,6 +1927,25 @@ const productsByCategory = {
               { id: 'salade-verte-lasagne2', name: 'Salade verte', price: 1.50 },
               { id: 'pas-de-salade-lasagne2', name: 'Sans supplément', price: 0.00 }
             ]
+          },
+          boisson: {
+            title: 'Boisson',
+            required: false,
+            maxSelections: 1,
+            options: [
+              { id: 'cocacola-lasagne2', name: 'Coca-Cola', price: 1.50 },
+              { id: 'cocacola-cherry-lasagne2', name: 'Coca-Cola Cherry', price: 1.50 },
+              { id: 'fanta-fruit-dragon-lasagne2', name: 'Fanta Fruit du Dragon', price: 1.50 },
+              { id: 'fanta-berry-lasagne2', name: 'Fanta Berry (Fruits rouges)', price: 1.50 },
+              { id: 'fanta-strawberry-lasagne2', name: 'Fanta Strawberry (Fraise)', price: 1.50 },
+              { id: 'fanta-pineapple-lasagne2', name: 'Fanta Pineapple (Ananas)', price: 1.50 },
+              { id: 'orangina-lasagne2', name: 'Orangina', price: 1.50 },
+              { id: 'sprite-lasagne2', name: 'Sprite', price: 1.50 },
+              { id: 'oasis-tropical-lasagne2', name: 'Oasis Tropical', price: 1.50 },
+              { id: 'capri-sun-lasagne2', name: 'Capri Sun', price: 1.50 },
+              { id: 'eau-plate-lasagne2', name: 'Eau plate', price: 1.50 },
+              { id: 'eau-gazeuse-lasagne2', name: 'Eau gazeuse', price: 1.50 }
+            ]
           }
         }
       },
@@ -1850,6 +1968,25 @@ const productsByCategory = {
             options: [
               { id: 'salade-verte-lasagne3', name: 'Salade verte', price: 1.50 },
               { id: 'pas-de-salade-lasagne3', name: 'Sans supplément', price: 0.00 }
+            ]
+          },
+          boisson: {
+            title: 'Boisson',
+            required: false,
+            maxSelections: 1,
+            options: [
+              { id: 'cocacola-lasagne3', name: 'Coca-Cola', price: 1.50 },
+              { id: 'cocacola-cherry-lasagne3', name: 'Coca-Cola Cherry', price: 1.50 },
+              { id: 'fanta-fruit-dragon-lasagne3', name: 'Fanta Fruit du Dragon', price: 1.50 },
+              { id: 'fanta-berry-lasagne3', name: 'Fanta Berry (Fruits rouges)', price: 1.50 },
+              { id: 'fanta-strawberry-lasagne3', name: 'Fanta Strawberry (Fraise)', price: 1.50 },
+              { id: 'fanta-pineapple-lasagne3', name: 'Fanta Pineapple (Ananas)', price: 1.50 },
+              { id: 'orangina-lasagne3', name: 'Orangina', price: 1.50 },
+              { id: 'sprite-lasagne3', name: 'Sprite', price: 1.50 },
+              { id: 'oasis-tropical-lasagne3', name: 'Oasis Tropical', price: 1.50 },
+              { id: 'capri-sun-lasagne3', name: 'Capri Sun', price: 1.50 },
+              { id: 'eau-plate-lasagne3', name: 'Eau plate', price: 1.50 },
+              { id: 'eau-gazeuse-lasagne3', name: 'Eau gazeuse', price: 1.50 }
             ]
           }
         }
@@ -1889,8 +2026,7 @@ const productsByCategory = {
               { id: 'poulet', name: 'POULET', price: 0, popular: true },
               { id: 'escalope-poulet', name: 'ESCALOPE DE POULET', price: 0 },
               { id: 'poulet-boursin', name: 'POULET BOURSIN', price: 0 },
-              { id: 'viande-hachee', name: 'VIANDE HACHEE', price: 0 },
-              { id: 'steak-hache', name: 'STEAK HACHÉ', price: 0 }
+              { id: 'viande-hachee', name: 'VIANDE HACHEE', price: 0 }
             ]
           },
           sauce: {
@@ -1918,7 +2054,7 @@ const productsByCategory = {
               { id: 'sauce-poivre', name: 'Sauce Poivre', price: 0 },
               { id: 'chili-tai', name: 'Chili Tai', price: 0 },
               { id: 'moutarde', name: 'Moutarde', price: 0 },
-              { id: 'boursin-sauce', name: 'Boursin', price: 1.50, popular: true }
+              { id: 'boursin-sauce', name: 'Boursin', price: 1.00, popular: true }
             ]
           },
           boisson: {
@@ -1948,7 +2084,7 @@ const productsByCategory = {
       {
         id: 'americain1',
         name: 'Américain Bacon',
-        description: 'Steak frais 110 gr, Cheddar, bacon, tomates, oignons grillés, salade et sauce au choix.',
+        description: 'Steak frais 120g, Cheddar, bacon, tomates, oignons grillés, salade et sauce au choix.',
         price: 11.50,
         rating: 92,
         reviews: 13,
@@ -1983,7 +2119,7 @@ const productsByCategory = {
               { id: 'sauce-poivre', name: 'Sauce Poivre', price: 0 },
               { id: 'chili-tai', name: 'Chili Tai', price: 0 },
               { id: 'moutarde', name: 'Moutarde', price: 0 },
-              { id: 'boursin-sauce', name: 'Boursin', price: 1.50, popular: true }
+              { id: 'boursin-sauce', name: 'Boursin', price: 1.00, popular: true }
             ]
           },
           frites: {
@@ -1993,8 +2129,28 @@ const productsByCategory = {
             multiSelect: false,
             maxSelections: 1,
             options: [
-              { id: 'frites-oui', name: 'Oui', price: 1.50, popular: true },
+              { id: 'frites-oui', name: 'Oui', price: 1.00, popular: true },
               { id: 'frites-non', name: 'Non', price: 0 }
+            ]
+          },
+          boisson: {
+            title: 'Boisson',
+            subtitle: 'Ajoutez une boisson.',
+            required: false,
+            maxSelections: 1,
+            options: [
+              { id: 'cocacola', name: 'Coca-Cola', price: 1.50 },
+              { id: 'cocacola-cherry', name: 'Coca-Cola Cherry', price: 1.50 },
+              { id: 'fanta-fruit-dragon', name: 'Fanta Fruit du Dragon', price: 1.50 },
+              { id: 'fanta-berry', name: 'Fanta Berry (Fruits rouges)', price: 1.50 },
+              { id: 'fanta-strawberry', name: 'Fanta Strawberry (Fraise)', price: 1.50 },
+              { id: 'fanta-pineapple', name: 'Fanta Pineapple (Ananas)', price: 1.50 },
+              { id: 'orangina', name: 'Orangina', price: 1.50 },
+              { id: 'sprite', name: 'Sprite', price: 1.50 },
+              { id: 'oasis-tropical', name: 'Oasis Tropical', price: 1.50 },
+              { id: 'capri-sun', name: 'Capri Sun', price: 1.50 },
+              { id: 'eau-plate', name: 'Eau plate', price: 1.50 },
+              { id: 'eau-gazeuse', name: 'Eau gazeuse', price: 1.50 }
             ]
           }
         }
@@ -2037,7 +2193,7 @@ const productsByCategory = {
               { id: 'sauce-poivre', name: 'Sauce Poivre', price: 0 },
               { id: 'chili-tai', name: 'Chili Tai', price: 0 },
               { id: 'moutarde', name: 'Moutarde', price: 0 },
-              { id: 'boursin-sauce', name: 'Boursin', price: 1.50, popular: true }
+              { id: 'boursin-sauce', name: 'Boursin', price: 1.00, popular: true }
             ]
           },
           frites: {
@@ -2047,8 +2203,28 @@ const productsByCategory = {
             multiSelect: false,
             maxSelections: 1,
             options: [
-              { id: 'frites-oui', name: 'Oui', price: 1.50, popular: true },
+              { id: 'frites-oui', name: 'Oui', price: 1.00, popular: true },
               { id: 'frites-non', name: 'Non', price: 0 }
+            ]
+          },
+          boisson: {
+            title: 'Boisson',
+            subtitle: 'Ajoutez une boisson.',
+            required: false,
+            maxSelections: 1,
+            options: [
+              { id: 'cocacola', name: 'Coca-Cola', price: 1.50 },
+              { id: 'cocacola-cherry', name: 'Coca-Cola Cherry', price: 1.50 },
+              { id: 'fanta-fruit-dragon', name: 'Fanta Fruit du Dragon', price: 1.50 },
+              { id: 'fanta-berry', name: 'Fanta Berry (Fruits rouges)', price: 1.50 },
+              { id: 'fanta-strawberry', name: 'Fanta Strawberry (Fraise)', price: 1.50 },
+              { id: 'fanta-pineapple', name: 'Fanta Pineapple (Ananas)', price: 1.50 },
+              { id: 'orangina', name: 'Orangina', price: 1.50 },
+              { id: 'sprite', name: 'Sprite', price: 1.50 },
+              { id: 'oasis-tropical', name: 'Oasis Tropical', price: 1.50 },
+              { id: 'capri-sun', name: 'Capri Sun', price: 1.50 },
+              { id: 'eau-plate', name: 'Eau plate', price: 1.50 },
+              { id: 'eau-gazeuse', name: 'Eau gazeuse', price: 1.50 }
             ]
           }
         }
@@ -2056,7 +2232,7 @@ const productsByCategory = {
       {
         id: 'americain3',
         name: 'Américain Classic',
-        description: 'Steak frais 110 gr, salade, tomate et sauce au choix.',
+        description: 'Steak frais 120g, salade, tomate et sauce au choix.',
         price: 11.50,
         rating: 85,
         reviews: 7,
@@ -2091,7 +2267,7 @@ const productsByCategory = {
               { id: 'sauce-poivre', name: 'Sauce Poivre', price: 0 },
               { id: 'chili-tai', name: 'Chili Tai', price: 0 },
               { id: 'moutarde', name: 'Moutarde', price: 0 },
-              { id: 'boursin-sauce', name: 'Boursin', price: 1.50, popular: true }
+              { id: 'boursin-sauce', name: 'Boursin', price: 1.00, popular: true }
             ]
           },
           frites: {
@@ -2101,8 +2277,28 @@ const productsByCategory = {
             multiSelect: false,
             maxSelections: 1,
             options: [
-              { id: 'frites-oui', name: 'Oui', price: 1.50, popular: true },
+              { id: 'frites-oui', name: 'Oui', price: 1.00, popular: true },
               { id: 'frites-non', name: 'Non', price: 0 }
+            ]
+          },
+          boisson: {
+            title: 'Boisson',
+            subtitle: 'Ajoutez une boisson.',
+            required: false,
+            maxSelections: 1,
+            options: [
+              { id: 'cocacola', name: 'Coca-Cola', price: 1.50 },
+              { id: 'cocacola-cherry', name: 'Coca-Cola Cherry', price: 1.50 },
+              { id: 'fanta-fruit-dragon', name: 'Fanta Fruit du Dragon', price: 1.50 },
+              { id: 'fanta-berry', name: 'Fanta Berry (Fruits rouges)', price: 1.50 },
+              { id: 'fanta-strawberry', name: 'Fanta Strawberry (Fraise)', price: 1.50 },
+              { id: 'fanta-pineapple', name: 'Fanta Pineapple (Ananas)', price: 1.50 },
+              { id: 'orangina', name: 'Orangina', price: 1.50 },
+              { id: 'sprite', name: 'Sprite', price: 1.50 },
+              { id: 'oasis-tropical', name: 'Oasis Tropical', price: 1.50 },
+              { id: 'capri-sun', name: 'Capri Sun', price: 1.50 },
+              { id: 'eau-plate', name: 'Eau plate', price: 1.50 },
+              { id: 'eau-gazeuse', name: 'Eau gazeuse', price: 1.50 }
             ]
           }
         }
@@ -2110,7 +2306,7 @@ const productsByCategory = {
       {
         id: 'americain4',
         name: 'Américain Spicy Kefta',
-        description: 'Kefta fraîche 110 gr, salade, poivrons grillés, oignons grillés, tomate grillées et sauce épicée et sauce au choix.',
+        description: 'Kefta fraîche 120g, salade, poivrons grillés, oignons grillés, tomates grillées, sauce épicée et sauce au choix.',
         price: 11.50,
         rating: 75,
         reviews: 8,
@@ -2145,7 +2341,7 @@ const productsByCategory = {
               { id: 'sauce-poivre', name: 'Sauce Poivre', price: 0 },
               { id: 'chili-tai', name: 'Chili Tai', price: 0 },
               { id: 'moutarde', name: 'Moutarde', price: 0 },
-              { id: 'boursin-sauce', name: 'Boursin', price: 1.50, popular: true }
+              { id: 'boursin-sauce', name: 'Boursin', price: 1.00, popular: true }
             ]
           },
           frites: {
@@ -2155,8 +2351,28 @@ const productsByCategory = {
             multiSelect: false,
             maxSelections: 1,
             options: [
-              { id: 'frites-oui', name: 'Oui', price: 1.50, popular: true },
+              { id: 'frites-oui', name: 'Oui', price: 1.00, popular: true },
               { id: 'frites-non', name: 'Non', price: 0 }
+            ]
+          },
+          boisson: {
+            title: 'Boisson',
+            subtitle: 'Ajoutez une boisson.',
+            required: false,
+            maxSelections: 1,
+            options: [
+              { id: 'cocacola', name: 'Coca-Cola', price: 1.50 },
+              { id: 'cocacola-cherry', name: 'Coca-Cola Cherry', price: 1.50 },
+              { id: 'fanta-fruit-dragon', name: 'Fanta Fruit du Dragon', price: 1.50 },
+              { id: 'fanta-berry', name: 'Fanta Berry (Fruits rouges)', price: 1.50 },
+              { id: 'fanta-strawberry', name: 'Fanta Strawberry (Fraise)', price: 1.50 },
+              { id: 'fanta-pineapple', name: 'Fanta Pineapple (Ananas)', price: 1.50 },
+              { id: 'orangina', name: 'Orangina', price: 1.50 },
+              { id: 'sprite', name: 'Sprite', price: 1.50 },
+              { id: 'oasis-tropical', name: 'Oasis Tropical', price: 1.50 },
+              { id: 'capri-sun', name: 'Capri Sun', price: 1.50 },
+              { id: 'eau-plate', name: 'Eau plate', price: 1.50 },
+              { id: 'eau-gazeuse', name: 'Eau gazeuse', price: 1.50 }
             ]
           }
         }
@@ -2199,7 +2415,7 @@ const productsByCategory = {
               { id: 'sauce-poivre', name: 'Sauce Poivre', price: 0 },
               { id: 'chili-tai', name: 'Chili Tai', price: 0 },
               { id: 'moutarde', name: 'Moutarde', price: 0 },
-              { id: 'boursin-sauce', name: 'Boursin', price: 1.50, popular: true }
+              { id: 'boursin-sauce', name: 'Boursin', price: 1.00, popular: true }
             ]
           },
           frites: {
@@ -2209,8 +2425,28 @@ const productsByCategory = {
             multiSelect: false,
             maxSelections: 1,
             options: [
-              { id: 'frites-oui', name: 'Oui', price: 1.50, popular: true },
+              { id: 'frites-oui', name: 'Oui', price: 1.00, popular: true },
               { id: 'frites-non', name: 'Non', price: 0 }
+            ]
+          },
+          boisson: {
+            title: 'Boisson',
+            subtitle: 'Ajoutez une boisson.',
+            required: false,
+            maxSelections: 1,
+            options: [
+              { id: 'cocacola', name: 'Coca-Cola', price: 1.50 },
+              { id: 'cocacola-cherry', name: 'Coca-Cola Cherry', price: 1.50 },
+              { id: 'fanta-fruit-dragon', name: 'Fanta Fruit du Dragon', price: 1.50 },
+              { id: 'fanta-berry', name: 'Fanta Berry (Fruits rouges)', price: 1.50 },
+              { id: 'fanta-strawberry', name: 'Fanta Strawberry (Fraise)', price: 1.50 },
+              { id: 'fanta-pineapple', name: 'Fanta Pineapple (Ananas)', price: 1.50 },
+              { id: 'orangina', name: 'Orangina', price: 1.50 },
+              { id: 'sprite', name: 'Sprite', price: 1.50 },
+              { id: 'oasis-tropical', name: 'Oasis Tropical', price: 1.50 },
+              { id: 'capri-sun', name: 'Capri Sun', price: 1.50 },
+              { id: 'eau-plate', name: 'Eau plate', price: 1.50 },
+              { id: 'eau-gazeuse', name: 'Eau gazeuse', price: 1.50 }
             ]
           }
         }
@@ -2246,8 +2482,6 @@ const productsByCategory = {
               { id: 'steak', name: 'Steak', price: 0 },
               { id: 'poulet', name: 'Poulet', price: 0 },
               { id: 'escalope-poulet', name: 'Escalope de poulet', price: 0 },
-              { id: 'steak-hache', name: 'Steak haché', price: 0 },
-              { id: 'bacon', name: 'Bacon', price: 1.50 },
               { id: 'kebab', name: 'Kebab', price: 0 },
               { id: 'kefta', name: 'Kefta', price: 0 },
               { id: 'merguez', name: 'Merguez', price: 0 },
@@ -2270,15 +2504,17 @@ const productsByCategory = {
           },
           sauce: {
             title: 'Sauce',
+            subtitle: 'Choisissez-en 2 max.',
             required: false,
             multiSelect: true,
+            maxSelections: 2,
             options: [
               { id: 'mayonnaise', name: 'Mayonnaise', price: 0 },
               { id: 'ketchup', name: 'Ketchup', price: 0 },
               { id: 'samourai', name: 'Samouraï', price: 0 },
               { id: 'barbecue', name: 'Barbecue', price: 0 },
               { id: 'curry', name: 'Curry', price: 0 },
-              { id: 'boursin', name: 'Boursin', price: 1.50 }
+              { id: 'boursin', name: 'Boursin', price: 1.00 }
             ]
           },
           frites: {
@@ -2286,8 +2522,28 @@ const productsByCategory = {
             required: false,
             multiSelect: false,
             options: [
-              { id: 'oui-frites', name: 'Oui', price: 1.50 },
+              { id: 'oui-frites', name: 'Oui', price: 1.00 },
               { id: 'non-frites', name: 'Non', price: 0 }
+            ]
+          },
+          boisson: {
+            title: 'Boisson',
+            subtitle: 'Ajoutez une boisson.',
+            required: false,
+            maxSelections: 1,
+            options: [
+              { id: 'cocacola', name: 'Coca-Cola', price: 1.50 },
+              { id: 'cocacola-cherry', name: 'Coca-Cola Cherry', price: 1.50 },
+              { id: 'fanta-fruit-dragon', name: 'Fanta Fruit du Dragon', price: 1.50 },
+              { id: 'fanta-berry', name: 'Fanta Berry (Fruits rouges)', price: 1.50 },
+              { id: 'fanta-strawberry', name: 'Fanta Strawberry (Fraise)', price: 1.50 },
+              { id: 'fanta-pineapple', name: 'Fanta Pineapple (Ananas)', price: 1.50 },
+              { id: 'orangina', name: 'Orangina', price: 1.50 },
+              { id: 'sprite', name: 'Sprite', price: 1.50 },
+              { id: 'oasis-tropical', name: 'Oasis Tropical', price: 1.50 },
+              { id: 'capri-sun', name: 'Capri Sun', price: 1.50 },
+              { id: 'eau-plate', name: 'Eau plate', price: 1.50 },
+              { id: 'eau-gazeuse', name: 'Eau gazeuse', price: 1.50 }
             ]
           }
         }
@@ -2321,8 +2577,6 @@ const productsByCategory = {
               { id: 'steak', name: 'Steak', price: 0 },
               { id: 'poulet', name: 'Poulet', price: 0 },
               { id: 'escalope-poulet', name: 'Escalope de poulet', price: 0 },
-              { id: 'steak-hache', name: 'Steak haché', price: 0 },
-              { id: 'bacon', name: 'Bacon', price: 1.50 },
               { id: 'kebab', name: 'Kebab', price: 0 },
               { id: 'kefta', name: 'Kefta', price: 0 },
               { id: 'merguez', name: 'Merguez', price: 0 },
@@ -2345,15 +2599,17 @@ const productsByCategory = {
           },
           sauce: {
             title: 'Sauce',
+            subtitle: 'Choisissez-en 2 max.',
             required: false,
-            multiSelect: false,
+            multiSelect: true,
+            maxSelections: 2,
             options: [
               { id: 'mayonnaise', name: 'Mayonnaise', price: 0 },
               { id: 'ketchup', name: 'Ketchup', price: 0 },
               { id: 'samourai', name: 'Samouraï', price: 0 },
               { id: 'barbecue', name: 'Barbecue', price: 0 },
               { id: 'curry', name: 'Curry', price: 0 },
-              { id: 'boursin', name: 'Boursin', price: 1.50 }
+              { id: 'boursin', name: 'Boursin', price: 1.00 }
             ]
           },
           frites: {
@@ -2361,8 +2617,28 @@ const productsByCategory = {
             required: false,
             multiSelect: false,
             options: [
-              { id: 'oui-frites', name: 'Oui', price: 1.50 },
+              { id: 'oui-frites', name: 'Oui', price: 1.00 },
               { id: 'non-frites', name: 'Non', price: 0 }
+            ]
+          },
+          boisson: {
+            title: 'Boisson',
+            subtitle: 'Ajoutez une boisson.',
+            required: false,
+            maxSelections: 1,
+            options: [
+              { id: 'cocacola', name: 'Coca-Cola', price: 1.50 },
+              { id: 'cocacola-cherry', name: 'Coca-Cola Cherry', price: 1.50 },
+              { id: 'fanta-fruit-dragon', name: 'Fanta Fruit du Dragon', price: 1.50 },
+              { id: 'fanta-berry', name: 'Fanta Berry (Fruits rouges)', price: 1.50 },
+              { id: 'fanta-strawberry', name: 'Fanta Strawberry (Fraise)', price: 1.50 },
+              { id: 'fanta-pineapple', name: 'Fanta Pineapple (Ananas)', price: 1.50 },
+              { id: 'orangina', name: 'Orangina', price: 1.50 },
+              { id: 'sprite', name: 'Sprite', price: 1.50 },
+              { id: 'oasis-tropical', name: 'Oasis Tropical', price: 1.50 },
+              { id: 'capri-sun', name: 'Capri Sun', price: 1.50 },
+              { id: 'eau-plate', name: 'Eau plate', price: 1.50 },
+              { id: 'eau-gazeuse', name: 'Eau gazeuse', price: 1.50 }
             ]
           }
         }
@@ -2372,7 +2648,7 @@ const productsByCategory = {
       {
         id: 'menukids1',
         name: 'Menu kids',
-        description: 'Plat, frites et Capri-Sun.',
+        description: 'Cheeseburger, frites et boisson au choix.',
         price: 9.00,
         rating: 87,
         reviews: 54,
@@ -2380,13 +2656,17 @@ const productsByCategory = {
         customizable: true,
         image: 'MenuKidss',
         customizationOptions: {
-          plat: {
-            title: 'Choix du plat',
+          boisson: {
+            title: 'Choix de la boisson',
             required: true,
             multiSelect: false,
             options: [
-              { name: 'Cheeseburger', price: 0.00 },
-              { name: 'Nuggets', price: 0.00 }
+              { id: 'capri-sun', name: 'Capri Sun', price: 0.00 },
+              { id: 'cocacola', name: 'Coca-Cola', price: 0.00 },
+              { id: 'fanta-strawberry', name: 'Fanta Strawberry', price: 0.00 },
+              { id: 'orangina', name: 'Orangina', price: 0.00 },
+              { id: 'sprite', name: 'Sprite', price: 0.00 },
+              { id: 'eau-plate', name: 'Eau plate', price: 0.00 }
             ]
           }
         }
@@ -2499,67 +2779,7 @@ const productsByCategory = {
         rating: 75,
         reviews: 16,
         popular: false,
-        image: productImages.hotDog,
-        customizable: true,
-        customizationOptions: {
-          sauce: {
-            title: 'Sauce',
-            subtitle: 'Choisissez-en de 1 à 2.',
-            required: true,
-            minSelections: 1,
-            maxSelections: 2,
-            options: [
-              { id: 'pas-sauce', name: 'Pas de sauce', price: 0 },
-              { id: 'biggy-burger', name: 'Biggy burger', price: 0 },
-              { id: 'samourai', name: 'Samouraï', price: 0 },
-              { id: 'ketchup', name: 'Ketchup', price: 0 },
-              { id: 'mayonnaise', name: 'Mayonnaise', price: 0 },
-              { id: 'sauce-blanche', name: 'Sauce blanche', price: 0 },
-              { id: 'brazil', name: 'Brazil', price: 0 },
-              { id: 'curry', name: 'Curry', price: 0 },
-              { id: 'barbecue', name: 'Barbecue', price: 0 },
-              { id: 'sriracha', name: 'Sriracha (pimenté)', price: 0 },
-              { id: 'harissa', name: 'Harissa', price: 0 },
-              { id: 'algerienne', name: 'Algérienne', price: 0 },
-              { id: 'andalouse', name: 'Andalouse', price: 0 },
-              { id: 'big-mac', name: 'Big Mac', price: 0 },
-              { id: 'marocaine', name: 'Marocaine', price: 0 },
-              { id: 'sauce-poivre', name: 'Sauce Poivre', price: 0 },
-              { id: 'chili-tai', name: 'Chili Tai', price: 0 },
-              { id: 'moutarde', name: 'Moutarde', price: 0 },
-              { id: 'boursin-sauce', name: 'Boursin', price: 1.50 }
-            ]
-          },
-          boisson: {
-            title: 'Boisson',
-            subtitle: 'Ajoutez une boisson à votre petite faim.',
-            required: false,
-            maxSelections: 1,
-            options: [
-              { id: 'cocacola', name: 'Coca-Cola', price: 1.50 },
-              { id: 'cocacola-cherry', name: 'Coca-Cola Cherry', price: 1.50 },
-              { id: 'fanta-fruit-dragon', name: 'Fanta Fruit du Dragon', price: 1.50 },
-              { id: 'fanta-berry', name: 'Fanta Berry (Fruits rouges)', price: 1.50 },
-              { id: 'fanta-strawberry', name: 'Fanta Strawberry (Fraise)', price: 1.50 },
-              { id: 'fanta-pineapple', name: 'Fanta Pineapple (Ananas)', price: 1.50 },
-              { id: 'orangina', name: 'Orangina', price: 1.50 },
-              { id: 'sprite', name: 'Sprite', price: 1.50 },
-              { id: 'oasis-tropical', name: 'Oasis Tropical', price: 1.50 },
-              { id: 'capri-sun', name: 'Capri Sun', price: 1.50 },
-              { id: 'eau-plate', name: 'Eau plate', price: 1.50 },
-              { id: 'eau-gazeuse', name: 'Eau gazeuse', price: 1.50 }
-            ]
-          },
-          frites: {
-            title: 'Frites',
-            subtitle: 'Ajoutez une portion de frites.',
-            required: false,
-            maxSelections: 1,
-            options: [
-              { id: 'frites-simple', name: 'Frites simple', price: 1.50 }
-            ]
-          }
-        }
+        image: productImages.hotDog
       },
       {
         id: 'petitfaim2',
@@ -2569,39 +2789,7 @@ const productsByCategory = {
         rating: 84,
         reviews: 32,
         popular: false,
-        image: productImages.croque,
-        customizable: true,
-        customizationOptions: {
-          boisson: {
-            title: 'Boisson',
-            subtitle: 'Ajoutez une boisson à votre petite faim.',
-            required: false,
-            maxSelections: 1,
-            options: [
-              { id: 'cocacola', name: 'Coca-Cola', price: 1.50 },
-              { id: 'cocacola-cherry', name: 'Coca-Cola Cherry', price: 1.50 },
-              { id: 'fanta-fruit-dragon', name: 'Fanta Fruit du Dragon', price: 1.50 },
-              { id: 'fanta-berry', name: 'Fanta Berry (Fruits rouges)', price: 1.50 },
-              { id: 'fanta-strawberry', name: 'Fanta Strawberry (Fraise)', price: 1.50 },
-              { id: 'fanta-pineapple', name: 'Fanta Pineapple (Ananas)', price: 1.50 },
-              { id: 'orangina', name: 'Orangina', price: 1.50 },
-              { id: 'sprite', name: 'Sprite', price: 1.50 },
-              { id: 'oasis-tropical', name: 'Oasis Tropical', price: 1.50 },
-              { id: 'capri-sun', name: 'Capri Sun', price: 1.50 },
-              { id: 'eau-plate', name: 'Eau plate', price: 1.50 },
-              { id: 'eau-gazeuse', name: 'Eau gazeuse', price: 1.50 }
-            ]
-          },
-          frites: {
-            title: 'Frites',
-            subtitle: 'Ajoutez une portion de frites.',
-            required: false,
-            maxSelections: 1,
-            options: [
-              { id: 'frites-simple', name: 'Frites simple', price: 1.50 }
-            ]
-          }
-        }
+        image: productImages.croque
       },
       {
         id: 'petitfaim3',
@@ -2611,67 +2799,7 @@ const productsByCategory = {
         rating: 72,
         reviews: 11,
         popular: false,
-        image: productImages.hotDogCrispy,
-        customizable: true,
-        customizationOptions: {
-          sauce: {
-            title: 'Sauce',
-            subtitle: 'Choisissez-en de 1 à 2.',
-            required: true,
-            minSelections: 1,
-            maxSelections: 2,
-            options: [
-              { id: 'pas-sauce', name: 'Pas de sauce', price: 0 },
-              { id: 'biggy-burger', name: 'Biggy burger', price: 0 },
-              { id: 'samourai', name: 'Samouraï', price: 0 },
-              { id: 'ketchup', name: 'Ketchup', price: 0 },
-              { id: 'mayonnaise', name: 'Mayonnaise', price: 0 },
-              { id: 'sauce-blanche', name: 'Sauce blanche', price: 0 },
-              { id: 'brazil', name: 'Brazil', price: 0 },
-              { id: 'curry', name: 'Curry', price: 0 },
-              { id: 'barbecue', name: 'Barbecue', price: 0 },
-              { id: 'sriracha', name: 'Sriracha (pimenté)', price: 0 },
-              { id: 'harissa', name: 'Harissa', price: 0 },
-              { id: 'algerienne', name: 'Algérienne', price: 0 },
-              { id: 'andalouse', name: 'Andalouse', price: 0 },
-              { id: 'big-mac', name: 'Big Mac', price: 0 },
-              { id: 'marocaine', name: 'Marocaine', price: 0 },
-              { id: 'sauce-poivre', name: 'Sauce Poivre', price: 0 },
-              { id: 'chili-tai', name: 'Chili Tai', price: 0 },
-              { id: 'moutarde', name: 'Moutarde', price: 0 },
-              { id: 'boursin-sauce', name: 'Boursin', price: 1.50 }
-            ]
-          },
-          boisson: {
-            title: 'Boisson',
-            subtitle: 'Ajoutez une boisson à votre petite faim.',
-            required: false,
-            maxSelections: 1,
-            options: [
-              { id: 'cocacola', name: 'Coca-Cola', price: 1.50 },
-              { id: 'cocacola-cherry', name: 'Coca-Cola Cherry', price: 1.50 },
-              { id: 'fanta-fruit-dragon', name: 'Fanta Fruit du Dragon', price: 1.50 },
-              { id: 'fanta-berry', name: 'Fanta Berry (Fruits rouges)', price: 1.50 },
-              { id: 'fanta-strawberry', name: 'Fanta Strawberry (Fraise)', price: 1.50 },
-              { id: 'fanta-pineapple', name: 'Fanta Pineapple (Ananas)', price: 1.50 },
-              { id: 'orangina', name: 'Orangina', price: 1.50 },
-              { id: 'sprite', name: 'Sprite', price: 1.50 },
-              { id: 'oasis-tropical', name: 'Oasis Tropical', price: 1.50 },
-              { id: 'capri-sun', name: 'Capri Sun', price: 1.50 },
-              { id: 'eau-plate', name: 'Eau plate', price: 1.50 },
-              { id: 'eau-gazeuse', name: 'Eau gazeuse', price: 1.50 }
-            ]
-          },
-          frites: {
-            title: 'Frites',
-            subtitle: 'Ajoutez une portion de frites.',
-            required: false,
-            maxSelections: 1,
-            options: [
-              { id: 'frites-simple', name: 'Frites simple', price: 1.50 }
-            ]
-          }
-        }
+        image: productImages.hotDogCrispy
       },
       {
         id: 'petitfaim4',
@@ -2681,67 +2809,7 @@ const productsByCategory = {
         rating: 77,
         reviews: 9,
         popular: false,
-        image: productImages.doublePtitCheese,
-        customizable: true,
-        customizationOptions: {
-          sauce: {
-            title: 'Sauce',
-            subtitle: 'Choisissez-en de 1 à 2.',
-            required: true,
-            minSelections: 1,
-            maxSelections: 2,
-            options: [
-              { id: 'pas-sauce', name: 'Pas de sauce', price: 0 },
-              { id: 'biggy-burger', name: 'Biggy burger', price: 0 },
-              { id: 'samourai', name: 'Samouraï', price: 0 },
-              { id: 'ketchup', name: 'Ketchup', price: 0 },
-              { id: 'mayonnaise', name: 'Mayonnaise', price: 0 },
-              { id: 'sauce-blanche', name: 'Sauce blanche', price: 0 },
-              { id: 'brazil', name: 'Brazil', price: 0 },
-              { id: 'curry', name: 'Curry', price: 0 },
-              { id: 'barbecue', name: 'Barbecue', price: 0 },
-              { id: 'sriracha', name: 'Sriracha (pimenté)', price: 0 },
-              { id: 'harissa', name: 'Harissa', price: 0 },
-              { id: 'algerienne', name: 'Algérienne', price: 0 },
-              { id: 'andalouse', name: 'Andalouse', price: 0 },
-              { id: 'big-mac', name: 'Big Mac', price: 0 },
-              { id: 'marocaine', name: 'Marocaine', price: 0 },
-              { id: 'sauce-poivre', name: 'Sauce Poivre', price: 0 },
-              { id: 'chili-tai', name: 'Chili Tai', price: 0 },
-              { id: 'moutarde', name: 'Moutarde', price: 0 },
-              { id: 'boursin-sauce', name: 'Boursin', price: 1.50 }
-            ]
-          },
-          boisson: {
-            title: 'Boisson',
-            subtitle: 'Ajoutez une boisson à votre petite faim.',
-            required: false,
-            maxSelections: 1,
-            options: [
-              { id: 'cocacola', name: 'Coca-Cola', price: 1.50 },
-              { id: 'cocacola-cherry', name: 'Coca-Cola Cherry', price: 1.50 },
-              { id: 'fanta-fruit-dragon', name: 'Fanta Fruit du Dragon', price: 1.50 },
-              { id: 'fanta-berry', name: 'Fanta Berry (Fruits rouges)', price: 1.50 },
-              { id: 'fanta-strawberry', name: 'Fanta Strawberry (Fraise)', price: 1.50 },
-              { id: 'fanta-pineapple', name: 'Fanta Pineapple (Ananas)', price: 1.50 },
-              { id: 'orangina', name: 'Orangina', price: 1.50 },
-              { id: 'sprite', name: 'Sprite', price: 1.50 },
-              { id: 'oasis-tropical', name: 'Oasis Tropical', price: 1.50 },
-              { id: 'capri-sun', name: 'Capri Sun', price: 1.50 },
-              { id: 'eau-plate', name: 'Eau plate', price: 1.50 },
-              { id: 'eau-gazeuse', name: 'Eau gazeuse', price: 1.50 }
-            ]
-          },
-          frites: {
-            title: 'Frites',
-            subtitle: 'Ajoutez une portion de frites.',
-            required: false,
-            maxSelections: 1,
-            options: [
-              { id: 'frites-simple', name: 'Frites simple', price: 1.50 }
-            ]
-          }
-        }
+        image: productImages.doublePtitCheese
       },
       {
         id: 'petitfaim5',
@@ -2751,67 +2819,7 @@ const productsByCategory = {
         rating: 81,
         reviews: 32,
         popular: false,
-        image: productImages.cheese,
-        customizable: true,
-        customizationOptions: {
-          sauce: {
-            title: 'Sauce',
-            subtitle: 'Choisissez-en de 1 à 2.',
-            required: true,
-            minSelections: 1,
-            maxSelections: 2,
-            options: [
-              { id: 'pas-sauce', name: 'Pas de sauce', price: 0 },
-              { id: 'biggy-burger', name: 'Biggy burger', price: 0 },
-              { id: 'samourai', name: 'Samouraï', price: 0 },
-              { id: 'ketchup', name: 'Ketchup', price: 0 },
-              { id: 'mayonnaise', name: 'Mayonnaise', price: 0 },
-              { id: 'sauce-blanche', name: 'Sauce blanche', price: 0 },
-              { id: 'brazil', name: 'Brazil', price: 0 },
-              { id: 'curry', name: 'Curry', price: 0 },
-              { id: 'barbecue', name: 'Barbecue', price: 0 },
-              { id: 'sriracha', name: 'Sriracha (pimenté)', price: 0 },
-              { id: 'harissa', name: 'Harissa', price: 0 },
-              { id: 'algerienne', name: 'Algérienne', price: 0 },
-              { id: 'andalouse', name: 'Andalouse', price: 0 },
-              { id: 'big-mac', name: 'Big Mac', price: 0 },
-              { id: 'marocaine', name: 'Marocaine', price: 0 },
-              { id: 'sauce-poivre', name: 'Sauce Poivre', price: 0 },
-              { id: 'chili-tai', name: 'Chili Tai', price: 0 },
-              { id: 'moutarde', name: 'Moutarde', price: 0 },
-              { id: 'boursin-sauce', name: 'Boursin', price: 1.50 }
-            ]
-          },
-          boisson: {
-            title: 'Boisson',
-            subtitle: 'Ajoutez une boisson à votre petite faim.',
-            required: false,
-            maxSelections: 1,
-            options: [
-              { id: 'cocacola', name: 'Coca-Cola', price: 1.50 },
-              { id: 'cocacola-cherry', name: 'Coca-Cola Cherry', price: 1.50 },
-              { id: 'fanta-fruit-dragon', name: 'Fanta Fruit du Dragon', price: 1.50 },
-              { id: 'fanta-berry', name: 'Fanta Berry (Fruits rouges)', price: 1.50 },
-              { id: 'fanta-strawberry', name: 'Fanta Strawberry (Fraise)', price: 1.50 },
-              { id: 'fanta-pineapple', name: 'Fanta Pineapple (Ananas)', price: 1.50 },
-              { id: 'orangina', name: 'Orangina', price: 1.50 },
-              { id: 'sprite', name: 'Sprite', price: 1.50 },
-              { id: 'oasis-tropical', name: 'Oasis Tropical', price: 1.50 },
-              { id: 'capri-sun', name: 'Capri Sun', price: 1.50 },
-              { id: 'eau-plate', name: 'Eau plate', price: 1.50 },
-              { id: 'eau-gazeuse', name: 'Eau gazeuse', price: 1.50 }
-            ]
-          },
-          frites: {
-            title: 'Frites',
-            subtitle: 'Ajoutez une portion de frites.',
-            required: false,
-            maxSelections: 1,
-            options: [
-              { id: 'frites-simple', name: 'Frites simple', price: 1.50 }
-            ]
-          }
-        }
+        image: productImages.cheese
       },
       {
         id: 'petitfaim6',
@@ -2821,39 +2829,7 @@ const productsByCategory = {
         rating: 100,
         reviews: 13,
         popular: false,
-        image: productImages.croqChevreMiel,
-        customizable: true,
-        customizationOptions: {
-          boisson: {
-            title: 'Boisson',
-            subtitle: 'Ajoutez une boisson à votre petite faim.',
-            required: false,
-            maxSelections: 1,
-            options: [
-              { id: 'cocacola', name: 'Coca-Cola', price: 1.50 },
-              { id: 'cocacola-cherry', name: 'Coca-Cola Cherry', price: 1.50 },
-              { id: 'fanta-fruit-dragon', name: 'Fanta Fruit du Dragon', price: 1.50 },
-              { id: 'fanta-berry', name: 'Fanta Berry (Fruits rouges)', price: 1.50 },
-              { id: 'fanta-strawberry', name: 'Fanta Strawberry (Fraise)', price: 1.50 },
-              { id: 'fanta-pineapple', name: 'Fanta Pineapple (Ananas)', price: 1.50 },
-              { id: 'orangina', name: 'Orangina', price: 1.50 },
-              { id: 'sprite', name: 'Sprite', price: 1.50 },
-              { id: 'oasis-tropical', name: 'Oasis Tropical', price: 1.50 },
-              { id: 'capri-sun', name: 'Capri Sun', price: 1.50 },
-              { id: 'eau-plate', name: 'Eau plate', price: 1.50 },
-              { id: 'eau-gazeuse', name: 'Eau gazeuse', price: 1.50 }
-            ]
-          },
-          frites: {
-            title: 'Frites',
-            subtitle: 'Ajoutez une portion de frites.',
-            required: false,
-            maxSelections: 1,
-            options: [
-              { id: 'frites-simple', name: 'Frites simple', price: 1.50 }
-            ]
-          }
-        }
+        image: productImages.croqChevreMiel
       },
     ],
     [ProductCategory.TEX_MEX]: [
@@ -2865,30 +2841,7 @@ const productsByCategory = {
         rating: 80,
         reviews: 72,
         popular: false,
-        image: productImages.sticksMozza,
-        customizable: true,
-        customizationOptions: {
-          boisson: {
-            title: 'Boisson',
-            subtitle: 'Ajoutez une boisson à votre plat.',
-            required: false,
-            maxSelections: 1,
-            options: [
-              { id: 'cocacola', name: 'Coca-Cola', price: 1.50 },
-              { id: 'cocacola-cherry', name: 'Coca-Cola Cherry', price: 1.50 },
-              { id: 'fanta-fruit-dragon', name: 'Fanta Fruit du Dragon', price: 1.50 },
-              { id: 'fanta-berry', name: 'Fanta Berry (Fruits rouges)', price: 1.50 },
-              { id: 'fanta-strawberry', name: 'Fanta Strawberry (Fraise)', price: 1.50 },
-              { id: 'fanta-pineapple', name: 'Fanta Pineapple (Ananas)', price: 1.50 },
-              { id: 'orangina', name: 'Orangina', price: 1.50 },
-              { id: 'sprite', name: 'Sprite', price: 1.50 },
-              { id: 'oasis-tropical', name: 'Oasis Tropical', price: 1.50 },
-              { id: 'capri-sun', name: 'Capri Sun', price: 1.50 },
-              { id: 'eau-plate', name: 'Eau plate', price: 1.50 },
-              { id: 'eau-gazeuse', name: 'Eau gazeuse', price: 1.50 }
-            ]
-          }
-        }
+        image: productImages.sticksMozza
       },
       {
         id: 'texmex2',
@@ -2898,30 +2851,7 @@ const productsByCategory = {
         rating: 83,
         reviews: 62,
         popular: false,
-        image: productImages.tenders,
-        customizable: true,
-        customizationOptions: {
-          boisson: {
-            title: 'Boisson',
-            subtitle: 'Ajoutez une boisson à votre plat.',
-            required: false,
-            maxSelections: 1,
-            options: [
-              { id: 'cocacola', name: 'Coca-Cola', price: 1.50 },
-              { id: 'cocacola-cherry', name: 'Coca-Cola Cherry', price: 1.50 },
-              { id: 'fanta-fruit-dragon', name: 'Fanta Fruit du Dragon', price: 1.50 },
-              { id: 'fanta-berry', name: 'Fanta Berry (Fruits rouges)', price: 1.50 },
-              { id: 'fanta-strawberry', name: 'Fanta Strawberry (Fraise)', price: 1.50 },
-              { id: 'fanta-pineapple', name: 'Fanta Pineapple (Ananas)', price: 1.50 },
-              { id: 'orangina', name: 'Orangina', price: 1.50 },
-              { id: 'sprite', name: 'Sprite', price: 1.50 },
-              { id: 'oasis-tropical', name: 'Oasis Tropical', price: 1.50 },
-              { id: 'capri-sun', name: 'Capri Sun', price: 1.50 },
-              { id: 'eau-plate', name: 'Eau plate', price: 1.50 },
-              { id: 'eau-gazeuse', name: 'Eau gazeuse', price: 1.50 }
-            ]
-          }
-        }
+        image: productImages.tenders
       },
       {
         id: 'texmex3',
@@ -2930,30 +2860,7 @@ const productsByCategory = {
         price: 4.90,
         rating: 86,
         reviews: 23,
-        popular: false,
-        customizable: true,
-        customizationOptions: {
-          boisson: {
-            title: 'Boisson',
-            subtitle: 'Ajoutez une boisson à votre plat.',
-            required: false,
-            maxSelections: 1,
-            options: [
-              { id: 'cocacola', name: 'Coca-Cola', price: 1.50 },
-              { id: 'cocacola-cherry', name: 'Coca-Cola Cherry', price: 1.50 },
-              { id: 'fanta-fruit-dragon', name: 'Fanta Fruit du Dragon', price: 1.50 },
-              { id: 'fanta-berry', name: 'Fanta Berry (Fruits rouges)', price: 1.50 },
-              { id: 'fanta-strawberry', name: 'Fanta Strawberry (Fraise)', price: 1.50 },
-              { id: 'fanta-pineapple', name: 'Fanta Pineapple (Ananas)', price: 1.50 },
-              { id: 'orangina', name: 'Orangina', price: 1.50 },
-              { id: 'sprite', name: 'Sprite', price: 1.50 },
-              { id: 'oasis-tropical', name: 'Oasis Tropical', price: 1.50 },
-              { id: 'capri-sun', name: 'Capri Sun', price: 1.50 },
-              { id: 'eau-plate', name: 'Eau plate', price: 1.50 },
-              { id: 'eau-gazeuse', name: 'Eau gazeuse', price: 1.50 }
-            ]
-          }
-        }
+        popular: false
       },
       {
         id: 'texmex4',
@@ -2963,7 +2870,7 @@ const productsByCategory = {
         rating: 78,
         reviews: 14,
         popular: false,
-        image: productImages.sticksChevre,
+        image: productImages.sticksChevre
       },
       {
         id: 'texmex5',
@@ -2973,7 +2880,7 @@ const productsByCategory = {
         rating: 80,
         reviews: 20,
         popular: false,
-        image: productImages.chilliCheese,
+        image: productImages.chilliCheese
       },
       {
         id: 'texmex6',
@@ -2983,7 +2890,7 @@ const productsByCategory = {
         rating: 91,
         reviews: 34,
         popular: false,
-        image: productImages.nuggets,
+        image: productImages.nuggets
       },
       {
         id: 'texmex7',
@@ -2993,7 +2900,7 @@ const productsByCategory = {
         rating: 90,
         reviews: 55,
         popular: false,
-        image: productImages.boucheeCamembert,
+        image: productImages.boucheeCamembert
       },
       {
         id: 'texmex8',
@@ -3003,7 +2910,7 @@ const productsByCategory = {
         rating: 85,
         reviews: 21,
         popular: false,
-        image: productImages.onionRings,
+        image: productImages.onionRings
       },
     ],
     [ProductCategory.FRITES_GARNIES]: [
@@ -3229,70 +3136,22 @@ const productsByCategory = {
       },
     ],
     [ProductCategory.BOISSONS]: [
-      {
-        id: 'cocacola-cherry-33',
-        name: 'Coca-Cola cherry',
-        description: '33 cl.',
-        price: 2.00,
-        rating: null,
-        reviews: 0,
-        popular: true,
-        image: productImages.cocaCherry,
-      },
+      // === BISSAP (en premier) ===
       {
         id: 'jus-bissap',
         name: 'Jus de bissap',
-        description: 'Jus de fleurs d\'hibiscus.',
+        description: 'Fait maison',
         price: 2.00,
         rating: null,
         reviews: 0,
-        popular: false,
+        popular: true,
         image: productImages.bissap,
       },
-      {
-        id: 'bouteille-cocacola-125',
-        name: 'Bouteille Coca-cola 1.25 L',
-        description: '',
-        price: 5.00,
-        rating: null,
-        reviews: 0,
-        popular: true,
-        image: productImages.cocaColaBouteille,
-      },
-      {
-        id: 'cocacola',
-        name: 'Coca-Cola',
-        description: '',
-        price: 2.00,
-        rating: null,
-        reviews: 0,
-        popular: true,
-        image: productImages.coca,
-      },
-      {
-        id: 'capri-sun',
-        name: 'Capri Sun',
-        description: '33 cl.',
-        price: 2.00,
-        rating: null,
-        reviews: 0,
-        popular: false,
-        image: productImages.capriSun,
-      },
-      {
-        id: 'fanta-fruit-dragon',
-        name: 'Fanta fruit du dragon',
-        description: '33 cl.',
-        price: 2.00,
-        rating: 100,
-        reviews: 7,
-        popular: false,
-        image: productImages.fantaDragon,
-      },
+      // === FANTA US (importés) ===
       {
         id: 'fanta-berry',
-        name: 'Fanta Berry ( Fruits rouges)',
-        description: '',
+        name: 'Fanta Berry (Fruits rouges)',
+        description: 'Importé US',
         price: 3.90,
         rating: null,
         reviews: 0,
@@ -3302,37 +3161,17 @@ const productsByCategory = {
       {
         id: 'fanta-strawberry',
         name: 'Fanta Strawberry (Fraise)',
-        description: '',
+        description: 'Importé US',
         price: 3.90,
         rating: null,
         reviews: 0,
-        popular: false,
-        image: productImages.fantaStrawberry,
-      },
-      {
-        id: 'bouteille-orangina-15',
-        name: 'Bouteille Orangina 1.5L',
-        description: '',
-        price: 5.00,
-        rating: null,
-        reviews: 0,
         popular: true,
-        image: productImages.oranginabouteille,
-      },
-      {
-        id: 'oasis-tropical',
-        name: 'Oasis Tropical',
-        description: '33 cl.',
-        price: 2.00,
-        rating: 100,
-        reviews: 6,
-        popular: false,
-        image: productImages.oasisTropical,
+        image: productImages.fantaStrawberry,
       },
       {
         id: 'fanta-pineapple',
         name: 'Fanta Pineapple (Ananas)',
-        description: '',
+        description: 'Importé US',
         price: 3.90,
         rating: null,
         reviews: 0,
@@ -3340,19 +3179,9 @@ const productsByCategory = {
         image: productImages.fantaAnanas,
       },
       {
-        id: 'hawaii',
-        name: 'Hawaï',
-        description: '33 cl.',
-        price: 2.00,
-        rating: null,
-        reviews: 0,
-        popular: true,
-        image: productImages.hawai,
-      },
-      {
         id: 'fanta-grape',
         name: 'Fanta Grape (Raisin)',
-        description: '',
+        description: 'Importé US',
         price: 3.90,
         rating: null,
         reviews: 0,
@@ -3360,67 +3189,48 @@ const productsByCategory = {
         image: productImages.fantaGrape,
       },
       {
-        id: 'ice-the-peche',
-        name: 'Ice The Pêche',
-        description: '33 cl.',
-        price: 2.00,
-        rating: null,
-        reviews: 0,
-        popular: false,
-        image: productImages.iceTeaPeachh,
-      },
-      {
-        id: 'cocacola-vanille',
-        name: 'Coca cola Vanille',
-        description: '',
-        price: 3.50,
-        rating: 100,
-        reviews: 3,
-        popular: false,
-        image: productImages.cocaVanille,
-      },
-      {
-        id: 'oasis-pomme-cassis-framboise',
-        name: 'Oasis Pomme Cassis Framboise',
-        description: '33 cl.',
-        price: 2.00,
-        rating: null,
-        reviews: 0,
-        popular: false,
-        image: productImages.oasisPommeCassisFramboise,
-      },
-      {
-        id: 'monster',
-        name: 'Monster',
-        description: '',
-        price: 4.90,
-        rating: 100,
-        reviews: 45,
-        popular: false,
-        image: productImages.monsterEnergy,
-      },
-      {
-        id: 'redbull',
-        name: 'Redbull',
-        description: '33 cl.',
+        id: 'fanta-peach',
+        name: 'Fanta Peach (Pêche)',
+        description: 'Importé US',
         price: 3.90,
-        rating: 100,
-        reviews: 12,
+        rating: null,
+        reviews: 0,
         popular: false,
       },
       {
-        id: 'ice-the-pasteque-menthe',
-        name: 'Ice The Pastèque Menthe',
+        id: 'fanta-fraise-kiwi',
+        name: 'Fanta Fraise Kiwi',
+        description: 'Importé US',
+        price: 3.90,
+        rating: null,
+        reviews: 0,
+        popular: false,
+      },
+      // === BOISSONS STANDARD (33cl) ===
+      {
+        id: 'cocacola',
+        name: 'Coca-Cola',
         description: '33 cl.',
         price: 2.00,
         rating: null,
         reviews: 0,
-        popular: false,
+        popular: true,
+        image: productImages.coca,
+      },
+      {
+        id: 'cocacola-cherry-33',
+        name: 'Coca-Cola Cherry',
+        description: '33 cl.',
+        price: 2.00,
+        rating: null,
+        reviews: 0,
+        popular: true,
+        image: productImages.cocaCherry,
       },
       {
         id: 'cocacola-zero',
-        name: 'Coca-Cola zero',
-        description: '',
+        name: 'Coca-Cola Zero',
+        description: '33 cl.',
         price: 2.00,
         rating: null,
         reviews: 0,
@@ -3428,47 +3238,18 @@ const productsByCategory = {
         image: productImages.cocaZero,
       },
       {
-        id: 'eau',
-        name: 'Eau',
-        description: '',
-        price: 2.00,
-        rating: null,
-        reviews: 0,
-        popular: false,
-      },
-      {
-        id: '7up-cherry',
-        name: '7 Up cherry',
+        id: 'cocacola-vanille',
+        name: 'Coca-Cola Vanille',
         description: '33 cl.',
-        price: 2.00,
-        rating: null,
-        reviews: 0,
+        price: 3.50,
+        rating: 100,
+        reviews: 3,
         popular: false,
-        image: productImages.sevenupCherry,
-      },
-      {
-        id: 'oasis-pomme-poire',
-        name: 'Oasis Pomme Poire',
-        description: '33 cl.',
-        price: 2.00,
-        rating: null,
-        reviews: 0,
-        popular: false,
-        image: productImages.oasisPOmmePoire,
-      },
-      {
-        id: '7up-mojito',
-        name: '7 Up-Mojito',
-        description: '33 cl.',
-        price: 2.00,
-        rating: null,
-        reviews: 0,
-        popular: false,
-        image: productImages.sevenupMojito,
+        image: productImages.cocaVanille,
       },
       {
         id: 'fanta-orange',
-        name: 'Fanta orange',
+        name: 'Fanta Orange',
         description: '33 cl.',
         price: 2.00,
         rating: null,
@@ -3477,8 +3258,8 @@ const productsByCategory = {
         image: productImages.fanta,
       },
       {
-        id: 'schweppes-agrumes',
-        name: 'Schweppes Agrumes',
+        id: 'fanta-citron',
+        name: 'Fanta Citron',
         description: '33 cl.',
         price: 2.00,
         rating: null,
@@ -3486,62 +3267,18 @@ const productsByCategory = {
         popular: false,
       },
       {
-        id: 'ice-the-framboise',
-        name: 'Ice The Framboise',
+        id: 'fanta-fruit-dragon',
+        name: 'Fanta Fruit du Dragon',
         description: '33 cl.',
         price: 2.00,
-        rating: null,
-        reviews: 0,
+        rating: 100,
+        reviews: 7,
         popular: false,
+        image: productImages.fantaDragon,
       },
       {
         id: 'sprite',
         name: 'Sprite',
-        description: '33 cl.',
-        price: 2.00,
-        rating: null,
-        reviews: 0,
-        popular: false,
-      },
-      {
-        id: 'bissap-50cl',
-        name: 'Bissap 50 cl',
-        description: 'Fait maison',
-        price: 4.00,
-        rating: null,
-        reviews: 0,
-        popular: false,
-      },
-      {
-        id: 'fanta-fraise-kiwi',
-        name: 'Fanta Fraise Kiwi',
-        description: '',
-        price: 3.90,
-        rating: null,
-        reviews: 0,
-        popular: false,
-      },
-      {
-        id: 'fanta-peach',
-        name: 'Fanta peach (pèche)',
-        description: '',
-        price: 3.90,
-        rating: null,
-        reviews: 0,
-        popular: false,
-      },
-      {
-        id: 'oasis-fraise-framboise',
-        name: 'Oasis Fraise Framboise',
-        description: '33 cl.',
-        price: 2.00,
-        rating: null,
-        reviews: 0,
-        popular: false,
-      },
-      {
-        id: 'fanta-citron',
-        name: 'Fanta citron',
         description: '33 cl.',
         price: 2.00,
         rating: null,
@@ -3558,6 +3295,93 @@ const productsByCategory = {
         popular: false,
       },
       {
+        id: 'oasis-tropical',
+        name: 'Oasis Tropical',
+        description: '33 cl.',
+        price: 2.00,
+        rating: 100,
+        reviews: 6,
+        popular: false,
+        image: productImages.oasisTropical,
+      },
+      {
+        id: 'oasis-pomme-cassis-framboise',
+        name: 'Oasis Pomme Cassis Framboise',
+        description: '33 cl.',
+        price: 2.00,
+        rating: null,
+        reviews: 0,
+        popular: false,
+        image: productImages.oasisPommeCassisFramboise,
+      },
+      {
+        id: 'oasis-pomme-poire',
+        name: 'Oasis Pomme Poire',
+        description: '33 cl.',
+        price: 2.00,
+        rating: null,
+        reviews: 0,
+        popular: false,
+        image: productImages.oasisPOmmePoire,
+      },
+      {
+        id: 'oasis-fraise-framboise',
+        name: 'Oasis Fraise Framboise',
+        description: '33 cl.',
+        price: 2.00,
+        rating: null,
+        reviews: 0,
+        popular: false,
+      },
+      {
+        id: 'ice-the-peche',
+        name: 'Ice Tea Pêche',
+        description: '33 cl.',
+        price: 2.00,
+        rating: null,
+        reviews: 0,
+        popular: false,
+        image: productImages.iceTeaPeachh,
+      },
+      {
+        id: 'ice-the-pasteque-menthe',
+        name: 'Ice Tea Pastèque Menthe',
+        description: '33 cl.',
+        price: 2.00,
+        rating: null,
+        reviews: 0,
+        popular: false,
+      },
+      {
+        id: 'ice-the-framboise',
+        name: 'Ice Tea Framboise',
+        description: '33 cl.',
+        price: 2.00,
+        rating: null,
+        reviews: 0,
+        popular: false,
+      },
+      {
+        id: 'capri-sun',
+        name: 'Capri Sun',
+        description: '33 cl.',
+        price: 2.00,
+        rating: null,
+        reviews: 0,
+        popular: false,
+        image: productImages.capriSun,
+      },
+      {
+        id: 'hawaii',
+        name: 'Hawaï',
+        description: '33 cl.',
+        price: 2.00,
+        rating: null,
+        reviews: 0,
+        popular: false,
+        image: productImages.hawai,
+      },
+      {
         id: 'tropico',
         name: 'Tropico',
         description: '33 cl.',
@@ -3567,18 +3391,76 @@ const productsByCategory = {
         popular: false,
       },
       {
-        id: 'perrier',
-        name: 'Perrier',
-        description: '',
+        id: '7up-cherry',
+        name: '7 Up Cherry',
+        description: '33 cl.',
+        price: 2.00,
+        rating: null,
+        reviews: 0,
+        popular: false,
+        image: productImages.sevenupCherry,
+      },
+      {
+        id: '7up-mojito',
+        name: '7 Up Mojito',
+        description: '33 cl.',
+        price: 2.00,
+        rating: null,
+        reviews: 0,
+        popular: false,
+        image: productImages.sevenupMojito,
+      },
+      {
+        id: 'schweppes-agrumes',
+        name: 'Schweppes Agrumes',
+        description: '33 cl.',
         price: 2.00,
         rating: null,
         reviews: 0,
         popular: false,
       },
       {
+        id: 'monster',
+        name: 'Monster',
+        description: '50 cl.',
+        price: 4.90,
+        rating: 100,
+        reviews: 45,
+        popular: false,
+        image: productImages.monsterEnergy,
+      },
+      {
+        id: 'redbull',
+        name: 'Redbull',
+        description: '25 cl.',
+        price: 3.90,
+        rating: 100,
+        reviews: 12,
+        popular: false,
+      },
+      {
+        id: 'eau',
+        name: 'Eau',
+        description: '50 cl.',
+        price: 2.00,
+        rating: null,
+        reviews: 0,
+        popular: false,
+      },
+      {
+        id: 'perrier',
+        name: 'Perrier',
+        description: '33 cl.',
+        price: 2.00,
+        rating: null,
+        reviews: 0,
+        popular: false,
+      },
+      // === BOUTEILLES (50cl et grandes) ===
+      {
         id: 'cocacola-50cl',
-        name: 'Coca cola 50 CL',
-        description: 'Petite bouteille 0.50 cl',
+        name: 'Coca-Cola 50 cl',
+        description: 'Petite bouteille',
         price: 4.00,
         rating: null,
         reviews: 0,
@@ -3586,8 +3468,8 @@ const productsByCategory = {
       },
       {
         id: 'cocacola-cherry-50cl',
-        name: 'Coca Cola Cherry 50 CL',
-        description: 'Petite bouteille 0.50 cl',
+        name: 'Coca-Cola Cherry 50 cl',
+        description: 'Petite bouteille',
         price: 4.00,
         rating: null,
         reviews: 0,
@@ -3595,35 +3477,55 @@ const productsByCategory = {
       },
       {
         id: 'cocacola-zero-50cl',
-        name: 'Coca cola zéro 50 CL',
-        description: 'Petite bouteille 0.50 cl',
+        name: 'Coca-Cola Zéro 50 cl',
+        description: 'Petite bouteille',
         price: 4.00,
         rating: null,
         reviews: 0,
         popular: false,
       },
       {
+        id: 'bouteille-cocacola-125',
+        name: 'Coca-Cola 1.25 L',
+        description: 'Grande bouteille',
+        price: 5.00,
+        rating: null,
+        reviews: 0,
+        popular: true,
+        image: productImages.cocaColaBouteille,
+      },
+      {
         id: 'bouteille-cocacola-zero-125',
-        name: 'Bouteille Coca-cola zéro 1.25 L',
-        description: '',
+        name: 'Coca-Cola Zéro 1.25 L',
+        description: 'Grande bouteille',
         price: 5.00,
         rating: null,
         reviews: 0,
         popular: false,
       },
       {
-        id: 'bouteille-fanta-orange-15',
-        name: 'Bouteille Fanta Orange 1.50 L',
-        description: '',
+        id: 'bouteille-orangina-15',
+        name: 'Orangina 1.5 L',
+        description: 'Grande bouteille',
         price: 5.00,
         rating: null,
         reviews: 0,
         popular: true,
+        image: productImages.oranginabouteille,
+      },
+      {
+        id: 'bouteille-fanta-orange-15',
+        name: 'Fanta Orange 1.5 L',
+        description: 'Grande bouteille',
+        price: 5.00,
+        rating: null,
+        reviews: 0,
+        popular: false,
       },
       {
         id: 'bouteille-cristaline-15',
-        name: 'Bouteille Cristaline 1.5L',
-        description: '',
+        name: 'Cristaline 1.5 L',
+        description: 'Grande bouteille',
         price: 4.00,
         rating: null,
         reviews: 0,
@@ -3635,7 +3537,7 @@ const productsByCategory = {
         id: 'formule-pizza-duo',
         name: 'Formule Pizza Duo',
         description: '2 pizzas M, servi avec 1 grande bouteille au choix.',
-        price: 26.50,
+        price: 25.00,
         rating: null,
         reviews: 0,
         popular: true,
@@ -3704,6 +3606,8 @@ const productsByCategory = {
             options: [
               { id: 'coca-125-duo', name: 'Bouteille Coca-cola 1.25 L', price: 0.00 },
               { id: 'coca-zero-125-duo', name: 'Bouteille Coca-cola zéro 1.25 L', price: 0.00 },
+              { id: 'coca-cherry-125-duo', name: 'Bouteille Coca Cherry 1.25 L', price: 0.00 },
+              { id: 'ice-tea-125-duo', name: 'Bouteille Ice Tea 1.25 L', price: 0.00 },
               { id: 'orangina-15-duo', name: 'Bouteille Orangina 1.5L', price: 0.00 },
               { id: 'fanta-orange-15-duo', name: 'Bouteille Fanta Orange 1.50 L', price: 0.00 },
               { id: 'cristaline-15-duo', name: 'Bouteille Cristaline 1.5L', price: 0.00 }
@@ -3813,6 +3717,8 @@ const productsByCategory = {
             options: [
               { id: 'coca-125', name: 'Bouteille Coca-cola 1.25 L', price: 0.00 },
               { id: 'coca-zero-125', name: 'Bouteille Coca-cola zéro 1.25 L', price: 0.00 },
+              { id: 'coca-cherry-125', name: 'Bouteille Coca Cherry 1.25 L', price: 0.00 },
+              { id: 'ice-tea-125', name: 'Bouteille Ice Tea 1.25 L', price: 0.00 },
               { id: 'orangina-15', name: 'Bouteille Orangina 1.5L', price: 0.00 },
               { id: 'fanta-orange-15', name: 'Bouteille Fanta Orange 1.50 L', price: 0.00 },
               { id: 'cristaline-15', name: 'Bouteille Cristaline 1.5L', price: 0.00 }
@@ -3835,7 +3741,8 @@ const productsByCategory = {
         sizes: {
           'M': { name: 'M (1 viande)', price: 8.00 },
           'L': { name: 'L (2 viandes)', price: 10.00 },
-          'XL': { name: 'XL (3 viandes)', price: 12.00 }
+          'XL': { name: 'XL (3 viandes)', price: 12.00 },
+          'XXL': { name: 'XXL (4 viandes)', price: 14.00 }
         },
         customizationOptions: {
           viandes: {
@@ -3853,9 +3760,7 @@ const productsByCategory = {
               { id: 'falafel', name: 'FALAFEL', price: 0 },
               { id: 'poulet', name: 'POULET', price: 0, popular: true },
               { id: 'escalope-poulet', name: 'ESCALOPE DE POULET', price: 0 },
-              { id: 'poulet-boursin', name: 'POULET BOURSIN', price: 0 },
-              { id: 'viande-hachee', name: 'VIANDE HACHEE', price: 0 },
-              { id: 'steak-hache', name: 'STEAK HACHÉ', price: 0 }
+              { id: 'poulet-boursin', name: 'POULET BOURSIN', price: 0 }
             ]
           },
           sauce: {
@@ -3883,7 +3788,7 @@ const productsByCategory = {
               { id: 'sauce-poivre', name: 'Sauce Poivre', price: 0 },
               { id: 'chili-tai', name: 'Chili Tai', price: 0 },
               { id: 'moutarde', name: 'Moutarde', price: 0 },
-              { id: 'boursin', name: 'Boursin', price: 1.50 }
+              { id: 'boursin', name: 'Boursin', price: 1.00 }
             ]
           },
           supplement: {

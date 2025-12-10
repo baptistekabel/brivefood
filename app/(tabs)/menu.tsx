@@ -56,8 +56,8 @@ const categoryImages = {
     require('../../assets/images/nouveauxProduits/OignonsRings.png')
   ],
   [ProductCategory.PETITES_FAIM]: [
-    require('../../assets/images/nouveauxProduits/HotDog.png'),
     require('../../assets/images/nouveauxProduits/CroqueMonsieur.png'),
+    require('../../assets/images/nouveauxProduits/HotDog.png'),
     require('../../assets/images/nouveauxProduits/Cheese.png')
   ],
   [ProductCategory.PETIT_FAIM_BRUSCHETTA]: [
@@ -71,7 +71,7 @@ const categoryImages = {
     require('../../assets/images/nouveauxProduits/frites.png')
   ],
   [ProductCategory.BOISSONS]: [
-    require('../../assets/images/boissons/coca.png'),
+    require('../../assets/images/nouveauxProduits/bissap.png'),
     require('../../assets/images/boissons/fantaStrawberry.png'),
     require('../../assets/images/boissons/sprite.png')
   ],
@@ -1051,7 +1051,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: spacing.md,
-    paddingBottom: spacing['3xl'],
+    paddingBottom: 250,
   },
   gridContainer: {
     paddingHorizontal: spacing.md,

@@ -213,7 +213,7 @@ export default function OrderConfirmationPopup({
               <View style={styles.orderDetails}>
                 <View style={styles.detailRow}>
                   <Ionicons name="time-outline" size={16} color={colors.neutral.gray600} />
-                  <Text style={styles.detailText}>Temps d'attente: {orderData.waitTime}</Text>
+                  <Text style={styles.detailText}>Délai d'attente approximatif : {orderData.waitTime}</Text>
                 </View>
 
                 <View style={styles.detailRow}>

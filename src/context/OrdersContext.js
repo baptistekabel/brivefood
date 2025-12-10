@@ -133,6 +133,45 @@ export const OrdersProvider = ({ children }) => {
 
   // Plus besoin de debugAsyncStorageOrders - utilisation directe de Firestore
 
+  // Vérifier et auto-compléter les commandes de plus d'une heure
+  useEffect(() => {
+    const autoCompleteOldOrders = async () => {
+      const ONE_HOUR_MS = 60 * 60 * 1000;
+      const now = Date.now();
+
+      for (const order of orders) {
+        // Ne pas modifier les commandes déjà terminées ou annulées
+        if (order.status === OrderStatus.DELIVERED || order.status === OrderStatus.CANCELLED) {
+          continue;
+        }
+
+        // Vérifier si la commande a plus d'une heure
+        const orderCreatedAt = order.createdAt ? new Date(order.createdAt).getTime() : null;
+        if (orderCreatedAt && (now - orderCreatedAt) >= ONE_HOUR_MS) {
+          try {
+            if (order.firestoreId) {
+              const orderDoc = doc(db, 'orders', order.firestoreId);
+              await updateDoc(orderDoc, {
+                status: OrderStatus.DELIVERED,
+                updatedAt: serverTimestamp(),
+                autoCompletedAt: serverTimestamp(),
+                autoCompleted: true
+              });
+              console.log('✅ Commande', order.id, 'auto-complétée (plus d\'1h)');
+            }
+          } catch (error) {
+            console.error('❌ Erreur auto-complétion commande', order.id, ':', error);
+          }
+        }
+      }
+    };
+
+    // Exécuter uniquement quand les commandes sont chargées
+    if (orders.length > 0 && !loading) {
+      autoCompleteOldOrders();
+    }
+  }, [orders, loading]);
+
   // Plus besoin de loadOrders - le listener Firestore se charge du chargement
 
   // Générer un numéro de commande séquentiel avec Firestore
@@ -188,6 +227,33 @@ export const OrdersProvider = ({ children }) => {
       console.log('✅ Order created in Firestore with ID:', docRef.id);
 
       // L'impression automatique se fait uniquement côté admin (voir dashboard.tsx)
+
+      // Timer de 1 heure pour marquer la commande comme terminée automatiquement
+      const ONE_HOUR_MS = 60 * 60 * 1000; // 1 heure en millisecondes
+      setTimeout(async () => {
+        try {
+          // Vérifier si la commande existe toujours et n'est pas déjà terminée/annulée
+          const orderDoc = doc(db, 'orders', docRef.id);
+          const { getDoc } = await import('firebase/firestore');
+          const orderSnapshot = await getDoc(orderDoc);
+
+          if (orderSnapshot.exists()) {
+            const currentOrder = orderSnapshot.data();
+            // Ne pas modifier si déjà terminée ou annulée
+            if (currentOrder.status !== OrderStatus.DELIVERED && currentOrder.status !== OrderStatus.CANCELLED) {
+              await updateDoc(orderDoc, {
+                status: OrderStatus.DELIVERED,
+                updatedAt: serverTimestamp(),
+                autoCompletedAt: serverTimestamp(),
+                autoCompleted: true
+              });
+              console.log('✅ Commande', orderId, 'marquée comme terminée automatiquement après 1h');
+            }
+          }
+        } catch (error) {
+          console.error('❌ Erreur lors de l\'auto-complétion de la commande:', error);
+        }
+      }, ONE_HOUR_MS);
 
       return { success: true, order: { ...newOrder, firestoreId: docRef.id } };
     } catch (error) {

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -25,6 +25,34 @@ export default function OrderDetailsScreen() {
   const { activeOrder, getStatusText, getStatusColor, completeActiveOrder } = useActiveOrder();
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
+  const [elapsedTime, setElapsedTime] = useState('00:00');
+
+  // Chronomètre qui défile depuis la création de la commande
+  useEffect(() => {
+    if (!activeOrder?.createdAt) return;
+
+    const updateElapsedTime = () => {
+      const createdAt = new Date(activeOrder.createdAt).getTime();
+      const now = Date.now();
+      const diffMs = now - createdAt;
+
+      const totalSeconds = Math.floor(diffMs / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+
+      // Formater en MM:SS
+      const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      setElapsedTime(formattedTime);
+    };
+
+    // Mettre à jour immédiatement
+    updateElapsedTime();
+
+    // Puis toutes les secondes
+    const interval = setInterval(updateElapsedTime, 1000);
+
+    return () => clearInterval(interval);
+  }, [activeOrder?.createdAt]);
 
   useEffect(() => {
     // Animation d'apparition
@@ -302,9 +330,19 @@ export default function OrderDetailsScreen() {
               </View>
 
               <View style={styles.orderInfo}>
+                {/* Chronomètre temps écoulé */}
+                <View style={styles.timerRow}>
+                  <View style={styles.timerContainer}>
+                    <Ionicons name="time" size={16} color={colors.accent.main} />
+                    <Text style={styles.timerText}>{elapsedTime}</Text>
+                  </View>
+                  <Text style={styles.timerSeparator}>•</Text>
+                  <Text style={styles.estimatedTimeText}>~{activeOrder.estimatedTime}</Text>
+                </View>
+
                 <View style={styles.infoRow}>
-                  <Ionicons name="time-outline" size={18} color={colors.neutral.gray600} />
-                  <Text style={styles.infoText}>Temps estimé: ~{activeOrder.estimatedTime}</Text>
+                  <Ionicons name="hourglass-outline" size={18} color={colors.neutral.gray600} />
+                  <Text style={styles.infoText}>Délai approximatif: ~{activeOrder.estimatedTime}</Text>
                 </View>
 
                 <View style={styles.infoRow}>
@@ -480,6 +518,36 @@ const styles = StyleSheet.create({
   },
   orderInfo: {
     gap: spacing.sm,
+  },
+  timerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.neutral.gray100,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.sm,
+  },
+  timerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs / 2,
+  },
+  timerText: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.accent.main,
+  },
+  timerSeparator: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray400,
+    marginHorizontal: spacing.sm,
+  },
+  estimatedTimeText: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray600,
   },
   infoRow: {
     flexDirection: 'row',
