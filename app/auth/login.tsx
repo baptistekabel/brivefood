@@ -452,7 +452,7 @@ export default function LoginScreen() {
                     disabled={loading}
                   >
                     <LinearGradient
-                      colors={['#000000', '#000000', '#000000']}
+                      colors={['#FF6B6B', '#FF8E53']}
                       style={[styles.loginButtonGradient, styles.loginButtonGradientTablet]}
                     >
                       <Text style={[styles.loginButtonText, styles.loginButtonTextTablet]}>
@@ -546,7 +546,7 @@ export default function LoginScreen() {
                     disabled={loading}
                   >
                     <LinearGradient
-                      colors={['#000000', '#000000', '#000000']}
+                      colors={['#FF6B6B', '#FF8E53']}
                       style={styles.loginButtonGradient}
                     >
                       <Text style={styles.loginButtonText}>

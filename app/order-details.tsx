@@ -105,7 +105,7 @@ export default function OrderDetailsScreen() {
             }}
           >
             <LinearGradient
-              colors={['#000000', '#000000']}
+              colors={['#FF6B6B', '#FF8E53']}
               style={styles.backButtonGradient}
             >
               <Text style={styles.backButtonText}>Retour</Text>

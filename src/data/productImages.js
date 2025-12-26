@@ -12,6 +12,7 @@ const productImages = {
   veggieBurger: require('../../assets/images/burgers/veggieBurger.png'),
   spicyBurger: require('../../assets/images/burgers/spicyBurger.png'),
   burgerClassic: require('../../assets/images/burgers/burgerClassic.png'),
+  burgerBleu: require('../../assets/images/burgers/burgerBleu.jpeg'),
   baconBBurger: require('../../assets/images/nouveauxProduits/BaconBBurger.png'),
   doubleCheeseBurger: require('../../assets/images/nouveauxProduits/DoubleCheese.png'),
   duoBurger: require('../../assets/images/nouveauxProduits/DuoBurger.png'),

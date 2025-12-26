@@ -535,43 +535,6 @@ const productsByCategory = {
         }
       },
       {
-        id: 'pizza5',
-        name: 'Pizza western',
-        description: 'Sauce tomate, chorizo, poivrons, œuf et Mozzarella.',
-        price: 14.90,
-        popular: false,
-        rating: 100,
-        reviews: 3,
-        image: productImages.pizzaWestern,
-        sizes: {
-          '29cm': { name: '29cm', price: 14.90 },
-          '33cm': { name: '33cm', price: 18.40 }
-        },
-        customizable: true,
-        customizationOptions: {
-          boisson: {
-            title: 'Boisson',
-            subtitle: 'Ajoutez une boisson à votre plat.',
-            required: false,
-            maxSelections: 1,
-            options: [
-              { id: 'cocacola', name: 'Coca-Cola', price: 1.50 },
-              { id: 'cocacola-cherry', name: 'Coca-Cola Cherry', price: 1.50 },
-              { id: 'fanta-fruit-dragon', name: 'Fanta Fruit du Dragon', price: 1.50 },
-              { id: 'fanta-berry', name: 'Fanta Berry (Fruits rouges)', price: 1.50 },
-              { id: 'fanta-strawberry', name: 'Fanta Strawberry (Fraise)', price: 1.50 },
-              { id: 'fanta-pineapple', name: 'Fanta Pineapple (Ananas)', price: 1.50 },
-              { id: 'orangina', name: 'Orangina', price: 1.50 },
-              { id: 'sprite', name: 'Sprite', price: 1.50 },
-              { id: 'oasis-tropical', name: 'Oasis Tropical', price: 1.50 },
-              { id: 'capri-sun', name: 'Capri Sun', price: 1.50 },
-              { id: 'eau-plate', name: 'Eau plate', price: 1.50 },
-              { id: 'eau-gazeuse', name: 'Eau gazeuse', price: 1.50 }
-            ]
-          }
-        }
-      },
-      {
         id: 'pizza6',
         name: 'Pizza burger',
         description: 'Sauce tomate, viande hachée, Cheddar, cornichons, oignons rouges, sauce burger et Mozzarella.',
@@ -849,108 +812,6 @@ const productsByCategory = {
         }
       },
       {
-        id: 'pizza14',
-        name: 'Pizza raclette poulet',
-        description: 'Crème, poulet, raclette, pommes de terre, oignons rouges et Mozzarella.',
-        price: 15.90,
-        popular: false,
-        sizes: {
-          '29cm': { name: '29cm', price: 15.90 },
-          '33cm': { name: '33cm', price: 19.40 }
-        },
-        customizable: true,
-        customizationOptions: {
-          boisson: {
-            title: 'Boisson',
-            subtitle: 'Ajoutez une boisson à votre plat.',
-            required: false,
-            maxSelections: 1,
-            options: [
-              { id: 'cocacola', name: 'Coca-Cola', price: 1.50 },
-              { id: 'cocacola-cherry', name: 'Coca-Cola Cherry', price: 1.50 },
-              { id: 'fanta-fruit-dragon', name: 'Fanta Fruit du Dragon', price: 1.50 },
-              { id: 'fanta-berry', name: 'Fanta Berry (Fruits rouges)', price: 1.50 },
-              { id: 'fanta-strawberry', name: 'Fanta Strawberry (Fraise)', price: 1.50 },
-              { id: 'fanta-pineapple', name: 'Fanta Pineapple (Ananas)', price: 1.50 },
-              { id: 'orangina', name: 'Orangina', price: 1.50 },
-              { id: 'sprite', name: 'Sprite', price: 1.50 },
-              { id: 'oasis-tropical', name: 'Oasis Tropical', price: 1.50 },
-              { id: 'capri-sun', name: 'Capri Sun', price: 1.50 },
-              { id: 'eau-plate', name: 'Eau plate', price: 1.50 },
-              { id: 'eau-gazeuse', name: 'Eau gazeuse', price: 1.50 }
-            ]
-          }
-        }
-      },
-      {
-        id: 'pizza15',
-        name: 'Pizza spicy',
-        description: 'Tomate, merguez, kefta, poivrons, oignons rouges, piments, olives et Mozzarella.',
-        price: 14.90,
-        popular: false,
-        sizes: {
-          '29cm': { name: '29cm', price: 14.90 },
-          '33cm': { name: '33cm', price: 18.40 }
-        },
-        customizable: true,
-        customizationOptions: {
-          boisson: {
-            title: 'Boisson',
-            subtitle: 'Ajoutez une boisson à votre plat.',
-            required: false,
-            maxSelections: 1,
-            options: [
-              { id: 'cocacola', name: 'Coca-Cola', price: 1.50 },
-              { id: 'cocacola-cherry', name: 'Coca-Cola Cherry', price: 1.50 },
-              { id: 'fanta-fruit-dragon', name: 'Fanta Fruit du Dragon', price: 1.50 },
-              { id: 'fanta-berry', name: 'Fanta Berry (Fruits rouges)', price: 1.50 },
-              { id: 'fanta-strawberry', name: 'Fanta Strawberry (Fraise)', price: 1.50 },
-              { id: 'fanta-pineapple', name: 'Fanta Pineapple (Ananas)', price: 1.50 },
-              { id: 'orangina', name: 'Orangina', price: 1.50 },
-              { id: 'sprite', name: 'Sprite', price: 1.50 },
-              { id: 'oasis-tropical', name: 'Oasis Tropical', price: 1.50 },
-              { id: 'capri-sun', name: 'Capri Sun', price: 1.50 },
-              { id: 'eau-plate', name: 'Eau plate', price: 1.50 },
-              { id: 'eau-gazeuse', name: 'Eau gazeuse', price: 1.50 }
-            ]
-          }
-        }
-      },
-      {
-        id: 'pizza16',
-        name: 'Pizza chicken spicy',
-        description: 'Tomate, poulet, poivrons, oignons rouges, piments et Mozzarella.',
-        price: 14.90,
-        popular: false,
-        sizes: {
-          '29cm': { name: '29cm', price: 14.90 },
-          '33cm': { name: '33cm', price: 18.40 }
-        },
-        customizable: true,
-        customizationOptions: {
-          boisson: {
-            title: 'Boisson',
-            subtitle: 'Ajoutez une boisson à votre plat.',
-            required: false,
-            maxSelections: 1,
-            options: [
-              { id: 'cocacola', name: 'Coca-Cola', price: 1.50 },
-              { id: 'cocacola-cherry', name: 'Coca-Cola Cherry', price: 1.50 },
-              { id: 'fanta-fruit-dragon', name: 'Fanta Fruit du Dragon', price: 1.50 },
-              { id: 'fanta-berry', name: 'Fanta Berry (Fruits rouges)', price: 1.50 },
-              { id: 'fanta-strawberry', name: 'Fanta Strawberry (Fraise)', price: 1.50 },
-              { id: 'fanta-pineapple', name: 'Fanta Pineapple (Ananas)', price: 1.50 },
-              { id: 'orangina', name: 'Orangina', price: 1.50 },
-              { id: 'sprite', name: 'Sprite', price: 1.50 },
-              { id: 'oasis-tropical', name: 'Oasis Tropical', price: 1.50 },
-              { id: 'capri-sun', name: 'Capri Sun', price: 1.50 },
-              { id: 'eau-plate', name: 'Eau plate', price: 1.50 },
-              { id: 'eau-gazeuse', name: 'Eau gazeuse', price: 1.50 }
-            ]
-          }
-        }
-      },
-      {
         id: 'pizza17',
         name: 'Pizza cannibale',
         description: 'Tomate, steak, merguez, poulet, oignons rouges, olives et Mozzarella.',
@@ -1017,41 +878,7 @@ const productsByCategory = {
             ]
           }
         }
-      },
-      {
-        id: 'pizza19',
-        name: 'Pizza Saumon Boursin',
-        description: 'Creme, Saumon, pommes de terre, oignons, olives, Boursin et Mozzarella.',
-        price: 15.90,
-        popular: false,
-        sizes: {
-          '29cm': { name: '29cm', price: 15.90 },
-          '33cm': { name: '33cm', price: 19.40 }
-        },
-        customizable: true,
-        customizationOptions: {
-          boisson: {
-            title: 'Boisson',
-            subtitle: 'Ajoutez une boisson à votre plat.',
-            required: false,
-            maxSelections: 1,
-            options: [
-              { id: 'cocacola', name: 'Coca-Cola', price: 1.50 },
-              { id: 'cocacola-cherry', name: 'Coca-Cola Cherry', price: 1.50 },
-              { id: 'fanta-fruit-dragon', name: 'Fanta Fruit du Dragon', price: 1.50 },
-              { id: 'fanta-berry', name: 'Fanta Berry (Fruits rouges)', price: 1.50 },
-              { id: 'fanta-strawberry', name: 'Fanta Strawberry (Fraise)', price: 1.50 },
-              { id: 'fanta-pineapple', name: 'Fanta Pineapple (Ananas)', price: 1.50 },
-              { id: 'orangina', name: 'Orangina', price: 1.50 },
-              { id: 'sprite', name: 'Sprite', price: 1.50 },
-              { id: 'oasis-tropical', name: 'Oasis Tropical', price: 1.50 },
-              { id: 'capri-sun', name: 'Capri Sun', price: 1.50 },
-              { id: 'eau-plate', name: 'Eau plate', price: 1.50 },
-              { id: 'eau-gazeuse', name: 'Eau gazeuse', price: 1.50 }
-            ]
-          }
-        }
-      },
+      }
     ],
     [ProductCategory.BURGER]: [
       {
@@ -1791,7 +1618,7 @@ const productsByCategory = {
         rating: null,
         reviews: 0,
         popular: false,
-        image: productImages.burgerClassic,
+        image: productImages.burgerBleu,
         customizable: true,
         customizationOptions: {
           steak: {
@@ -2654,7 +2481,7 @@ const productsByCategory = {
         reviews: 54,
         popular: false,
         customizable: true,
-        image: 'MenuKidss',
+        image: productImages.MenuKidss,
         customizationOptions: {
           boisson: {
             title: 'Choix de la boisson',
@@ -3099,6 +2926,46 @@ const productsByCategory = {
         reviews: 68,
         popular: false,
         image: productImages.Gaufre,
+        customizable: true,
+        customizationOptions: {
+          gout: {
+            title: 'Choix du goût',
+            subtitle: 'Choisissez votre topping préféré.',
+            required: true,
+            minSelections: 1,
+            maxSelections: 1,
+            options: [
+              { id: 'nutella', name: 'Nutella', price: 0 },
+              { id: 'caramel', name: 'Caramel', price: 0 }
+            ]
+          },
+          topping: {
+            title: 'Topping',
+            subtitle: 'Ajoutez jusqu\'à 3 toppings.',
+            required: false,
+            minSelections: 0,
+            maxSelections: 3,
+            options: [
+              { id: 'kinder-bueno', name: 'Kinder Bueno', price: 1.00 },
+              { id: 'kinder-bueno-white', name: 'Kinder Bueno White', price: 1.00 },
+              { id: 'kinder-country', name: 'Kinder Country', price: 1.00 },
+              { id: 'oreo', name: 'Oreo', price: 1.00 },
+              { id: 'mms', name: 'M&M\'s', price: 1.00 },
+              { id: 'speculoos', name: 'Speculoos', price: 1.00 },
+              { id: 'banane', name: 'Banane', price: 1.00 }
+            ]
+          },
+          supplement: {
+            title: 'Supplément',
+            subtitle: 'Ajoutez de la chantilly.',
+            required: false,
+            minSelections: 0,
+            maxSelections: 1,
+            options: [
+              { id: 'chantilly', name: 'Chantilly', price: 0.50 }
+            ]
+          }
+        }
       },
       {
         id: 'dessert8',
@@ -3129,7 +2996,34 @@ const productsByCategory = {
             maxSelections: 1,
             options: [
               { id: 'vanille', name: 'Vanille', price: 0 },
-              { id: 'fraise', name: 'Fraise', price: 0 }
+              { id: 'fraise', name: 'Fraise', price: 0 },
+              { id: 'pistache', name: 'Pistache', price: 1.00 }
+            ]
+          },
+          topping: {
+            title: 'Topping',
+            subtitle: 'Ajoutez jusqu\'à 3 toppings.',
+            required: false,
+            minSelections: 0,
+            maxSelections: 3,
+            options: [
+              { id: 'kinder-bueno', name: 'Kinder Bueno', price: 1.00 },
+              { id: 'kinder-bueno-white', name: 'Kinder Bueno White', price: 1.00 },
+              { id: 'kinder-country', name: 'Kinder Country', price: 1.00 },
+              { id: 'oreo', name: 'Oreo', price: 1.00 },
+              { id: 'mms', name: 'M&M\'s', price: 1.00 },
+              { id: 'speculoos', name: 'Speculoos', price: 1.00 },
+              { id: 'banane', name: 'Banane', price: 1.00 }
+            ]
+          },
+          supplement: {
+            title: 'Supplément',
+            subtitle: 'Ajoutez de la chantilly.',
+            required: false,
+            minSelections: 0,
+            maxSelections: 1,
+            options: [
+              { id: 'chantilly', name: 'Chantilly', price: 0.50 }
             ]
           }
         }
@@ -3485,10 +3379,19 @@ const productsByCategory = {
         popular: false,
       },
       {
+        id: 'bouteille-cristaline-15',
+        name: 'Cristaline 1.5 L',
+        description: 'Grande bouteille',
+        price: 2.50,
+        rating: null,
+        reviews: 0,
+        popular: false,
+      },
+      {
         id: 'bouteille-cocacola-125',
         name: 'Coca-Cola 1.25 L',
         description: 'Grande bouteille',
-        price: 5.00,
+        price: 4.00,
         rating: null,
         reviews: 0,
         popular: true,
@@ -3498,7 +3401,25 @@ const productsByCategory = {
         id: 'bouteille-cocacola-zero-125',
         name: 'Coca-Cola Zéro 1.25 L',
         description: 'Grande bouteille',
-        price: 5.00,
+        price: 4.00,
+        rating: null,
+        reviews: 0,
+        popular: false,
+      },
+      {
+        id: 'bouteille-cocacola-cherry-125',
+        name: 'Coca-Cola Cherry 1.25 L',
+        description: 'Grande bouteille',
+        price: 4.00,
+        rating: null,
+        reviews: 0,
+        popular: false,
+      },
+      {
+        id: 'bouteille-ice-tea-peche-15',
+        name: 'Ice Tea Pêche 1.5 L',
+        description: 'Grande bouteille',
+        price: 4.00,
         rating: null,
         reviews: 0,
         popular: false,
@@ -3507,7 +3428,7 @@ const productsByCategory = {
         id: 'bouteille-orangina-15',
         name: 'Orangina 1.5 L',
         description: 'Grande bouteille',
-        price: 5.00,
+        price: 4.00,
         rating: null,
         reviews: 0,
         popular: true,
@@ -3516,15 +3437,6 @@ const productsByCategory = {
       {
         id: 'bouteille-fanta-orange-15',
         name: 'Fanta Orange 1.5 L',
-        description: 'Grande bouteille',
-        price: 5.00,
-        rating: null,
-        reviews: 0,
-        popular: false,
-      },
-      {
-        id: 'bouteille-cristaline-15',
-        name: 'Cristaline 1.5 L',
         description: 'Grande bouteille',
         price: 4.00,
         rating: null,
@@ -3554,7 +3466,6 @@ const productsByCategory = {
               { id: 'pizza-chevre-miel-1', name: 'Pizza chèvre miel', price: 0.00 },
               { id: 'pizza-curry-1', name: 'Pizza curry', price: 0.00 },
               { id: 'pizza-kebab-1', name: 'Pizza kebab', price: 0.00 },
-              { id: 'pizza-western-1', name: 'Pizza western', price: 0.00 },
               { id: 'pizza-burger-1', name: 'Pizza burger', price: 0.00 },
               { id: 'pizza-tex-mex-1', name: 'Pizza Tex-Mex', price: 0.00 },
               { id: 'pizza-raclette-1', name: 'Pizza raclette', price: 0.00 },
@@ -3563,12 +3474,8 @@ const productsByCategory = {
               { id: 'pizza-4-fromages-1', name: 'Pizza 4 Fromages', price: 0.00 },
               { id: 'pizza-chevre-figue-1', name: 'Pizza chèvre figue', price: 0.00 },
               { id: 'pizza-chevre-poulet-1', name: 'Pizza chèvre poulet', price: 0.00 },
-              { id: 'pizza-raclette-poulet-1', name: 'Pizza raclette poulet', price: 0.00 },
-              { id: 'pizza-spicy-1', name: 'Pizza spicy', price: 0.00 },
-              { id: 'pizza-chicken-spicy-1', name: 'Pizza chicken spicy', price: 0.00 },
               { id: 'pizza-cannibale-1', name: 'Pizza cannibale', price: 0.00 },
-              { id: 'pizza-kebab-raclette-1', name: 'Pizza kebab raclette', price: 0.00 },
-              { id: 'pizza-saumon-boursin-1', name: 'Pizza Saumon Boursin', price: 0.00 }
+              { id: 'pizza-kebab-raclette-1', name: 'Pizza kebab raclette', price: 0.00 }
             ]
           },
           pizza2: {
@@ -3581,7 +3488,6 @@ const productsByCategory = {
               { id: 'pizza-chevre-miel-2', name: 'Pizza chèvre miel', price: 0.00 },
               { id: 'pizza-curry-2', name: 'Pizza curry', price: 0.00 },
               { id: 'pizza-kebab-2', name: 'Pizza kebab', price: 0.00 },
-              { id: 'pizza-western-2', name: 'Pizza western', price: 0.00 },
               { id: 'pizza-burger-2', name: 'Pizza burger', price: 0.00 },
               { id: 'pizza-tex-mex-2', name: 'Pizza Tex-Mex', price: 0.00 },
               { id: 'pizza-raclette-2', name: 'Pizza raclette', price: 0.00 },
@@ -3590,12 +3496,8 @@ const productsByCategory = {
               { id: 'pizza-4-fromages-2', name: 'Pizza 4 Fromages', price: 0.00 },
               { id: 'pizza-chevre-figue-2', name: 'Pizza chèvre figue', price: 0.00 },
               { id: 'pizza-chevre-poulet-2', name: 'Pizza chèvre poulet', price: 0.00 },
-              { id: 'pizza-raclette-poulet-2', name: 'Pizza raclette poulet', price: 0.00 },
-              { id: 'pizza-spicy-2', name: 'Pizza spicy', price: 0.00 },
-              { id: 'pizza-chicken-spicy-2', name: 'Pizza chicken spicy', price: 0.00 },
               { id: 'pizza-cannibale-2', name: 'Pizza cannibale', price: 0.00 },
-              { id: 'pizza-kebab-raclette-2', name: 'Pizza kebab raclette', price: 0.00 },
-              { id: 'pizza-saumon-boursin-2', name: 'Pizza Saumon Boursin', price: 0.00 }
+              { id: 'pizza-kebab-raclette-2', name: 'Pizza kebab raclette', price: 0.00 }
             ]
           },
           boisson: {
@@ -3638,7 +3540,6 @@ const productsByCategory = {
               { id: 'pizza-chevre-miel-1', name: 'Pizza chèvre miel', price: 0.00 },
               { id: 'pizza-curry-1', name: 'Pizza curry', price: 0.00 },
               { id: 'pizza-kebab-1', name: 'Pizza kebab', price: 0.00 },
-              { id: 'pizza-western-1', name: 'Pizza western', price: 0.00 },
               { id: 'pizza-burger-1', name: 'Pizza burger', price: 0.00 },
               { id: 'pizza-tex-mex-1', name: 'Pizza Tex-Mex', price: 0.00 },
               { id: 'pizza-raclette-1', name: 'Pizza raclette', price: 0.00 },
@@ -3647,12 +3548,8 @@ const productsByCategory = {
               { id: 'pizza-4-fromages-1', name: 'Pizza 4 Fromages', price: 0.00 },
               { id: 'pizza-chevre-figue-1', name: 'Pizza chèvre figue', price: 0.00 },
               { id: 'pizza-chevre-poulet-1', name: 'Pizza chèvre poulet', price: 0.00 },
-              { id: 'pizza-raclette-poulet-1', name: 'Pizza raclette poulet', price: 0.00 },
-              { id: 'pizza-spicy-1', name: 'Pizza spicy', price: 0.00 },
-              { id: 'pizza-chicken-spicy-1', name: 'Pizza chicken spicy', price: 0.00 },
               { id: 'pizza-cannibale-1', name: 'Pizza cannibale', price: 0.00 },
-              { id: 'pizza-kebab-raclette-1', name: 'Pizza kebab raclette', price: 0.00 },
-              { id: 'pizza-saumon-boursin-1', name: 'Pizza Saumon Boursin', price: 0.00 }
+              { id: 'pizza-kebab-raclette-1', name: 'Pizza kebab raclette', price: 0.00 }
             ]
           },
           pizza2: {
@@ -3665,7 +3562,6 @@ const productsByCategory = {
               { id: 'pizza-chevre-miel-2', name: 'Pizza chèvre miel', price: 0.00 },
               { id: 'pizza-curry-2', name: 'Pizza curry', price: 0.00 },
               { id: 'pizza-kebab-2', name: 'Pizza kebab', price: 0.00 },
-              { id: 'pizza-western-2', name: 'Pizza western', price: 0.00 },
               { id: 'pizza-burger-2', name: 'Pizza burger', price: 0.00 },
               { id: 'pizza-tex-mex-2', name: 'Pizza Tex-Mex', price: 0.00 },
               { id: 'pizza-raclette-2', name: 'Pizza raclette', price: 0.00 },
@@ -3674,12 +3570,8 @@ const productsByCategory = {
               { id: 'pizza-4-fromages-2', name: 'Pizza 4 Fromages', price: 0.00 },
               { id: 'pizza-chevre-figue-2', name: 'Pizza chèvre figue', price: 0.00 },
               { id: 'pizza-chevre-poulet-2', name: 'Pizza chèvre poulet', price: 0.00 },
-              { id: 'pizza-raclette-poulet-2', name: 'Pizza raclette poulet', price: 0.00 },
-              { id: 'pizza-spicy-2', name: 'Pizza spicy', price: 0.00 },
-              { id: 'pizza-chicken-spicy-2', name: 'Pizza chicken spicy', price: 0.00 },
               { id: 'pizza-cannibale-2', name: 'Pizza cannibale', price: 0.00 },
-              { id: 'pizza-kebab-raclette-2', name: 'Pizza kebab raclette', price: 0.00 },
-              { id: 'pizza-saumon-boursin-2', name: 'Pizza Saumon Boursin', price: 0.00 }
+              { id: 'pizza-kebab-raclette-2', name: 'Pizza kebab raclette', price: 0.00 }
             ]
           },
           pizza3: {
@@ -3692,7 +3584,6 @@ const productsByCategory = {
               { id: 'pizza-chevre-miel-3', name: 'Pizza chèvre miel', price: 0.00 },
               { id: 'pizza-curry-3', name: 'Pizza curry', price: 0.00 },
               { id: 'pizza-kebab-3', name: 'Pizza kebab', price: 0.00 },
-              { id: 'pizza-western-3', name: 'Pizza western', price: 0.00 },
               { id: 'pizza-burger-3', name: 'Pizza burger', price: 0.00 },
               { id: 'pizza-tex-mex-3', name: 'Pizza Tex-Mex', price: 0.00 },
               { id: 'pizza-raclette-3', name: 'Pizza raclette', price: 0.00 },
@@ -3701,12 +3592,8 @@ const productsByCategory = {
               { id: 'pizza-4-fromages-3', name: 'Pizza 4 Fromages', price: 0.00 },
               { id: 'pizza-chevre-figue-3', name: 'Pizza chèvre figue', price: 0.00 },
               { id: 'pizza-chevre-poulet-3', name: 'Pizza chèvre poulet', price: 0.00 },
-              { id: 'pizza-raclette-poulet-3', name: 'Pizza raclette poulet', price: 0.00 },
-              { id: 'pizza-spicy-3', name: 'Pizza spicy', price: 0.00 },
-              { id: 'pizza-chicken-spicy-3', name: 'Pizza chicken spicy', price: 0.00 },
               { id: 'pizza-cannibale-3', name: 'Pizza cannibale', price: 0.00 },
-              { id: 'pizza-kebab-raclette-3', name: 'Pizza kebab raclette', price: 0.00 },
-              { id: 'pizza-saumon-boursin-3', name: 'Pizza Saumon Boursin', price: 0.00 }
+              { id: 'pizza-kebab-raclette-3', name: 'Pizza kebab raclette', price: 0.00 }
             ]
           },
           boisson: {
@@ -3742,9 +3629,22 @@ const productsByCategory = {
           'M': { name: 'M (1 viande)', price: 8.00 },
           'L': { name: 'L (2 viandes)', price: 10.00 },
           'XL': { name: 'XL (3 viandes)', price: 12.00 },
-          'XXL': { name: 'XXL (4 viandes)', price: 14.00 }
+          'XXL': { name: 'XXL (4 viandes)', price: 15.00 }
         },
         customizationOptions: {
+          gratine: {
+            title: 'Gratiné',
+            subtitle: 'Faites gratiner votre bowl.',
+            required: false,
+            minSelections: 0,
+            maxSelections: 1,
+            options: [
+              { id: 'gratine-mozzarella', name: 'Mozzarella', price: 0 },
+              { id: 'gratine-chevre-miel', name: 'Chèvre miel', price: 2.50 },
+              { id: 'gratine-raclette-bacon', name: 'Raclette bacon', price: 2.50 },
+              { id: 'gratine-cheddar-bacon', name: 'Cheddar bacon', price: 2.50 }
+            ]
+          },
           viandes: {
             title: 'Choix des viandes',
             subtitle: 'Nombre de viandes selon la taille choisie.',
@@ -3752,15 +3652,14 @@ const productsByCategory = {
             minSelections: 1,
             maxSelections: 4,
             options: [
-              { id: 'kebab', name: 'KEBAB', price: 0, popular: true },
-              { id: 'cordon-bleu', name: 'CORDON BLEU', price: 0 },
-              { id: 'nugget', name: 'NUGGET', price: 0, popular: true },
-              { id: 'merguez', name: 'MERGUEZ', price: 0 },
-              { id: 'tenders', name: 'TENDERS', price: 0, popular: true },
-              { id: 'falafel', name: 'FALAFEL', price: 0 },
-              { id: 'poulet', name: 'POULET', price: 0, popular: true },
-              { id: 'escalope-poulet', name: 'ESCALOPE DE POULET', price: 0 },
-              { id: 'poulet-boursin', name: 'POULET BOURSIN', price: 0 }
+              { id: 'poulet', name: 'Poulet', price: 0, popular: true },
+              { id: 'kebab', name: 'Kebab', price: 0, popular: true },
+              { id: 'viande-hachee', name: 'Viande hachée', price: 0 },
+              { id: 'tenders', name: 'Tenders', price: 0, popular: true },
+              { id: 'cordon-bleu', name: 'Cordon bleu', price: 0 },
+              { id: 'nuggets', name: 'Nuggets', price: 0, popular: true },
+              { id: 'merguez', name: 'Merguez', price: 0 },
+              { id: 'falafel', name: 'Falafel', price: 0 }
             ]
           },
           sauce: {
@@ -3787,26 +3686,29 @@ const productsByCategory = {
               { id: 'marocaine', name: 'Marocaine', price: 0 },
               { id: 'sauce-poivre', name: 'Sauce Poivre', price: 0 },
               { id: 'chili-tai', name: 'Chili Tai', price: 0 },
-              { id: 'moutarde', name: 'Moutarde', price: 0 },
-              { id: 'boursin', name: 'Boursin', price: 1.00 }
+              { id: 'moutarde', name: 'Moutarde', price: 0 }
             ]
           },
           supplement: {
             title: 'Suppléments',
-            subtitle: 'Jusqu\'à 4 suppléments.',
+            subtitle: 'Ajoutez des suppléments.',
             required: false,
             minSelections: 0,
-            maxSelections: 4,
+            maxSelections: 6,
             options: [
-              { id: 'oignons-rings', name: 'Oignons rings', price: 2.50 },
-              { id: 'chili-cheese', name: 'Chili cheese', price: 2.50 },
-              { id: 'oignon-frits', name: 'Oignon Frits', price: 1.50 },
-              { id: 'bacon', name: 'Bacon', price: 1.50 },
+              { id: 'oignons-rings', name: 'Oignons rings', price: 2.00 },
+              { id: 'chili-cheese', name: 'Chili cheese', price: 2.00 },
+              { id: 'mozzarella', name: 'Mozzarella', price: 1.00 },
+              { id: 'cheddar', name: 'Cheddar', price: 1.00 },
+              { id: 'chevre', name: 'Chèvre', price: 1.00 },
+              { id: 'boursin', name: 'Boursin', price: 1.00 },
+              { id: 'raclette', name: 'Raclette', price: 1.00 },
               { id: 'parmesan', name: 'Parmesan', price: 1.00 },
               { id: 'emmental', name: 'Emmental', price: 1.00 },
-              { id: 'mozzarella', name: 'Mozzarella', price: 1.00 },
-              { id: 'raclette', name: 'Raclette', price: 1.00 },
-              { id: 'chevre', name: 'Chèvre', price: 1.00 },
+              { id: 'vache-kiri', name: 'Vache kiri', price: 1.00 },
+              { id: 'bacon', name: 'Bacon', price: 1.00 },
+              { id: 'oignon-frit', name: 'Oignon frit', price: 1.00 },
+              { id: 'sauce-fromagere', name: 'Sauce fromagère maison', price: 1.00 }
             ]
           }
         }

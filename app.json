@@ -12,7 +12,7 @@
       "supportsTablet": true,
       "requireFullScreen": false,
       "bundleIdentifier": "com.brivefood.app",
-      "buildNumber": "10",
+      "buildNumber": "13",
       "splash": {
         "image": "./assets/images/logoBrivefood.png",
         "resizeMode": "cover",
@@ -105,10 +105,10 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "81983664-a2fe-43e8-8c2f-6f2c2b98baac"
+        "projectId": "f1c0cf52-40cd-4656-a644-77eedd89de3d"
       },
       "router": {}
     },
-    "owner": "thecheatcodeboss"
+    "owner": "kabelbaptiste"
   }
 }

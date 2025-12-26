@@ -567,7 +567,7 @@ export default function RegisterScreen() {
                     disabled={loading}
                   >
                     <LinearGradient
-                      colors={loading ? ['#999', '#666'] : ['#000000', '#000000']}
+                      colors={loading ? ['#999', '#666'] : ['#FF6B6B', '#FF8E53']}
                       style={styles.modernRegisterButtonGradient}
                     >
                       <Ionicons name="person-add" size={20} color="white" style={styles.buttonIcon} />

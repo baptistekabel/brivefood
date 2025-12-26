@@ -8,6 +8,7 @@ import {
   FlatList,
   ActivityIndicator,
   Animated,
+  Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius } from '../../constants/theme';
@@ -200,6 +201,8 @@ export default function AddressInput({ onAddressSelect, onDeliveryFeeCalculated 
           placeholderTextColor={colors.neutral.gray400}
           autoCorrect={false}
           autoCapitalize="words"
+          returnKeyType="done"
+          onSubmitEditing={() => Keyboard.dismiss()}
         />
         {isLoading && <ActivityIndicator size="small" color="#000000" />}
       </View>

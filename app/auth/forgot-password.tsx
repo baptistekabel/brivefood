@@ -246,7 +246,7 @@ export default function ForgotPasswordScreen() {
                   onPress={handleBackToLogin}
                 >
                   <LinearGradient
-                    colors={['#000000', '#000000']}
+                    colors={['#FF6B6B', '#FF8E53']}
                     style={styles.modernButtonGradient}
                   >
                     <Ionicons name="arrow-back" size={20} color="white" style={styles.buttonIcon} />
@@ -348,12 +348,7 @@ export default function ForgotPasswordScreen() {
               </TouchableOpacity>
 
               <View style={styles.modernIconContainer}>
-                <LinearGradient
-                  colors={['#FF6B6B', '#FF8E8E']}
-                  style={styles.modernIconGradient}
-                >
-                  <Ionicons name="lock-closed" size={48} color="white" />
-                </LinearGradient>
+                <Ionicons name="lock-closed" size={48} color="white" />
               </View>
 
               <Text style={styles.modernTitle}>Mot de passe oublié ?</Text>
@@ -401,7 +396,7 @@ export default function ForgotPasswordScreen() {
                     disabled={loading}
                   >
                     <LinearGradient
-                      colors={loading ? ['#999', '#666'] : ['#000000', '#000000']}
+                      colors={loading ? ['#999', '#666'] : ['#FF6B6B', '#FF8E53']}
                       style={styles.modernResetButtonGradient}
                     >
                       <Ionicons name="paper-plane" size={20} color="white" style={styles.buttonIcon} />

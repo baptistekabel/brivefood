@@ -166,8 +166,8 @@ export default function CategoryScreen() {
         }));
       }
     }
-    // Déplier automatiquement les options pour les lasagnes
-    if (id === ProductCategory.LASAGNES && products.length > 0) {
+    // Déplier automatiquement les options pour le menu kids
+    if (id === ProductCategory.MENU_KIDS && products.length > 0) {
       const expanded = {};
       products.forEach(product => {
         if (product.customizable) {
@@ -176,8 +176,8 @@ export default function CategoryScreen() {
       });
       setExpandedCustomizations(prev => ({ ...prev, ...expanded }));
     }
-    // Déplier automatiquement les options pour le menu kids
-    if (id === ProductCategory.MENU_KIDS && products.length > 0) {
+    // Déplier automatiquement les options pour le brunch
+    if (id === ProductCategory.BRUNCH && products.length > 0) {
       const expanded = {};
       products.forEach(product => {
         if (product.customizable) {
@@ -545,12 +545,14 @@ export default function CategoryScreen() {
     const isExpanded = expandedCustomizations[product.id];
     const productCustomizations = customizations[product.id] || {};
 
-    // Pour les tacos, lasagnes, bowls et menu kids, ne pas afficher le toggle (toujours déplié)
+    // Pour les tacos, bowls, menu kids, brunch et formules pizza, ne pas afficher le toggle (toujours déplié)
     const isTacos = id === ProductCategory.TACOS;
-    const isLasagnes = id === ProductCategory.LASAGNES;
     const isBowls = id === ProductCategory.BOWLS;
     const isMenuKids = id === ProductCategory.MENU_KIDS;
-    const alwaysExpanded = isTacos || isLasagnes || isBowls || isMenuKids;
+    const isBrunch = id === ProductCategory.BRUNCH;
+    const isFormulePizzaDuo = id === ProductCategory.FORMULES_PIZZA_DUO;
+    const isFormulePizzaTrio = id === ProductCategory.FORMULES_PIZZA_TRIO;
+    const alwaysExpanded = isTacos || isBowls || isMenuKids || isBrunch || isFormulePizzaDuo || isFormulePizzaTrio;
 
     return (
       <View style={styles.customizationContainer}>
@@ -749,7 +751,7 @@ export default function CategoryScreen() {
               <LinearGradient
                 colors={
                   isCustomizationComplete(product, customizations)
-                    ? ['#000000', '#000000']
+                    ? ['#FF6B6B', '#FF8E53']
                     : ['#ccc', '#aaa']
                 }
                 style={styles.customizedAddToCartGradient}
@@ -806,12 +808,12 @@ export default function CategoryScreen() {
         {product.sizes && (
           <View style={styles.sizeSelector}>
             <Text style={styles.sizeLabel}>Taille :</Text>
-            <View style={styles.sizeButtons}>
+            <View style={id === ProductCategory.PATES ? styles.sizeButtonsVertical : styles.sizeButtons}>
               {Object.keys(product.sizes).map((size) => (
                 <TouchableOpacity
                   key={size}
                   style={[
-                    styles.sizeButton,
+                    id === ProductCategory.PATES ? styles.sizeButtonFull : styles.sizeButton,
                     selectedSize === size && styles.sizeButtonActive
                   ]}
                   onPress={() => {
@@ -869,7 +871,7 @@ export default function CategoryScreen() {
               onPress={() => handleAddToCart(product, selectedSize)}
             >
               <LinearGradient
-                colors={['#000000', '#000000']}
+                colors={['#FF6B6B', '#FF8E53']}
                 style={styles.addToCartGradientStyled}
               >
                 <View style={styles.addToCartContentStyled}>
@@ -914,12 +916,12 @@ export default function CategoryScreen() {
         {product.sizes && (
           <View style={styles.sizeSelector}>
             <Text style={styles.sizeLabel}>Taille :</Text>
-            <View style={styles.sizeButtons}>
+            <View style={id === ProductCategory.PATES ? styles.sizeButtonsVertical : styles.sizeButtons}>
               {Object.keys(product.sizes).map((size) => (
                 <TouchableOpacity
                   key={size}
                   style={[
-                    styles.sizeButton,
+                    id === ProductCategory.PATES ? styles.sizeButtonFull : styles.sizeButton,
                     selectedSize === size && styles.sizeButtonActive
                   ]}
                   onPress={() => {
@@ -977,7 +979,7 @@ export default function CategoryScreen() {
               onPress={() => handleAddToCart(product, selectedSize)}
             >
               <LinearGradient
-                colors={['#000000', '#000000']}
+                colors={['#FF6B6B', '#FF8E53']}
                 style={styles.addToCartGradient}
               >
                 <View style={styles.addToCartContent}>

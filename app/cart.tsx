@@ -9,6 +9,8 @@ import {
   Image,
   TextInput,
   Modal,
+  Keyboard,
+  Linking,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -860,6 +862,8 @@ export default function CartScreen() {
                         placeholderTextColor={colors.neutral.gray400}
                         keyboardType="phone-pad"
                         maxLength={14}
+                        returnKeyType="done"
+                        onSubmitEditing={() => Keyboard.dismiss()}
                       />
                     </View>
                   </View>
@@ -1301,6 +1305,19 @@ export default function CartScreen() {
                   <Text style={styles.confirmationMessage}>
                     {orderConfirmation?.message}
                   </Text>
+                  <Text style={styles.contactHint}>
+                    Un problème ? Contactez-nous :
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.contactButton}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      Linking.openURL('mailto:brivefood@gmail.com?subject=Problème%20de%20commande');
+                    }}
+                  >
+                    <Ionicons name="mail-outline" size={18} color="#4CAF50" />
+                    <Text style={styles.contactButtonText}>brivefood@gmail.com</Text>
+                  </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.confirmationButton}
                     onPress={() => {
@@ -1308,7 +1325,7 @@ export default function CartScreen() {
                     }}
                   >
                     <LinearGradient
-                      colors={['#000000', '#000000']}
+                      colors={['#FF6B6B', '#FF8E53']}
                       style={styles.confirmationButtonGradient}
                     >
                       <Text style={styles.confirmationButtonText}>Compris</Text>
@@ -1359,7 +1376,7 @@ export default function CartScreen() {
                     }}
                   >
                     <LinearGradient
-                      colors={['#000000', '#000000']}
+                      colors={['#FF6B6B', '#FF8E53']}
                       style={styles.confirmationButtonGradient}
                     >
                       <Text style={styles.confirmationButtonText}>Retour à l'accueil</Text>
@@ -2036,6 +2053,26 @@ const styles = StyleSheet.create({
     color: colors.neutral.gray700,
     textAlign: 'center',
     marginBottom: spacing.xl,
+  },
+  contactHint: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray500,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
+  contactButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.lg,
+    padding: spacing.sm,
+  },
+  contactButtonText: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.semibold,
+    color: '#4CAF50',
   },
   confirmationDetails: {
     marginBottom: spacing.xl,

@@ -82,6 +82,32 @@ export default function ActiveOrderWidget({ onPress }) {
     return () => clearInterval(checkAutoCloseSignal);
   }, [activeOrder?.id, completeActiveOrder]);
 
+  // Fermeture automatique 1h après la création de la commande
+  useEffect(() => {
+    if (!activeOrder?.createdAt) return;
+
+    const createdAt = new Date(activeOrder.createdAt).getTime();
+    const oneHourInMs = 60 * 60 * 1000; // 1 heure en millisecondes
+    const expirationTime = createdAt + oneHourInMs;
+    const timeUntilExpiration = expirationTime - Date.now();
+
+    // Si déjà expiré, fermer immédiatement
+    if (timeUntilExpiration <= 0) {
+      console.log('🕐 [ActiveOrderWidget] Commande expirée (> 1h), fermeture automatique:', activeOrder.id);
+      completeActiveOrder();
+      return;
+    }
+
+    // Sinon, programmer la fermeture
+    console.log('🕐 [ActiveOrderWidget] Fermeture automatique programmée dans', Math.round(timeUntilExpiration / 60000), 'minutes');
+    const timer = setTimeout(() => {
+      console.log('🕐 [ActiveOrderWidget] 1h écoulée, fermeture automatique de la commande:', activeOrder.id);
+      completeActiveOrder();
+    }, timeUntilExpiration);
+
+    return () => clearTimeout(timer);
+  }, [activeOrder?.id, activeOrder?.createdAt, completeActiveOrder]);
+
   // Détecter automatiquement les commandes déjà livrées et déclencher le modal
   useEffect(() => {
     if (!activeOrder) return;
@@ -223,52 +249,10 @@ export default function ActiveOrderWidget({ onPress }) {
             {/* Section droite - Total et action */}
             <View style={styles.rightSection}>
               <Text style={styles.totalAmount}>{activeOrder.total.toFixed(2)}€</Text>
-              {(activeOrder.status === OrderStatus.DELIVERED || activeOrder.status === OrderStatus.READY) ? (
-                <TouchableOpacity
-                  style={styles.closeButton}
-                  onPress={async () => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-                    console.log('🔔 [ActiveOrderWidget] Fermeture manuelle de la bannière pour commande terminée:', activeOrder.id);
-
-                    // Avant de fermer, déclencher le modal de notation si pas déjà fait
-                    try {
-                      const orderDataForRating = {
-                        orderId: activeOrder.id,
-                        customerName: activeOrder.customerName || 'Client',
-                        total: activeOrder.total,
-                        orderDate: activeOrder.orderDate || new Date().toLocaleDateString(),
-                        orderTime: activeOrder.orderTime || new Date().toLocaleTimeString(),
-                        completedAt: new Date().toISOString()
-                      };
-
-                      console.log('📱 [ActiveOrderWidget] Déclenchement modal avant fermeture:', orderDataForRating);
-
-                      // Déclencher le modal avant de fermer
-                      triggerRatingRequest(orderDataForRating);
-
-                      // Fermer la bannière après un court délai pour laisser le modal s'afficher
-                      setTimeout(() => {
-                        completeActiveOrder();
-                        console.log('✅ [ActiveOrderWidget] Bannière fermée après déclenchement modal');
-                      }, 500);
-
-                    } catch (error) {
-                      console.error('❌ [ActiveOrderWidget] Erreur lors du déclenchement du modal:', error);
-                      // Fermer quand même en cas d'erreur
-                      completeActiveOrder();
-                    }
-                  }}
-                >
-                  <Text style={styles.closeText}>Fermer</Text>
-                  <Ionicons name="close" size={16} color={colors.neutral.white} />
-                </TouchableOpacity>
-              ) : (
-                <View style={styles.actionHint}>
-                  <Text style={styles.actionText}>Suivre</Text>
-                  <Ionicons name="chevron-forward" size={16} color={colors.accent.main} />
-                </View>
-              )}
+              <View style={styles.actionHint}>
+                <Text style={styles.actionText}>Suivre</Text>
+                <Ionicons name="chevron-forward" size={16} color={colors.accent.main} />
+              </View>
             </View>
           </View>
 
@@ -404,22 +388,6 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.xs,
     fontFamily: typography.fontFamily.bold,
     color: colors.accent.main,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  closeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs / 2,
-    backgroundColor: colors.neutral.gray700,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs / 2,
-    borderRadius: 8,
-  },
-  closeText: {
-    fontSize: typography.fontSizes.xs,
-    fontFamily: typography.fontFamily.bold,
-    color: colors.neutral.white,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },

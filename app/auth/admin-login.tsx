@@ -404,7 +404,7 @@ export default function AdminLoginScreen() {
                       <Ionicons name="shield-checkmark-outline" size={24} color={colors.neutral.gray400} />
                       <TextInput
                         style={[styles.input, styles.inputTablet]}
-                        placeholder="Brivefood"
+                        placeholder="Mot de passe"
                         placeholderTextColor={colors.neutral.gray400}
                         value={password}
                         onChangeText={setPassword}
@@ -493,7 +493,7 @@ export default function AdminLoginScreen() {
                       <Ionicons name="shield-checkmark-outline" size={20} color={colors.neutral.gray400} />
                       <TextInput
                         style={styles.input}
-                        placeholder="Brivefood"
+                        placeholder="Mot de passe"
                         placeholderTextColor={colors.neutral.gray400}
                         value={password}
                         onChangeText={setPassword}

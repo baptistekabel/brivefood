@@ -4,15 +4,15 @@ import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Configuration Firebase BriveFood
+// Configuration Firebase BriveFood (nouvelle base)
 const firebaseConfig = {
-  apiKey: "AIzaSyAcpY3flMSHG-8N4mcrbH3E5ngplUUYHzQ",
-  authDomain: "brive-food.firebaseapp.com",
-  projectId: "brive-food",
-  storageBucket: "brive-food.firebasestorage.app",
-  messagingSenderId: "8050658488",
-  appId: "1:8050658488:web:e0fd7a8a2d1db78770784d",
-  measurementId: "G-CNFPVQEQL4"
+  apiKey: "AIzaSyAJ1uBXMasfgJGFgtS2RQ_QKI2_zAXkpMI",
+  authDomain: "brivefood-49d20.firebaseapp.com",
+  projectId: "brivefood-49d20",
+  storageBucket: "brivefood-49d20.firebasestorage.app",
+  messagingSenderId: "1083217505624",
+  appId: "1:1083217505624:web:f8a9fca32bbeb61e8c492d",
+  measurementId: "G-35T68KFZ86"
 };
 
 // Initialisation de Firebase

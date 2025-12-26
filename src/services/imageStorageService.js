@@ -1,7 +1,28 @@
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from '../../config/firebase';
 
 class ImageStorageService {
+  /**
+   * Convertit une URI en blob de manière compatible React Native
+   * @param {string} uri - URI de l'image
+   * @returns {Promise<Blob>}
+   */
+  async uriToBlob(uri) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.onload = function () {
+        resolve(xhr.response);
+      };
+      xhr.onerror = function (e) {
+        console.error('❌ Erreur XMLHttpRequest:', e);
+        reject(new Error('Erreur lors de la conversion de l\'image'));
+      };
+      xhr.responseType = 'blob';
+      xhr.open('GET', uri, true);
+      xhr.send(null);
+    });
+  }
+
   /**
    * Upload une image vers Firebase Storage
    * @param {string} imageUri - URI locale de l'image
@@ -12,6 +33,7 @@ class ImageStorageService {
   async uploadProductImage(imageUri, productId, fileName = null) {
     try {
       console.log('📸 Début upload image pour produit:', productId);
+      console.log('📸 URI image:', imageUri);
 
       // Générer un nom de fichier unique si non fourni
       const finalFileName = fileName || `product_${productId}_${Date.now()}.jpg`;
@@ -19,14 +41,19 @@ class ImageStorageService {
       // Référence dans Firebase Storage
       const imageRef = ref(storage, `products/${finalFileName}`);
 
-      // Convertir l'URI en blob
-      const response = await fetch(imageUri);
-      const blob = await response.blob();
+      // Convertir l'URI en blob avec XMLHttpRequest (plus fiable en React Native)
+      console.log('🔄 Conversion de l\'image en blob...');
+      const blob = await this.uriToBlob(imageUri);
+      console.log('✅ Blob créé, taille:', blob.size, 'type:', blob.type);
 
       console.log('📤 Upload du blob vers Firebase Storage...');
 
-      // Upload vers Firebase
-      const uploadResult = await uploadBytes(imageRef, blob);
+      // Upload vers Firebase avec metadata
+      const metadata = {
+        contentType: blob.type || 'image/jpeg',
+      };
+
+      const uploadResult = await uploadBytes(imageRef, blob, metadata);
 
       // Récupérer l'URL de download
       const downloadURL = await getDownloadURL(uploadResult.ref);
@@ -42,6 +69,8 @@ class ImageStorageService {
 
     } catch (error) {
       console.error('❌ Erreur upload image:', error);
+      console.error('❌ Code erreur:', error.code);
+      console.error('❌ Message:', error.message);
       return {
         success: false,
         error: error.message

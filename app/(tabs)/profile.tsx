@@ -7,6 +7,7 @@ import {
   ScrollView,
   Alert,
   Animated,
+  Linking,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -136,6 +137,11 @@ export default function ProfileScreen() {
     return <LoadingScreen />;
   }
 
+  const handleContactSupport = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Linking.openURL('mailto:brivefood@gmail.com?subject=Contact%20Service%20Client%20BriveFood');
+  };
+
   const menuItems = [
     {
       id: 'personal-info',
@@ -152,6 +158,14 @@ export default function ProfileScreen() {
       icon: 'receipt-outline',
       gradient: [colors.accent.main, colors.accent.dark],
       action: () => router.push('/profile/orders'),
+    },
+    {
+      id: 'contact',
+      title: 'Nous contacter',
+      subtitle: 'brivefood@gmail.com',
+      icon: 'mail-outline',
+      gradient: ['#4CAF50', '#388E3C'],
+      action: handleContactSupport,
     },
   ];
 

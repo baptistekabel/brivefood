@@ -1,8 +1,10 @@
 import React, { useEffect } from 'react';
 import OrderRatingModal from './OrderRatingModal';
 import { useOrderRating } from '../../context/OrderRatingContext';
+import { useAuth } from '../../context/AuthContext';
 
 export default function OrderRatingManager() {
+  const { user } = useAuth();
   const {
     showRatingModal,
     currentOrderToRate,
@@ -17,17 +19,21 @@ export default function OrderRatingManager() {
   // Logs pour debugging
   console.log('🎯 [OrderRatingManager] Rendu avec:', {
     showRatingModal,
-    currentOrderToRate: currentOrderToRate?.orderId || 'null'
+    currentOrderToRate: currentOrderToRate?.orderId || 'null',
+    userConnected: !!user
   });
 
   // Vérifier s'il y a des notations en attente au montage du composant
+  // Seulement si l'utilisateur est connecté
   useEffect(() => {
+    if (!user) return;
+
     const timer = setTimeout(() => {
       checkPendingRatings();
     }, 2000); // Attendre 2 secondes après le chargement de l'app
 
     return () => clearTimeout(timer);
-  }, [checkPendingRatings]);
+  }, [checkPendingRatings, user]);
 
   const handleSubmitRating = async (ratingData) => {
     try {
@@ -63,6 +69,11 @@ export default function OrderRatingManager() {
 
     console.log('✅ [OrderRatingManager] Modal fermé et données nettoyées');
   };
+
+  // Ne pas afficher le modal si l'utilisateur n'est pas connecté
+  if (!user) {
+    return null;
+  }
 
   return (
     <OrderRatingModal
