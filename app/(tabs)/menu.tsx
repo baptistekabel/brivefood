@@ -61,7 +61,7 @@ const categoryImages = {
     require('../../assets/images/nouveauxProduits/Cheese.png')
   ],
   [ProductCategory.PETIT_FAIM_BRUSCHETTA]: [
-    require('../../assets/images/nouveauxProduits/BRUSHETA POULET CURRY.png'),
+    require('../../assets/images/nouveauxProduits/BRUSHETA_POULET_CURRY.png'),
     require('../../assets/images/petiteFaimBruschetta/bruschetta4Fromages.png'),
     require('../../assets/images/petiteFaimBruschetta/bruschettaChevreMiel.png')
   ],

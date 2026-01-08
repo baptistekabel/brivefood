@@ -176,7 +176,7 @@ export default function AdminLoginScreen() {
       
       if (result.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        router.replace('/(admin)/products');
+        router.replace('/(admin)/dashboard');
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         Alert.alert('Erreur de connexion', 'Identifiants administrateur invalides');

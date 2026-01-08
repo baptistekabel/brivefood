@@ -386,7 +386,7 @@ export default function EmailVerificationScreen() {
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.iconContainer}>
-              <Ionicons name="mail-outline" size={64} color={colors.accent.main} />
+              <Ionicons name="mail-outline" size={64} color="#FF6B6B" />
             </View>
             <Text style={styles.title}>Vérifiez votre email</Text>
             <Text style={styles.subtitle}>
@@ -400,25 +400,25 @@ export default function EmailVerificationScreen() {
             <View style={styles.infoCard}>
               <Text style={styles.infoTitle}>Instructions :</Text>
               <View style={styles.instructionItem}>
-                <Ionicons name="checkmark-circle-outline" size={20} color={colors.accent.main} />
+                <Ionicons name="checkmark-circle-outline" size={20} color="#FF6B6B" />
                 <Text style={styles.instructionText}>
                   Ouvrez votre application de messagerie
                 </Text>
               </View>
               <View style={styles.instructionItem}>
-                <Ionicons name="checkmark-circle-outline" size={20} color={colors.accent.main} />
+                <Ionicons name="checkmark-circle-outline" size={20} color="#FF6B6B" />
                 <Text style={styles.instructionText}>
                   Recherchez l'email de BriveFood
                 </Text>
               </View>
               <View style={styles.instructionItem}>
-                <Ionicons name="checkmark-circle-outline" size={20} color={colors.accent.main} />
+                <Ionicons name="checkmark-circle-outline" size={20} color="#FF6B6B" />
                 <Text style={styles.instructionText}>
                   Cliquez sur le lien de vérification
                 </Text>
               </View>
               <View style={styles.instructionItem}>
-                <Ionicons name="checkmark-circle-outline" size={20} color={colors.accent.main} />
+                <Ionicons name="checkmark-circle-outline" size={20} color="#FF6B6B" />
                 <Text style={styles.instructionText}>
                   Revenez sur l'application
                 </Text>
@@ -434,7 +434,7 @@ export default function EmailVerificationScreen() {
                 disabled={loading}
               >
                 <LinearGradient
-                  colors={[colors.accent.main, colors.accent.light]}
+                  colors={['#FF6B6B', '#FF8E53']}
                   style={styles.primaryButtonGradient}
                 >
                   {loading ? (
@@ -548,7 +548,7 @@ const styles = StyleSheet.create({
   email: {
     fontSize: typography.fontSizes.lg,
     fontFamily: typography.fontFamily.semibold,
-    color: colors.accent.main,
+    color: '#FF6B6B',
     textAlign: 'center',
   },
   mainContent: {

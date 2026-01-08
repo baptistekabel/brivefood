@@ -22,8 +22,31 @@ export const ProductsProvider = ({ children }) => {
 
   // Initialiser et écouter les produits
   useEffect(() => {
-    initializeProducts();
+    let unsubscribe = null;
+
+    const init = async () => {
+      await initializeProducts();
+      // Activer le listener après l'initialisation
+      unsubscribe = setupRealtimeListener();
+    };
+
+    init();
+
+    // Cleanup: arrêter le listener quand le composant se démonte
+    return () => {
+      if (unsubscribe) {
+        console.log('🔇 Cleaning up products listener');
+        unsubscribe();
+      }
+    };
   }, []);
+
+  // Recalculer productsByCategory quand les produits changent
+  useEffect(() => {
+    if (products.length > 0) {
+      setProductsByCategory(productService.organizeProductsByCategory(products));
+    }
+  }, [products]);
 
   const initializeProducts = async () => {
     try {
@@ -38,15 +61,14 @@ export const ProductsProvider = ({ children }) => {
         const result = await productService.getAllProducts();
 
         if (result.success && result.products.length > 0) {
-          console.log('✅ Products loaded from Firebase, updating local data');
+          console.log('✅ Products loaded from Firebase:', result.products.length, 'products');
           setProducts(result.products);
           setProductsByCategory(productService.organizeProductsByCategory(result.products));
           setIsFirebaseConnected(true);
-          setupRealtimeListener();
         } else {
           console.log('⚠️ No products in Firebase, keeping local data');
-          setIsFirebaseConnected(false);
         }
+
       } catch (firebaseError) {
         console.error('❌ Firebase unavailable, using local data:', firebaseError);
         setIsFirebaseConnected(false);
@@ -64,10 +86,8 @@ export const ProductsProvider = ({ children }) => {
     }
   };
 
-  const loadLocalProducts = () => {
-    console.log('📦 Loading local products from data/products.js');
-
-    // Convertir les données locales en format uniforme
+  // Référence aux produits locaux (ne change jamais)
+  const getLocalProducts = () => {
     const allProducts = [];
     Object.entries(localProductsData).forEach(([category, categoryProducts]) => {
       categoryProducts.forEach(product => {
@@ -78,7 +98,12 @@ export const ProductsProvider = ({ children }) => {
         });
       });
     });
+    return allProducts;
+  };
 
+  const loadLocalProducts = () => {
+    console.log('📦 Loading local products from data/products.js');
+    const allProducts = getLocalProducts();
     console.log(`✅ Loaded ${allProducts.length} products from local data`);
     setProducts(allProducts);
     setProductsByCategory(localProductsData);
@@ -87,18 +112,29 @@ export const ProductsProvider = ({ children }) => {
   const setupRealtimeListener = () => {
     console.log('🔄 Setting up real-time products listener');
 
-    const unsubscribe = productService.subscribeToProducts((updatedProducts) => {
-      console.log('🔄 Real-time products update received');
-      setProducts(updatedProducts);
-      setProductsByCategory(productService.organizeProductsByCategory(updatedProducts));
-      setIsFirebaseConnected(true);
+    const unsubscribe = productService.subscribeToProducts((firebaseProducts) => {
+      console.log('🔄 Firebase real-time update received:', firebaseProducts.length, 'products');
+
+      if (firebaseProducts.length > 0) {
+        // Vérifier si des produits ont des images Firebase
+        const productsWithImages = firebaseProducts.filter(p => p.firebaseImageUrl);
+        console.log('📸 Produits avec images Firebase:', productsWithImages.length);
+
+        // Log les URLs des images pour debug
+        if (__DEV__ && productsWithImages.length > 0) {
+          productsWithImages.slice(0, 3).forEach(p => {
+            console.log(`   - ${p.name}: ${p.firebaseImageUrl?.substring(0, 50)}...`);
+          });
+        }
+
+        // Utiliser les produits Firebase directement
+        setProducts(firebaseProducts);
+        setProductsByCategory(productService.organizeProductsByCategory(firebaseProducts));
+        setIsFirebaseConnected(true);
+      }
     });
 
-    // Nettoyer l'écoute au démontage du composant
-    return () => {
-      console.log('🔇 Cleaning up products listener');
-      unsubscribe();
-    };
+    return unsubscribe;
   };
 
   const migrateLocalProducts = async () => {
@@ -113,6 +149,32 @@ export const ProductsProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('❌ Migration failed:', error);
+    }
+  };
+
+  // Migrer une catégorie spécifique (ex: BOISSONS)
+  const migrateCategoryToFirebase = async (category) => {
+    try {
+      console.log(`🚀 Starting migration of ${category} to Firebase`);
+      const categoryProducts = localProductsData[category];
+
+      if (!categoryProducts || categoryProducts.length === 0) {
+        console.log(`⚠️ No products found for category ${category}`);
+        return { success: false, error: 'No products found' };
+      }
+
+      const result = await productService.migrateCategoryProducts(category, categoryProducts);
+
+      if (result.success) {
+        console.log(`✅ Category migration completed: ${result.migratedCount} products`);
+        // Recharger depuis Firebase après migration
+        await initializeProducts();
+        return result;
+      }
+      return result;
+    } catch (error) {
+      console.error('❌ Category migration failed:', error);
+      return { success: false, error: error.message };
     }
   };
 
@@ -228,6 +290,7 @@ export const ProductsProvider = ({ children }) => {
 
     // Utility
     migrateLocalProducts,
+    migrateCategoryToFirebase,
 
     // Stats
     totalProducts: products.length,

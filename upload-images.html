@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BriveFood - Upload Images Firebase</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 20px;
+      padding: 30px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 10px;
+    }
+    .subtitle {
+      text-align: center;
+      color: #666;
+      margin-bottom: 30px;
+    }
+    .step {
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .step h3 {
+      color: #667eea;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .step-number {
+      background: #667eea;
+      color: white;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+    }
+    input[type="file"] {
+      display: block;
+      width: 100%;
+      padding: 15px;
+      border: 2px dashed #667eea;
+      border-radius: 10px;
+      background: white;
+      cursor: pointer;
+      margin-bottom: 15px;
+    }
+    button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      width: 100%;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    .progress-container {
+      margin-top: 20px;
+      display: none;
+    }
+    .progress-bar {
+      height: 20px;
+      background: #e9ecef;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      width: 0%;
+      transition: width 0.3s;
+    }
+    .progress-text {
+      text-align: center;
+      margin-top: 10px;
+      color: #666;
+    }
+    .log {
+      background: #1a1a2e;
+      color: #0f0;
+      padding: 15px;
+      border-radius: 10px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 12px;
+      margin-top: 20px;
+      display: none;
+    }
+    .log-entry { margin: 5px 0; }
+    .log-success { color: #0f0; }
+    .log-error { color: #f00; }
+    .log-info { color: #0ff; }
+    .status {
+      padding: 15px;
+      border-radius: 10px;
+      margin-top: 20px;
+      text-align: center;
+      display: none;
+    }
+    .status.success {
+      background: #d4edda;
+      color: #155724;
+    }
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    .folder-structure {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 10px;
+      padding: 15px;
+      margin-top: 15px;
+    }
+    .folder-structure code {
+      display: block;
+      background: #1a1a2e;
+      color: #fff;
+      padding: 10px;
+      border-radius: 5px;
+      margin-top: 10px;
+      font-size: 12px;
+      white-space: pre;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🍔 BriveFood</h1>
+    <p class="subtitle">Upload des images vers Firebase Storage</p>
+
+    <div class="step">
+      <h3><span class="step-number">1</span> Préparer les images</h3>
+      <p>Assurez-vous que vos images sont organisées dans des dossiers :</p>
+      <div class="folder-structure">
+        <strong>Structure attendue :</strong>
+        <code>product-images/
+├── burgers/
+│   ├── baconBBurger.png
+│   ├── chickenBurger.png
+│   └── ...
+├── pizzas/
+│   ├── pizzaMargherita.png
+│   └── ...
+├── boissons/
+│   └── ...
+└── ...</code>
+      </div>
+    </div>
+
+    <div class="step">
+      <h3><span class="step-number">2</span> Sélectionner les images</h3>
+      <input type="file" id="fileInput" multiple accept="image/*" webkitdirectory>
+      <p style="color: #666; font-size: 14px;">💡 Sélectionnez le dossier <code>assets/images</code> de votre projet</p>
+    </div>
+
+    <div class="step">
+      <h3><span class="step-number">3</span> Uploader vers Firebase</h3>
+      <button id="uploadBtn" disabled>📤 Uploader les images</button>
+
+      <div class="progress-container" id="progressContainer">
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <p class="progress-text" id="progressText">0 / 0 images</p>
+      </div>
+    </div>
+
+    <div class="log" id="log"></div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
+    import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-storage.js';
+
+    // Configuration Firebase BriveFood
+    const firebaseConfig = {
+      apiKey: "AIzaSyAJ1uBXMasfgJGFgtS2RQ_QKI2_zAXkpMI",
+      authDomain: "brivefood-49d20.firebaseapp.com",
+      projectId: "brivefood-49d20",
+      storageBucket: "brivefood-49d20.firebasestorage.app",
+      messagingSenderId: "1083217505624",
+      appId: "1:1083217505624:web:f8a9fca32bbeb61e8c492d"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const storage = getStorage(app);
+
+    const fileInput = document.getElementById('fileInput');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressFill = document.getElementById('progressFill');
+    const progressText = document.getElementById('progressText');
+    const logDiv = document.getElementById('log');
+    const statusDiv = document.getElementById('status');
+
+    let selectedFiles = [];
+
+    function log(message, type = 'info') {
+      logDiv.style.display = 'block';
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logDiv.appendChild(entry);
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    fileInput.addEventListener('change', (e) => {
+      selectedFiles = Array.from(e.target.files).filter(f =>
+        f.type.startsWith('image/') && !f.name.includes('.backup')
+      );
+      uploadBtn.disabled = selectedFiles.length === 0;
+      log(`${selectedFiles.length} images sélectionnées`, 'info');
+    });
+
+    uploadBtn.addEventListener('click', async () => {
+      if (selectedFiles.length === 0) return;
+
+      uploadBtn.disabled = true;
+      progressContainer.style.display = 'block';
+      statusDiv.style.display = 'none';
+
+      let uploaded = 0;
+      let errors = 0;
+      const urlMapping = {};
+
+      for (const file of selectedFiles) {
+        try {
+          // Extraire le chemin relatif (après "images/")
+          let relativePath = file.webkitRelativePath || file.name;
+          const imagesIndex = relativePath.indexOf('images/');
+          if (imagesIndex !== -1) {
+            relativePath = relativePath.substring(imagesIndex + 7);
+          }
+
+          const storagePath = `product-images/${relativePath}`;
+          log(`Upload: ${relativePath}...`, 'info');
+
+          const storageRef = ref(storage, storagePath);
+          await uploadBytes(storageRef, file);
+          const downloadURL = await getDownloadURL(storageRef);
+
+          // Générer la clé pour le mapping
+          const key = relativePath
+            .replace(/\.[^/.]+$/, '')
+            .replace(/[^a-zA-Z0-9]/g, '_');
+
+          urlMapping[key] = downloadURL;
+
+          uploaded++;
+          log(`✅ ${relativePath}`, 'success');
+        } catch (error) {
+          errors++;
+          log(`❌ ${file.name}: ${error.message}`, 'error');
+        }
+
+        const progress = ((uploaded + errors) / selectedFiles.length) * 100;
+        progressFill.style.width = `${progress}%`;
+        progressText.textContent = `${uploaded + errors} / ${selectedFiles.length} images`;
+      }
+
+      // Afficher le résultat
+      statusDiv.style.display = 'block';
+      if (errors === 0) {
+        statusDiv.className = 'status success';
+        statusDiv.innerHTML = `✅ ${uploaded} images uploadées avec succès !`;
+      } else {
+        statusDiv.className = 'status error';
+        statusDiv.innerHTML = `⚠️ ${uploaded} réussies, ${errors} erreurs`;
+      }
+
+      // Générer le code JS pour le mapping
+      if (uploaded > 0) {
+        log('\n📋 Copiez ce mapping dans firebaseImageUrls.js:', 'info');
+        log(JSON.stringify(urlMapping, null, 2), 'info');
+      }
+
+      uploadBtn.disabled = false;
+    });
+  </script>
+</body>
+</html>

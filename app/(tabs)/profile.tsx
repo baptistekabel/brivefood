@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,9 @@ import {
   Alert,
   Animated,
   Linking,
+  Modal,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -21,7 +24,13 @@ import { colors, typography, spacing, borderRadius } from '../../src/constants/t
 
 export default function ProfileScreen() {
   const fontsLoaded = useFonts();
-  const { user, userProfile, isAuthenticated, logout } = useAuth();
+  const { user, userProfile, isAuthenticated, logout, deleteUserAccount } = useAuth();
+
+  // États pour le modal de suppression de compte
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const formatPhoneNumber = (phone) => {
     if (!phone) return '';
@@ -167,6 +176,34 @@ export default function ProfileScreen() {
       gradient: ['#4CAF50', '#388E3C'],
       action: handleContactSupport,
     },
+    {
+      id: 'privacy',
+      title: 'Politique de confidentialité',
+      subtitle: 'Consulter nos engagements',
+      icon: 'shield-checkmark-outline',
+      gradient: ['#9C27B0', '#7B1FA2'],
+      action: () => Linking.openURL('https://website-brivefood.onrender.com/#/politique-de-confidentialite'),
+    },
+    {
+      id: 'terms',
+      title: 'Conditions générales',
+      subtitle: 'Consulter les CGU',
+      icon: 'document-text-outline',
+      gradient: ['#FF9800', '#F57C00'],
+      action: () => Linking.openURL('https://website-brivefood.onrender.com/#/conditions-generales'),
+    },
+    {
+      id: 'delete-account',
+      title: 'Supprimer mon compte',
+      subtitle: 'Supprimer définitivement mes données',
+      icon: 'trash-outline',
+      gradient: ['#ff6b6b', '#ee5a5a'],
+      action: () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        setDeleteModalVisible(true);
+      },
+      isDestructive: true,
+    },
   ];
 
   const handleLogout = () => {
@@ -193,6 +230,37 @@ export default function ProfileScreen() {
   const handleLogin = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push('/auth/login');
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!deletePassword.trim()) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Erreur', 'Veuillez entrer votre mot de passe');
+      return;
+    }
+
+    setDeleteLoading(true);
+    const result = await deleteUserAccount(deletePassword);
+    setDeleteLoading(false);
+
+    if (result.success) {
+      setDeleteModalVisible(false);
+      setDeletePassword('');
+      Alert.alert(
+        'Compte supprimé',
+        'Votre compte a été supprimé avec succès. Nous espérons vous revoir bientôt.',
+        [{ text: 'OK', onPress: () => router.replace('/auth/login') }]
+      );
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Erreur', result.error || 'Une erreur est survenue');
+    }
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteModalVisible(false);
+    setDeletePassword('');
+    setShowPassword(false);
   };
 
   // Rendu des emojis flottants
@@ -447,6 +515,92 @@ export default function ProfileScreen() {
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      {/* Modal de suppression de compte */}
+      <Modal
+        visible={deleteModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closeDeleteModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalIconContainer}>
+              <LinearGradient
+                colors={['#ff6b6b', '#ee5a5a']}
+                style={styles.modalIconGradient}
+              >
+                <Ionicons name="warning" size={32} color={colors.neutral.white} />
+              </LinearGradient>
+            </View>
+
+            <Text style={styles.modalTitle}>Supprimer votre compte</Text>
+            <Text style={styles.modalDescription}>
+              Cette action est irréversible. Toutes vos données, commandes et points de fidélité seront définitivement supprimés.
+            </Text>
+
+            <View style={styles.passwordContainer}>
+              <Text style={styles.passwordLabel}>Confirmez avec votre mot de passe</Text>
+              <View style={styles.passwordInputContainer}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="Mot de passe"
+                  placeholderTextColor="rgba(255,255,255,0.4)"
+                  secureTextEntry={!showPassword}
+                  value={deletePassword}
+                  onChangeText={setDeletePassword}
+                  autoCapitalize="none"
+                  editable={!deleteLoading}
+                />
+                <TouchableOpacity
+                  style={styles.eyeButton}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setShowPassword(!showPassword);
+                  }}
+                >
+                  <Ionicons
+                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color="rgba(255,255,255,0.6)"
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  closeDeleteModal();
+                }}
+                disabled={deleteLoading}
+              >
+                <Text style={styles.cancelButtonText}>Annuler</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.deleteButton, deleteLoading && styles.deleteButtonDisabled]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                  handleDeleteAccount();
+                }}
+                disabled={deleteLoading}
+              >
+                {deleteLoading ? (
+                  <ActivityIndicator color={colors.neutral.white} size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="trash-outline" size={18} color={colors.neutral.white} />
+                    <Text style={styles.deleteButtonText}>Supprimer</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </LinearGradient>
   );
 }
@@ -693,5 +847,114 @@ const styles = StyleSheet.create({
 
   bottomSpacer: {
     height: 100,
+  },
+
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  modalContent: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 24,
+    padding: spacing.xl,
+    width: '100%',
+    maxWidth: 360,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  modalIconContainer: {
+    marginBottom: spacing.lg,
+  },
+  modalIconGradient: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.white,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  modalDescription: {
+    fontSize: 14,
+    fontFamily: typography.fontFamily.medium,
+    color: 'rgba(255,255,255,0.6)',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: spacing.lg,
+  },
+  passwordContainer: {
+    width: '100%',
+    marginBottom: spacing.lg,
+  },
+  passwordLabel: {
+    fontSize: 13,
+    fontFamily: typography.fontFamily.medium,
+    color: 'rgba(255,255,255,0.7)',
+    marginBottom: spacing.sm,
+  },
+  passwordInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  passwordInput: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    fontSize: 15,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.white,
+  },
+  eyeButton: {
+    padding: spacing.md,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    width: '100%',
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 15,
+    fontFamily: typography.fontFamily.semibold,
+    color: colors.neutral.white,
+  },
+  deleteButton: {
+    flex: 1,
+    flexDirection: 'row',
+    paddingVertical: spacing.md,
+    borderRadius: 12,
+    backgroundColor: '#ff6b6b',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  deleteButtonDisabled: {
+    opacity: 0.6,
+  },
+  deleteButtonText: {
+    fontSize: 15,
+    fontFamily: typography.fontFamily.semibold,
+    color: colors.neutral.white,
   },
 });

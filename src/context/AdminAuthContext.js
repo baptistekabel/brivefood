@@ -30,13 +30,13 @@ export const AdminAuthProvider = ({ children }) => {
       if (user) {
         try {
           // Vérifier d'abord si c'est un admin autorisé (bypass)
-          const adminEmails = ['admin@brivefood.com', 'kabelbaptiste971@gmail.com'];
+          const adminEmails = ['admin@brivefood.com', 'kabelbaptiste971@gmail.com', 'brivefood@gmail.com'];
           if (adminEmails.includes(user.email)) {
             console.log('Admin autorisé détecté:', user.email);
             const adminProfile = {
               role: 'admin',
               email: user.email,
-              name: user.email === 'kabelbaptiste971@gmail.com' ? 'Baptiste Kabel' : 'Administrateur BriveFood',
+              name: user.email === 'kabelbaptiste971@gmail.com' ? 'Baptiste Kabel' : user.email === 'brivefood@gmail.com' ? 'BriveFood' : 'Administrateur BriveFood',
               uid: user.uid,
               emailVerified: true // Admin n'a pas besoin de vérifier son email
             };
@@ -85,7 +85,7 @@ export const AdminAuthProvider = ({ children }) => {
       const user = userCredential.user;
 
       // Vérifier si c'est un admin autorisé (bypass)
-      const adminEmails = ['admin@brivefood.com', 'kabelbaptiste971@gmail.com'];
+      const adminEmails = ['admin@brivefood.com', 'kabelbaptiste971@gmail.com', 'brivefood@gmail.com'];
       if (adminEmails.includes(email) && requestedType === 'admin') {
         console.log('Admin autorisé connecté:', email);
         // Le profil sera défini automatiquement par onAuthStateChanged

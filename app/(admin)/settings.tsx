@@ -10,6 +10,7 @@ import {
   TextInput,
   Keyboard,
   TouchableWithoutFeedback,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -28,7 +29,6 @@ export default function AdminSettings() {
   const [notificationTitle, setNotificationTitle] = useState('');
   const [notificationMessage, setNotificationMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
-
 
   const handlePrinterSettings = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -204,11 +204,16 @@ export default function AdminSettings() {
   const renderSettingItem = (item, index) => (
     <TouchableOpacity
       key={index}
-      style={styles.settingItem}
-      onPress={item.onPress}
+      style={[styles.settingItem, item.disabled && styles.settingItemDisabled]}
+      onPress={item.disabled ? null : item.onPress}
+      disabled={item.disabled}
     >
       <View style={[styles.iconContainer, { backgroundColor: `${item.color}20` }]}>
-        <Ionicons name={item.icon} size={24} color={item.color} />
+        {item.disabled ? (
+          <ActivityIndicator size="small" color={item.color} />
+        ) : (
+          <Ionicons name={item.icon} size={24} color={item.color} />
+        )}
       </View>
 
       <View style={styles.settingContent}>
@@ -216,7 +221,9 @@ export default function AdminSettings() {
         <Text style={styles.settingSubtitle}>{item.subtitle}</Text>
       </View>
 
-      <Ionicons name="chevron-forward" size={20} color={colors.neutral.gray400} />
+      {!item.disabled && (
+        <Ionicons name="chevron-forward" size={20} color={colors.neutral.gray400} />
+      )}
     </TouchableOpacity>
   );
 
@@ -419,6 +426,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.lg,
+  },
+  settingItemDisabled: {
+    opacity: 0.7,
   },
   iconContainer: {
     width: 48,

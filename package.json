@@ -18,7 +18,10 @@
     "compress-images-stats": "node compress-images-pro.js --stats",
     "clean-backups": "node compress-images-pro.js --clean-backups",
     "compress-images-legacy": "node compress-images.js",
-    "compress-images-old-aggressive": "node compress-images-aggressive.js"
+    "compress-images-old-aggressive": "node compress-images-aggressive.js",
+    "upload-firebase": "node upload-images-to-firebase.js",
+    "upload-firebase-preview": "node upload-images-to-firebase.js --preview",
+    "upload-firebase-compress-only": "node upload-images-to-firebase.js --compress-only"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

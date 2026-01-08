@@ -10,6 +10,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   Switch,
+  Platform,
+  Linking,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -67,6 +69,8 @@ export default function PrinterSetup() {
   // WiFi mode
   const [showWiFiInput, setShowWiFiInput] = useState(false);
   const [wifiAddress, setWifiAddress] = useState('');
+  const [isCheckingNetwork, setIsCheckingNetwork] = useState(false);
+  const [networkPermissionStatus, setNetworkPermissionStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown');
 
   // Charger l'état initial
   useEffect(() => {
@@ -164,6 +168,128 @@ export default function PrinterSetup() {
     setPrinterStatus(getPrinterService().getStatus());
   };
 
+  // Vérifier/Demander la permission réseau local
+  const checkNetworkPermission = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsCheckingNetwork(true);
+
+    try {
+      console.log('🔍 Vérification permission réseau local...');
+
+      // Tenter d'accéder à une adresse locale pour déclencher la demande de permission
+      // Cette requête va déclencher la popup iOS si pas encore acceptée
+      const testIPs = ['192.168.1.1', '192.168.0.1', '10.0.0.1'];
+      let networkAccessible = false;
+
+      for (const ip of testIPs) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+          await fetch(`http://${ip}`, {
+            method: 'HEAD',
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+          networkAccessible = true;
+          break;
+        } catch (error: any) {
+          // Une erreur de timeout ou connexion refusée signifie qu'on a accès au réseau
+          // (la permission a été accordée), juste que l'hôte n'existe pas
+          if (error.name === 'AbortError' || error.message?.includes('Network request failed')) {
+            networkAccessible = true;
+            break;
+          }
+        }
+      }
+
+      if (networkAccessible) {
+        setNetworkPermissionStatus('granted');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(
+          'Permission accordée',
+          'L\'accès au réseau local est activé. Vous pouvez maintenant connecter l\'imprimante WiFi.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        setNetworkPermissionStatus('denied');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        Alert.alert(
+          'Permission requise',
+          'L\'accès au réseau local est nécessaire pour l\'impression WiFi.\n\nAllez dans Réglages > BriveFood > Réseau local et activez l\'option.',
+          [
+            { text: 'Annuler', style: 'cancel' },
+            {
+              text: 'Ouvrir Réglages',
+              onPress: () => {
+                if (Platform.OS === 'ios') {
+                  Linking.openURL('app-settings:');
+                }
+              }
+            }
+          ]
+        );
+      }
+
+    } catch (error: any) {
+      console.error('Erreur vérification réseau:', error);
+      // Si on arrive ici avec une erreur, c'est probablement que la permission est refusée
+      setNetworkPermissionStatus('denied');
+      Alert.alert(
+        'Permission requise',
+        'Activez l\'accès au réseau local dans les Réglages pour utiliser l\'impression WiFi.',
+        [
+          { text: 'Annuler', style: 'cancel' },
+          {
+            text: 'Ouvrir Réglages',
+            onPress: () => {
+              if (Platform.OS === 'ios') {
+                Linking.openURL('app-settings:');
+              }
+            }
+          }
+        ]
+      );
+    } finally {
+      setIsCheckingNetwork(false);
+    }
+  };
+
+  // Test de connectivité réseau vers l'imprimante
+  const testNetworkConnectivity = async (ip: string): Promise<{reachable: boolean, error?: string}> => {
+    try {
+      console.log(`🔍 Test connectivité vers ${ip}...`);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      const response = await fetch(`http://${ip}`, {
+        method: 'HEAD',
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      console.log(`✅ ${ip} accessible, status: ${response.status}`);
+      return { reachable: true };
+
+    } catch (error: any) {
+      console.log(`⚠️ Test ${ip}:`, error.name, error.message);
+
+      // AbortError = timeout, mais ça peut signifier que l'IP existe mais ne répond pas en HTTP
+      if (error.name === 'AbortError') {
+        return { reachable: false, error: `Timeout - l'imprimante ne répond pas sur ${ip}` };
+      }
+
+      // Network request failed peut signifier permission refusée OU IP inaccessible
+      if (error.message?.includes('Network request failed')) {
+        return { reachable: false, error: `Réseau inaccessible - vérifiez la permission réseau local et que l'iPad est sur le même WiFi` };
+      }
+
+      return { reachable: false, error: error.message };
+    }
+  };
+
   // Connexion WiFi
   const connectWiFi = async () => {
     if (!wifiAddress.trim()) {
@@ -175,21 +301,45 @@ export default function PrinterSetup() {
     setIsConnecting(true);
 
     try {
-      console.log('📶 Connexion WiFi à:', wifiAddress);
-      const result = await getPrinterService().connectToWiFi(wifiAddress.trim());
+      const ip = wifiAddress.trim();
+      console.log('📶 Connexion WiFi à:', ip);
+      console.log('📱 Platform:', Platform.OS);
+
+      // Test de connectivité d'abord
+      const connectivityTest = await testNetworkConnectivity(ip);
+      console.log('🔍 Résultat test connectivité:', connectivityTest);
+
+      if (!connectivityTest.reachable) {
+        Alert.alert(
+          'Imprimante inaccessible',
+          `Impossible de joindre ${ip}\n\n${connectivityTest.error}\n\nVérifiez:\n• L'IP est correcte\n• L'imprimante est allumée\n• L'iPad et l'imprimante sont sur le même réseau WiFi\n• La permission réseau local est activée`,
+          [
+            { text: 'OK' },
+            {
+              text: 'Vérifier permission',
+              onPress: checkNetworkPermission
+            }
+          ]
+        );
+        setIsConnecting(false);
+        return;
+      }
+
+      const result = await getPrinterService().connectToWiFi(ip);
 
       if (result.success) {
         setPrinterStatus(getPrinterService().getStatus());
         setShowWiFiInput(false);
         setWifiAddress('');
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert('Succès !', `Imprimante WiFi configurée !\n\nIP: ${wifiAddress}\n\nTestez l'impression.`);
+        Alert.alert('Succès !', `Imprimante WiFi configurée !\n\nIP: ${ip}\n\nTestez l'impression.`);
       } else {
-        Alert.alert('Échec', result.error);
+        console.error('❌ Erreur connectToWiFi:', result.error);
+        Alert.alert('Échec connexion', `${result.error}\n\nL'imprimante est accessible mais la connexion a échoué.`);
       }
     } catch (error: any) {
-      console.error('Erreur connexion WiFi:', error);
-      Alert.alert('Erreur', error.message);
+      console.error('❌ Erreur connexion WiFi:', error);
+      Alert.alert('Erreur', `${error.message}\n\nConsultez les logs pour plus de détails.`);
     } finally {
       setIsConnecting(false);
     }
@@ -283,6 +433,47 @@ export default function PrinterSetup() {
         />
       </View>
     </View>
+  );
+
+  // Render bouton permission réseau
+  const renderNetworkPermissionButton = () => (
+    <TouchableOpacity
+      style={styles.permissionCard}
+      onPress={checkNetworkPermission}
+      disabled={isCheckingNetwork}
+    >
+      <View style={styles.permissionContent}>
+        <View style={[
+          styles.permissionIcon,
+          networkPermissionStatus === 'granted' && styles.permissionIconGranted,
+          networkPermissionStatus === 'denied' && styles.permissionIconDenied,
+        ]}>
+          {isCheckingNetwork ? (
+            <ActivityIndicator size="small" color="#FFF" />
+          ) : (
+            <Ionicons
+              name={
+                networkPermissionStatus === 'granted' ? 'checkmark-circle' :
+                networkPermissionStatus === 'denied' ? 'close-circle' : 'globe-outline'
+              }
+              size={24}
+              color="#FFF"
+            />
+          )}
+        </View>
+        <View style={styles.permissionTexts}>
+          <Text style={styles.permissionTitle}>Permission réseau local</Text>
+          <Text style={styles.permissionSubtitle}>
+            {networkPermissionStatus === 'granted'
+              ? 'Accès activé - prêt pour l\'impression'
+              : networkPermissionStatus === 'denied'
+              ? 'Accès refusé - appuyez pour réessayer'
+              : 'Appuyez pour vérifier/activer'}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color="#999" />
+      </View>
+    </TouchableOpacity>
   );
 
   // Render bouton connexion WiFi
@@ -479,6 +670,9 @@ export default function PrinterSetup() {
 
           {/* Option impression auto */}
           {renderAutoPrintOption()}
+
+          {/* Permission réseau local (iOS) */}
+          {Platform.OS === 'ios' && renderNetworkPermissionButton()}
 
           {/* Input WiFi */}
           {showWiFiInput ? renderWiFiInput() : renderConnectButton()}
@@ -849,5 +1043,50 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.sm,
     color: '#2E7D32',
     lineHeight: 20,
+  },
+
+  // Permission Card
+  permissionCard: {
+    backgroundColor: '#FFF',
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  permissionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  permissionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#3B82F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  permissionIconGranted: {
+    backgroundColor: '#22C55E',
+  },
+  permissionIconDenied: {
+    backgroundColor: '#EF4444',
+  },
+  permissionTexts: {
+    flex: 1,
+    marginLeft: spacing.md,
+  },
+  permissionTitle: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.semibold,
+    color: '#000',
+  },
+  permissionSubtitle: {
+    fontSize: typography.fontSizes.sm,
+    color: '#666',
+    marginTop: 2,
   },
 });

@@ -7,9 +7,12 @@ import {
   updateProfile,
   sendEmailVerification,
   sendPasswordResetEmail,
-  reload
+  reload,
+  deleteUser,
+  EmailAuthProvider,
+  reauthenticateWithCredential
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
 import { router } from 'expo-router';
 import { Alert } from 'react-native';
 import * as Notifications from 'expo-notifications';
@@ -362,6 +365,63 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Supprimer le compte utilisateur
+  const deleteUserAccount = async (password) => {
+    try {
+      if (!user) {
+        return { success: false, error: 'Aucun utilisateur connecté' };
+      }
+
+      // Ré-authentifier l'utilisateur avant la suppression (requis par Firebase)
+      const credential = EmailAuthProvider.credential(user.email, password);
+      await reauthenticateWithCredential(user, credential);
+
+      // Supprimer le token du broadcast si c'est un client
+      if (userProfile?.role === 'customer') {
+        try {
+          await removeCustomerFromBroadcast(user.uid);
+          console.log('🗑️ Token client supprimé du broadcast');
+        } catch (broadcastError) {
+          console.log('⚠️ Erreur suppression token broadcast:', broadcastError.message);
+        }
+      }
+
+      // Supprimer le document utilisateur dans Firestore
+      try {
+        await deleteDoc(doc(db, 'users', user.uid));
+        console.log('🗑️ Document utilisateur supprimé de Firestore');
+      } catch (firestoreError) {
+        console.log('⚠️ Erreur suppression document Firestore:', firestoreError.message);
+      }
+
+      // Supprimer le compte Firebase Auth
+      await deleteUser(user);
+      console.log('🗑️ Compte Firebase Auth supprimé');
+
+      // Nettoyer l'état local
+      setUser(null);
+      setUserProfile(null);
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      return { success: true };
+    } catch (error) {
+      console.error('Erreur suppression compte:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+
+      // Messages d'erreur personnalisés
+      let errorMessage = error.message;
+      if (error.code === 'auth/wrong-password') {
+        errorMessage = 'Mot de passe incorrect';
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Trop de tentatives. Veuillez réessayer plus tard.';
+      } else if (error.code === 'auth/requires-recent-login') {
+        errorMessage = 'Veuillez vous reconnecter pour effectuer cette action.';
+      }
+
+      return { success: false, error: errorMessage };
+    }
+  };
+
   const value = {
     user,
     userProfile,
@@ -373,6 +433,7 @@ export const AuthProvider = ({ children }) => {
     resendEmailVerification,
     resetPassword,
     reloadUser,
+    deleteUserAccount,
     isAuthenticated: !!user,
     isEmailVerified: user?.emailVerified || false,
     isCustomer: userProfile?.role === UserRole.CUSTOMER,

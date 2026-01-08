@@ -507,7 +507,7 @@ export default function AdminDashboard() {
       );
     }
 
-    return filteredOrders.map((order: any) => renderOrderCard(order));
+    return filteredOrders.map((order: any, index: number) => renderOrderCard(order, index));
   };
 
   // Fonction pour rendre les filtres de statut
@@ -661,38 +661,8 @@ export default function AdminDashboard() {
   // Refs pour les swipeables
   const swipeableRefs = useRef<{ [key: string]: Swipeable | null }>({});
 
-  const renderOrderCard = (order: any) => (
-    <Swipeable
-      ref={(ref) => { swipeableRefs.current[order.id] = ref; }}
-      key={order.id}
-      renderRightActions={(progress, dragX) => renderRightActions(order, progress, dragX)}
-      renderLeftActions={(progress, dragX) => renderLeftActions(order, progress, dragX)}
-      onSwipeableWillOpen={(direction) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }}
-      onSwipeableOpen={(direction) => {
-        // Fermer le swipeable après l'action
-        setTimeout(() => {
-          swipeableRefs.current[order.id]?.close();
-        }, 100);
-
-        if (direction === 'right') {
-          const nextStatus = getNextStatus(order.status, order.mode);
-          if (nextStatus) handleSwipeStatusChange(order, nextStatus);
-        } else if (direction === 'left') {
-          const prevStatus = getPreviousStatus(order.status, order.mode);
-          if (prevStatus) handleSwipeStatusChange(order, prevStatus);
-        }
-      }}
-      overshootLeft={false}
-      overshootRight={false}
-      overshootFriction={8}
-      friction={1.5}
-      leftThreshold={80}
-      rightThreshold={80}
-      enableTrackpadTwoFingerGesture
-      containerStyle={styles.swipeableContainer}
-    >
+  // Contenu de la carte de commande (réutilisé avec ou sans Swipeable)
+  const renderOrderCardContent = (order: any) => (
       <TouchableOpacity
         style={[
           styles.orderCard,
@@ -846,11 +816,62 @@ export default function AdminDashboard() {
         return null;
       })()}
     </TouchableOpacity>
-    </Swipeable>
   );
 
-  return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+  // Fonction principale de rendu des cartes - désactive Swipeable sur tablette
+  const renderOrderCard = (order: any, index: number) => {
+    // Utiliser une clé unique combinant l'ID et l'index pour éviter les doublons
+    const uniqueKey = `${order.id}-${index}`;
+
+    // Sur tablette, pas de Swipeable pour éviter les conflits de scroll
+    if (isTabletDevice) {
+      return (
+        <View key={uniqueKey} style={styles.swipeableContainer}>
+          {renderOrderCardContent(order)}
+        </View>
+      );
+    }
+
+    // Sur mobile, utiliser Swipeable
+    return (
+      <Swipeable
+        ref={(ref) => { swipeableRefs.current[order.id] = ref; }}
+        key={uniqueKey}
+        renderRightActions={(progress, dragX) => renderRightActions(order, progress, dragX)}
+        renderLeftActions={(progress, dragX) => renderLeftActions(order, progress, dragX)}
+        onSwipeableWillOpen={(direction) => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }}
+        onSwipeableOpen={(direction) => {
+          setTimeout(() => {
+            swipeableRefs.current[order.id]?.close();
+          }, 100);
+
+          if (direction === 'right') {
+            const nextStatus = getNextStatus(order.status, order.mode);
+            if (nextStatus) handleSwipeStatusChange(order, nextStatus);
+          } else if (direction === 'left') {
+            const prevStatus = getPreviousStatus(order.status, order.mode);
+            if (prevStatus) handleSwipeStatusChange(order, prevStatus);
+          }
+        }}
+        overshootLeft={false}
+        overshootRight={false}
+        overshootFriction={8}
+        friction={1.5}
+        leftThreshold={80}
+        rightThreshold={80}
+        containerStyle={styles.swipeableContainer}
+      >
+        {renderOrderCardContent(order)}
+      </Swipeable>
+    );
+  };
+
+  // Sur tablette, pas de wrapper gesture - sur mobile, GestureHandlerRootView
+  if (isTabletDevice) {
+    return (
+      <View style={{ flex: 1 }} pointerEvents="auto">
       <Stack.Screen options={{ headerShown: false }} />
       <LinearGradient
         colors={['#000000', '#000000', '#000000']}
@@ -910,6 +931,12 @@ export default function AdminDashboard() {
             styles.contentContainer,
             isTabletDevice && isLandscapeMode && styles.contentContainerTablet
           ]}
+          scrollEnabled={true}
+          bounces={true}
+          alwaysBounceVertical={true}
+          showsVerticalScrollIndicator={true}
+          keyboardShouldPersistTaps="handled"
+          removeClippedSubviews={false}
         >
 
           {/* Restaurant Status Control */}
@@ -1186,6 +1213,264 @@ export default function AdminDashboard() {
                       ]}>
                         Annuler
                       </Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+      </LinearGradient>
+      </View>
+    );
+  }
+
+  // Version mobile avec GestureHandlerRootView
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <LinearGradient
+        colors={['#000000', '#000000', '#000000']}
+        style={styles.container}
+      >
+        <StatusBar style="light" />
+
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>Commandes</Text>
+            <Text style={[styles.headerSubtitle, { color: colors.neutral.gray300 }]}>
+              Gestion des commandes
+            </Text>
+          </View>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={styles.printerIndicator}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/(admin)/printer-setup');
+              }}
+            >
+              <Ionicons
+                name="print"
+                size={16}
+                color={printerConnected ? '#22C55E' : '#ef4444'}
+              />
+              <View style={[styles.printerDot, {
+                backgroundColor: printerConnected ? '#22C55E' : '#ef4444'
+              }]} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.settingsButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/(admin)/settings');
+              }}
+            >
+              <Ionicons name="settings-outline" size={20} color={colors.neutral.white} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Content */}
+        <ScrollView
+          style={styles.content}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          contentContainerStyle={styles.contentContainer}
+        >
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Statut du restaurant</Text>
+            <RestaurantStatusControl />
+          </View>
+
+          {renderStatusFilters()}
+
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderContainer}>
+              <Text style={styles.sectionTitle}>Toutes les commandes</Text>
+              {!acceptingOrders && (
+                <View style={styles.orderStoppedIndicator}>
+                  <Ionicons name="pause-circle" size={16} color="#f59e0b" />
+                  <Text style={styles.orderStoppedText}>Nouvelles commandes arrêtées</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.ordersContainer}>
+              {renderOrdersContent()}
+            </View>
+          </View>
+
+          <View style={{ height: 120 }} />
+        </ScrollView>
+
+        {/* Modal pour le menu de changement de statut */}
+        <Modal
+          visible={showStatusMenu}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={closeStatusMenu}
+        >
+          <View style={styles.modalOverlay}>
+            <TouchableOpacity
+              style={styles.modalBackground}
+              activeOpacity={1}
+              onPress={closeStatusMenu}
+            />
+            <View style={styles.statusMenuContainer}>
+              <ScrollView
+                style={styles.modalScrollView}
+                contentContainerStyle={styles.modalScrollContent}
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+                keyboardShouldPersistTaps="handled"
+              >
+                <TouchableOpacity activeOpacity={1}>
+                  <LinearGradient
+                    colors={['#000000', '#0a0a0a', '#1a1a1a', '#2a2a2a']}
+                    style={styles.statusMenu}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                  <View style={styles.statusMenuHeader}>
+                    <View style={styles.statusMenuHeaderRow}>
+                      <View style={styles.statusMenuIconContainer}>
+                        <LinearGradient
+                          colors={['#FF6B35', '#FF8E53', '#FFB366']}
+                          style={styles.statusMenuIcon}
+                        >
+                          <Ionicons name="swap-horizontal" size={24} color="white" />
+                        </LinearGradient>
+                      </View>
+                      <View style={styles.statusMenuTitleContainer}>
+                        <Text style={styles.statusMenuTitle}>Changer le statut</Text>
+                        <Text style={styles.statusMenuSubtitle}>
+                          Commande #{selectedOrder?.id}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  <View style={styles.statusOptionsContainer}>
+                    {selectedOrder && (() => {
+                      const availableStatuses = getAvailableStatuses(selectedOrder.status, selectedOrder.mode);
+                      const rows = [];
+
+                      for (let i = 0; i < availableStatuses.length; i += 2) {
+                        const leftStatus = availableStatuses[i];
+                        const rightStatus = availableStatuses[i + 1];
+
+                        rows.push(
+                          <View key={`row-${i}`} style={styles.statusOptionsRow}>
+                            <TouchableOpacity
+                              style={[styles.statusOption, styles.statusOptionHalf]}
+                              onPress={() => changeOrderStatus(leftStatus.key)}
+                              activeOpacity={0.85}
+                            >
+                              <LinearGradient
+                                colors={[
+                                  `${getStatusColor(leftStatus.key)}20`,
+                                  `${getStatusColor(leftStatus.key)}10`,
+                                  `${getStatusColor(leftStatus.key)}05`
+                                ]}
+                                style={[styles.statusOptionGradient, styles.statusOptionGradientHalf]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                              >
+                                <View style={styles.statusOptionContentCompact}>
+                                  <LinearGradient
+                                    colors={[
+                                      `${getStatusColor(leftStatus.key)}40`,
+                                      `${getStatusColor(leftStatus.key)}30`
+                                    ]}
+                                    style={styles.statusIconContainerCompact}
+                                  >
+                                    <Ionicons
+                                      name={leftStatus.icon as any}
+                                      size={16}
+                                      color={getStatusColor(leftStatus.key)}
+                                    />
+                                  </LinearGradient>
+                                  <View style={styles.statusTextContainerCompact}>
+                                    <Text style={[
+                                      styles.statusOptionTextCompact,
+                                      { color: getStatusColor(leftStatus.key) }
+                                    ]}>
+                                      {leftStatus.label}
+                                    </Text>
+                                  </View>
+                                </View>
+                              </LinearGradient>
+                            </TouchableOpacity>
+
+                            {rightStatus && (
+                              <TouchableOpacity
+                                style={[styles.statusOption, styles.statusOptionHalf]}
+                                onPress={() => changeOrderStatus(rightStatus.key)}
+                                activeOpacity={0.85}
+                              >
+                                <LinearGradient
+                                  colors={[
+                                    `${getStatusColor(rightStatus.key)}20`,
+                                    `${getStatusColor(rightStatus.key)}10`,
+                                    `${getStatusColor(rightStatus.key)}05`
+                                  ]}
+                                  style={[styles.statusOptionGradient, styles.statusOptionGradientHalf]}
+                                  start={{ x: 0, y: 0 }}
+                                  end={{ x: 1, y: 0 }}
+                                >
+                                  <View style={styles.statusOptionContentCompact}>
+                                    <LinearGradient
+                                      colors={[
+                                        `${getStatusColor(rightStatus.key)}40`,
+                                        `${getStatusColor(rightStatus.key)}30`
+                                      ]}
+                                      style={styles.statusIconContainerCompact}
+                                    >
+                                      <Ionicons
+                                        name={rightStatus.icon as any}
+                                        size={16}
+                                        color={getStatusColor(rightStatus.key)}
+                                      />
+                                    </LinearGradient>
+                                    <View style={styles.statusTextContainerCompact}>
+                                      <Text style={[
+                                        styles.statusOptionTextCompact,
+                                        { color: getStatusColor(rightStatus.key) }
+                                      ]}>
+                                        {rightStatus.label}
+                                      </Text>
+                                    </View>
+                                  </View>
+                                </LinearGradient>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        );
+                      }
+
+                      return rows;
+                    })()}
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.cancelButton}
+                    onPress={closeStatusMenu}
+                    activeOpacity={0.8}
+                  >
+                    <LinearGradient
+                      colors={['#2d1a1a', '#1a0000', '#0d0000']}
+                      style={styles.cancelButtonGradient}
+                    >
+                      <View style={styles.cancelIconContainer}>
+                        <Ionicons name="close" size={18} color="#ff6b6b" />
+                      </View>
+                      <Text style={styles.cancelButtonText}>Annuler</Text>
                     </LinearGradient>
                   </TouchableOpacity>
                   </LinearGradient>

@@ -12,7 +12,7 @@
       "supportsTablet": true,
       "requireFullScreen": false,
       "bundleIdentifier": "com.brivefood.app",
-      "buildNumber": "13",
+      "buildNumber": "19",
       "splash": {
         "image": "./assets/images/logoBrivefood.png",
         "resizeMode": "cover",
@@ -27,8 +27,12 @@
         "NSCameraUsageDescription": "Cette application utilise l'appareil photo pour permettre aux utilisateurs de prendre des photos de leurs commandes et d'améliorer leur expérience.",
         "NSBluetoothAlwaysUsageDescription": "BriveFood utilise le Bluetooth pour se connecter à l'imprimante de tickets TM-M30II.",
         "NSBluetoothPeripheralUsageDescription": "BriveFood utilise le Bluetooth pour imprimer automatiquement les tickets de commande.",
-        "UISupportedExternalAccessoryProtocols": [
-          "com.epson.escpos"
+        "NSLocalNetworkUsageDescription": "BriveFood utilise le réseau local pour se connecter à l'imprimante de tickets et imprimer automatiquement les commandes.",
+        "NSBonjourServices": [
+          "_ipp._tcp",
+          "_ipps._tcp",
+          "_pdl-datastream._tcp",
+          "_printer._tcp"
         ],
         "UISupportedInterfaceOrientations": [
           "UIInterfaceOrientationPortrait",
@@ -43,7 +47,7 @@
       }
     },
     "android": {
-      "versionCode": 8,
+      "versionCode": 18,
       "package": "com.brivefood.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -105,10 +109,10 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "f1c0cf52-40cd-4656-a644-77eedd89de3d"
+        "projectId": "6210b974-01ea-4015-9d23-ec6bb0cd3c90"
       },
       "router": {}
     },
-    "owner": "kabelbaptiste"
+    "owner": "baptistekabel"
   }
 }

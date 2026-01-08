@@ -10,6 +10,7 @@ import {
   Platform,
   ScrollView,
   Animated,
+  Linking,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -539,25 +540,43 @@ export default function RegisterScreen() {
                 </View>
 
                 {/* Terms moderne */}
-                <TouchableOpacity 
-                  style={styles.modernTermsContainer}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setAcceptTerms(!acceptTerms);
-                  }}
-                >
-                  <View style={[styles.modernCheckbox, acceptTerms && styles.modernCheckboxChecked]}>
-                    {acceptTerms && (
-                      <Ionicons name="checkmark" size={16} color="white" />
-                    )}
-                  </View>
+                <View style={styles.modernTermsContainer}>
+                  <TouchableOpacity
+                    style={styles.checkboxTouchable}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setAcceptTerms(!acceptTerms);
+                    }}
+                  >
+                    <View style={[styles.modernCheckbox, acceptTerms && styles.modernCheckboxChecked]}>
+                      {acceptTerms && (
+                        <Ionicons name="checkmark" size={16} color="white" />
+                      )}
+                    </View>
+                  </TouchableOpacity>
                   <Text style={styles.modernTermsText}>
                     J'accepte les{' '}
-                    <Text style={styles.modernTermsLink}>conditions d'utilisation</Text>
+                    <Text
+                      style={styles.modernTermsLink}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        Linking.openURL('https://website-brivefood.onrender.com/#/conditions-generales');
+                      }}
+                    >
+                      conditions d'utilisation
+                    </Text>
                     {' '}et la{' '}
-                    <Text style={styles.modernTermsLink}>politique de confidentialité</Text>
+                    <Text
+                      style={styles.modernTermsLink}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        Linking.openURL('https://website-brivefood.onrender.com/#/politique-de-confidentialite');
+                      }}
+                    >
+                      politique de confidentialité
+                    </Text>
                   </Text>
-                </TouchableOpacity>
+                </View>
 
                 {/* Bouton moderne */}
                 <View style={styles.modernButtonContainer}>
@@ -721,6 +740,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     marginTop: spacing.sm,
   },
+  checkboxTouchable: {
+    padding: 2,
+  },
   modernCheckbox: {
     width: 20,
     height: 20,
@@ -744,7 +766,7 @@ const styles = StyleSheet.create({
     lineHeight: typography.lineHeights.relaxed * typography.fontSizes.xs,
   },
   modernTermsLink: {
-    color: 'white',
+    color: '#FF8E53',
     fontFamily: typography.fontFamily.semibold,
     textDecorationLine: 'underline',
   },

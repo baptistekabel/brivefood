@@ -166,8 +166,9 @@ export default function ProductsManager() {
   const renderProductItem = ({ item: product }) => (
     <View style={styles.productCard}>
       <View style={styles.productHeader}>
-        {/* Image du produit */}
+        {/* Image du produit - key force le re-render quand l'image change */}
         <ProductImage
+          key={`${product.id}-${product.firebaseImageUrl || product.updatedAt?.seconds || ''}`}
           product={product}
           style={styles.productImage}
           showPlaceholder={true}
@@ -328,7 +329,8 @@ export default function ProductsManager() {
           {/* Liste des produits */}
           <FlatList
             data={filteredProducts}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => `${item.id}-${item.updatedAt?.seconds || item.firebaseImageUrl || ''}`}
+            extraData={filteredProducts}
             renderItem={renderProductItem}
             style={styles.productList}
             contentContainerStyle={styles.productListContent}

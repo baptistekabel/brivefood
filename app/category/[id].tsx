@@ -25,6 +25,7 @@ import { useOrder } from '../../src/context/OrderContext';
 import { useProducts } from '../../src/context/ProductsContext';
 import productImages from '../../src/data/productImages';
 import categoryInfo from '../../src/data/categories';
+import ProductImage from '../../src/components/common/ProductImage';
 import { calculateCustomizedPrice, isCustomizationComplete, getSizeDisplayText, getProductQuantity } from '../../src/utils/categoryUtils';
 import styles from '../../src/styles/CategoryScreen.styles';
 
@@ -776,8 +777,8 @@ export default function CategoryScreen() {
         style={styles.imageContainer}
         activeOpacity={0.9}
       >
-        <Image
-          source={product.image}
+        <ProductImage
+          product={product}
           style={styles.productImageBg}
           resizeMode="cover"
         />
@@ -1027,13 +1028,8 @@ export default function CategoryScreen() {
           style={styles.imageContainer}
           activeOpacity={0.9}
         >
-          <Image
-            source={
-              // Changer l'image dynamiquement pour les milkshakes selon la base sélectionnée
-              product.id === 'milkshake-custom' && productCustomizations.base && productCustomizations.base[0] === 'fraise'
-                ? productImages.MilkshakeFraise
-                : product.image
-            }
+          <ProductImage
+            product={product}
             style={styles.productImageBg}
             resizeMode="cover"
           />
@@ -1113,7 +1109,6 @@ export default function CategoryScreen() {
   const renderBoissonCard = (product) => {
     const quantity = getProductQuantity(orderItems, product.id);
     const isInCart = quantity > 0;
-    const hasValidImage = product.image && product.image !== null && product.image !== undefined;
 
     return (
       <TouchableOpacity
@@ -1136,13 +1131,11 @@ export default function CategoryScreen() {
           </View>
         )}
         <View style={styles.boissonImageContainer}>
-          {hasValidImage ? (
-            <Image source={product.image} style={styles.boissonImage} />
-          ) : (
-            <View style={styles.boissonNoImage}>
-              <Ionicons name="water" size={20} color={colors.primary.main} />
-            </View>
-          )}
+          <ProductImage
+            product={product}
+            style={styles.boissonImage}
+            resizeMode="contain"
+          />
         </View>
         <View style={styles.boissonInfo}>
           <View style={styles.boissonTextContainer}>
@@ -1172,13 +1165,8 @@ export default function CategoryScreen() {
     const quantity = getProductQuantity(orderItems, productIdWithSize);
     const isInCart = quantity > 0;
 
-    // Vérification robuste de la présence d'image
-    const hasValidImage = product.image && product.image !== null && product.image !== undefined;
-
-    // Debug pour les sandwichs américains
-    if (product.id.includes('americain')) {
-      console.log('Sandwich américain:', product.name, 'hasImage:', hasValidImage, 'imageType:', typeof product.image, 'imageValue:', product.image);
-    }
+    // Vérification de la présence d'image (locale ou Firebase)
+    const hasValidImage = product.image || product.firebaseImageUrl;
 
     // Rendu conditionnel selon la présence d'image
     if (hasValidImage) {
@@ -1497,7 +1485,7 @@ export default function CategoryScreen() {
 
             {commentProduct && (
               <View style={styles.commentProductInfo}>
-                <Image source={commentProduct.image} style={styles.commentProductImage} />
+                <ProductImage product={commentProduct} style={styles.commentProductImage} />
                 <View style={styles.commentProductDetails}>
                   <Text style={styles.commentProductName}>
                     {commentProduct.name}

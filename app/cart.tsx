@@ -100,7 +100,7 @@ export default function CartScreen() {
       description: 'Taille au choix.',
       price: 2.90,
       category: ProductCategory.BOISSONS,
-      image: require('../assets/images/boissons/cristaline.png')
+      image: require('../assets/images/boissons/Cristaline.png')
     },
     {
       id: 'sprite-rec',

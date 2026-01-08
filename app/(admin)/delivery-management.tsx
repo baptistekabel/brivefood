@@ -612,11 +612,6 @@ export default function DeliveryManagement() {
           </View>
           <Text style={styles.userEmail}>{user.email}</Text>
           {user.phone && <Text style={styles.userPhone}>📞 {user.phone}</Text>}
-          {user.lastLogin && (
-            <Text style={styles.userLastLogin}>
-              Dernière connexion: {new Date(user.lastLogin).toLocaleDateString('fr-FR')}
-            </Text>
-          )}
         </View>
       </View>
 

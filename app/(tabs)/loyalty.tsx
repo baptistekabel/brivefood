@@ -25,9 +25,12 @@ const { width } = Dimensions.get('window');
 export default function LoyaltyScreen() {
   const fontsLoaded = useFonts();
   const { user, isAuthenticated } = useAuth();
-  const { userLoyaltyData, rewards } = useLoyalty();
+  const { userLoyaltyData, rewards, POINTS_PER_REWARD } = useLoyalty();
 
   const loyaltyData = userLoyaltyData;
+
+  // La prochaine récompense dans la rotation
+  const nextReward = loyaltyData.nextReward;
 
   // Animations d'apparition
   const headerAnimation = useRef({
@@ -55,24 +58,24 @@ export default function LoyaltyScreen() {
   // Animations existantes
   const pointsScale = useRef(new Animated.Value(1)).current;
   const progressAnimation = useRef(new Animated.Value(0)).current;
-  const cardAnimations = useRef(
-    Array.from({ length: rewards.length }, () => ({
-      opacity: new Animated.Value(0),
-      translateY: new Animated.Value(40),
-      scale: new Animated.Value(0.9)
-    }))
-  ).current;
+  // Animation pour la carte de récompense unique
+  const cardAnimation = useRef({
+    opacity: new Animated.Value(0),
+    translateY: new Animated.Value(40),
+    scale: new Animated.Value(0.9)
+  }).current;
 
   // Animations pour les emojis flottants (20 emojis de fidélité)
   const floatingEmojis = useRef(
     Array.from({ length: 20 }, () => new Animated.Value(0))
   ).current;
 
-  // Traitement des récompenses pour l'affichage
-  const processedRewards = rewards.map(reward => ({
-    ...reward,
-    unlocked: loyaltyData.currentPoints >= reward.points,
-  }));
+  // Traitement de la prochaine récompense pour l'affichage
+  // On affiche uniquement la prochaine récompense dans la rotation
+  const processedRewards = nextReward ? [{
+    ...nextReward,
+    unlocked: loyaltyData.currentPoints >= POINTS_PER_REWARD,
+  }] : [];
 
   // Animation des emojis flottants avec trajectoires aléatoires
   const startFloatingEmojisAnimation = () => {
@@ -194,30 +197,25 @@ export default function LoyaltyScreen() {
       }).start();
     }, 800);
 
-    // Animation des cartes avec délai en cascade
+    // Animation de la carte de récompense
     setTimeout(() => {
-      cardAnimations.forEach((animation, index) => {
-        Animated.parallel([
-          Animated.timing(animation.opacity, {
-            toValue: 1,
-            duration: 600,
-            delay: index * 150,
-            useNativeDriver: true,
-          }),
-          Animated.timing(animation.translateY, {
-            toValue: 0,
-            duration: 600,
-            delay: index * 150,
-            useNativeDriver: true,
-          }),
-          Animated.timing(animation.scale, {
-            toValue: 1,
-            duration: 600,
-            delay: index * 150,
-            useNativeDriver: true,
-          }),
-        ]).start();
-      });
+      Animated.parallel([
+        Animated.timing(cardAnimation.opacity, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.timing(cardAnimation.translateY, {
+          toValue: 0,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.timing(cardAnimation.scale, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+      ]).start();
     }, 1000);
 
     // Démarrer l'animation des emojis flottants
@@ -484,7 +482,10 @@ export default function LoyaltyScreen() {
 
           {/* Récompenses */}
           <View style={styles.rewardsSection}>
-            <Text style={styles.sectionTitle}>Vos Récompenses</Text>
+            <Text style={styles.sectionTitle}>Prochaine Récompense</Text>
+            <Text style={styles.rotationHint}>
+              Les récompenses alternent : Livraison Offerte → Petit Cheese → Livraison Offerte...
+            </Text>
 
             <View style={styles.rewardsContainer}>
               {processedRewards.map((reward, index) => (
@@ -493,14 +494,10 @@ export default function LoyaltyScreen() {
                   style={[
                     styles.rewardCard,
                     {
-                      opacity: cardAnimations[index]?.opacity || 0,
+                      opacity: cardAnimation.opacity,
                       transform: [
-                        {
-                          translateY: cardAnimations[index]?.translateY || 40,
-                        },
-                        {
-                          scale: cardAnimations[index]?.scale || 0.9,
-                        }
+                        { translateY: cardAnimation.translateY },
+                        { scale: cardAnimation.scale }
                       ]
                     }
                   ]}
@@ -580,7 +577,7 @@ export default function LoyaltyScreen() {
                         <View style={styles.lockedBadgeNew}>
                           <Ionicons name="lock-closed" size={16} color="#999999" />
                           <Text style={styles.lockedTextNew}>
-                            {(reward.points - loyaltyData.currentPoints).toFixed(1)} pts manquants
+                            {(POINTS_PER_REWARD - loyaltyData.currentPoints).toFixed(1)} pts manquants
                           </Text>
                         </View>
                       )}
@@ -789,6 +786,14 @@ const styles = StyleSheet.create({
   rewardsSection: {
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.xl,
+  },
+  rotationHint: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.medium,
+    color: 'rgba(255,255,255,0.6)',
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+    fontStyle: 'italic',
   },
   rewardsContainer: {
     gap: spacing.md,

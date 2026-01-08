@@ -24,23 +24,14 @@ export const LoyaltyProvider = ({ children }) => {
     availableRewards: []
   });
 
-  // Définition des récompenses disponibles
+  // Définition des récompenses disponibles (alternent entre elles)
+  // Points requis : 3 points pour chaque récompense
+  const POINTS_PER_REWARD = 3;
+
   const rewards = [
     {
-      id: 'petit-cheese',
-      points: 2,
-      title: 'Petit Cheese',
-      description: 'Un délicieux petit cheese offert',
-      icon: 'fast-food',
-      image: require('../../assets/images/burgers/burgerClassic.png'), // Image du produit
-      color: '#FFD700',
-      gradient: ['#FFD700', '#FFA500'],
-      value: 8.50, // Prix du petit cheese
-      type: 'product'
-    },
-    {
       id: 'livraison-offerte',
-      points: 3,
+      points: POINTS_PER_REWARD,
       title: 'Livraison Offerte',
       description: 'Frais de livraison gratuits',
       icon: 'bicycle',
@@ -49,7 +40,31 @@ export const LoyaltyProvider = ({ children }) => {
       value: 0, // Valeur variable selon les frais de livraison
       type: 'delivery'
     },
+    {
+      id: 'petit-cheese',
+      points: POINTS_PER_REWARD,
+      title: 'Petit Cheese',
+      description: 'Un délicieux petit cheese offert',
+      icon: 'fast-food',
+      image: require('../../assets/images/burgers/burgerClassic.png'),
+      color: '#FFD700',
+      gradient: ['#FFD700', '#FFA500'],
+      value: 8.50, // Prix du petit cheese
+      type: 'product'
+    },
   ];
+
+  // Déterminer la prochaine récompense dans la rotation
+  // Ordre: Livraison → Petit Cheese → Livraison → Petit Cheese...
+  const getNextRewardInRotation = () => {
+    const confirmedRewards = (userProfile?.usedRewards || []).filter(r => r.orderId);
+    const rewardCount = confirmedRewards.length;
+
+    // Si nombre pair de récompenses utilisées → prochaine = livraison (index 0)
+    // Si nombre impair → prochaine = petit cheese (index 1)
+    const nextIndex = rewardCount % 2;
+    return rewards[nextIndex];
+  };
 
   // Calculer les données de fidélité à partir des commandes
   const calculateLoyaltyData = () => {
@@ -96,13 +111,20 @@ export const LoyaltyProvider = ({ children }) => {
     console.log('Points utilisés:', usedPoints);
     console.log('Points actuels:', currentPoints);
     console.log('Points actuels arrondis:', parseFloat(currentPoints.toFixed(2)));
+    console.log('Récompenses confirmées:', rewardCount);
+    console.log('Prochaine récompense:', nextReward?.title, '(index:', nextRewardIndex, ')');
 
-    // Déterminer le prochain objectif
-    const nextRewardAt = currentPoints >= 3 ? 5 :
-                         currentPoints >= 2 ? 3 : 2;
+    // Le prochain objectif est toujours 3 points (POINTS_PER_REWARD)
+    const nextRewardAt = POINTS_PER_REWARD;
 
-    // Calculer les récompenses disponibles (utiliser les points avec décimales)
-    const availableRewards = rewards.filter(reward => currentPoints >= reward.points);
+    // Déterminer la prochaine récompense dans la rotation
+    const confirmedRewards = (userProfile?.usedRewards || []).filter(r => r.orderId);
+    const rewardCount = confirmedRewards.length;
+    const nextRewardIndex = rewardCount % 2; // 0 = livraison, 1 = petit cheese
+    const nextReward = rewards[nextRewardIndex];
+
+    // La seule récompense disponible est celle dans la rotation actuelle
+    const availableRewards = currentPoints >= POINTS_PER_REWARD ? [nextReward] : [];
 
     return {
       currentPoints: Math.max(0, parseFloat(currentPoints.toFixed(2))),
@@ -110,7 +132,11 @@ export const LoyaltyProvider = ({ children }) => {
       nextRewardAt,
       usedRewards: userProfile.usedRewards || [],
       availableRewards,
-      earnedPoints: parseFloat(earnedPoints.toFixed(2))
+      earnedPoints: parseFloat(earnedPoints.toFixed(2)),
+      // Infos sur la rotation des récompenses
+      nextReward,
+      nextRewardIndex,
+      rewardsClaimedCount: rewardCount
     };
   };
 
@@ -121,35 +147,43 @@ export const LoyaltyProvider = ({ children }) => {
   }, [orders, userProfile, user]);
 
   // Obtenir les récompenses disponibles pour le panier
+  // Seule la prochaine récompense dans la rotation est disponible
   const getAvailableRewardsForCart = (cartTotal = 0, isDelivery = false) => {
     const loyalty = calculateLoyaltyData();
     const availableRewards = [];
 
-    rewards.forEach(reward => {
-      if (loyalty.currentPoints >= reward.points) {
-        let canUse = true;
-        let discountValue = 0;
+    // Vérifier si l'utilisateur a assez de points
+    if (loyalty.currentPoints < POINTS_PER_REWARD) {
+      return availableRewards;
+    }
 
-        switch (reward.type) {
-          case 'product':
-            discountValue = reward.value;
-            break;
-          case 'delivery':
-            // Seulement pour les livraisons
-            canUse = isDelivery;
-            discountValue = 0; // Sera calculé selon les frais de livraison
-            break;
-        }
+    // Obtenir la prochaine récompense dans la rotation
+    const confirmedRewards = (userProfile?.usedRewards || []).filter(r => r.orderId);
+    const rewardCount = confirmedRewards.length;
+    const nextRewardIndex = rewardCount % 2;
+    const nextReward = rewards[nextRewardIndex];
 
-        if (canUse) {
-          availableRewards.push({
-            ...reward,
-            discountValue,
-            available: true
-          });
-        }
-      }
-    });
+    let canUse = true;
+    let discountValue = 0;
+
+    switch (nextReward.type) {
+      case 'product':
+        discountValue = nextReward.value;
+        break;
+      case 'delivery':
+        // Seulement pour les livraisons
+        canUse = isDelivery;
+        discountValue = 0; // Sera calculé selon les frais de livraison
+        break;
+    }
+
+    if (canUse) {
+      availableRewards.push({
+        ...nextReward,
+        discountValue,
+        available: true
+      });
+    }
 
     return availableRewards;
   };
@@ -308,10 +342,12 @@ export const LoyaltyProvider = ({ children }) => {
     // Data
     userLoyaltyData,
     rewards,
+    POINTS_PER_REWARD,
 
     // Functions
     calculateLoyaltyData,
     getAvailableRewardsForCart,
+    getNextRewardInRotation,
     useReward,
     cancelRewardUsage,
     confirmRewardUsage,
