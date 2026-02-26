@@ -42,11 +42,11 @@ export default function AddProductModal({ visible, onClose, onAddProduct }) {
       required: false,
       maxSelections: 1,
       options: [
-        { id: 'cocacola', name: 'Coca-Cola', price: 1.50 },
-        { id: 'cocacola-cherry', name: 'Coca-Cola Cherry', price: 1.50 },
-        { id: 'fanta-fruit-dragon', name: 'Fanta Fruit du Dragon', price: 1.50 },
-        { id: 'sprite', name: 'Sprite', price: 1.50 },
-        { id: 'eau-plate', name: 'Eau plate', price: 1.50 },
+        { id: 'cocacola', name: 'Coca-Cola', price: 2.00 },
+        { id: 'cocacola-cherry', name: 'Coca-Cola Cherry', price: 2.00 },
+        { id: 'fanta-fruit-dragon', name: 'Fanta Fruit du Dragon', price: 2.00 },
+        { id: 'sprite', name: 'Sprite', price: 2.00 },
+        { id: 'eau-plate', name: 'Eau plate', price: 2.00 },
       ]
     }
   });

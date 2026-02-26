@@ -1,20 +1,26 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { doc, setDoc, onSnapshot, getDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../../config/firebase';
+
+const FIRESTORE_DOC = 'settings/restaurant_status';
 
 class RestaurantStatusService {
   constructor() {
     this.storageKey = '@restaurant_status';
     this.scheduleKey = '@restaurant_schedule';
     this.overrideKey = '@restaurant_override';
+    this.firestoreUnsubscribe = null;
+    this.isClientMode = false; // true = lecture seule depuis Firestore, jamais d'écriture
 
-    // Horaires par défaut (format 24h) - Alignés avec l'affichage client
+    // Horaires par défaut (format 24h) - Service journée 11h-18h + soirée 18h-01h55
     this.defaultSchedule = {
-      monday: { open: '18:00', close: '01:55', enabled: true },
-      tuesday: { open: '18:00', close: '01:55', enabled: true },
-      wednesday: { open: '18:00', close: '01:55', enabled: true },
-      thursday: { open: '18:00', close: '01:55', enabled: true },
-      friday: { open: '18:00', close: '01:55', enabled: true },
-      saturday: { open: '18:00', close: '01:55', enabled: true },
-      sunday: { open: '18:00', close: '01:55', enabled: true }
+      monday: { open: '11:00', close: '01:55', enabled: true },
+      tuesday: { open: '11:00', close: '01:55', enabled: true },
+      wednesday: { open: '11:00', close: '01:55', enabled: true },
+      thursday: { open: '11:00', close: '01:55', enabled: true },
+      friday: { open: '11:00', close: '01:55', enabled: true },
+      saturday: { open: '11:00', close: '01:55', enabled: true },
+      sunday: { open: '11:00', close: '01:55', enabled: true }
     };
 
     this.statusListeners = [];
@@ -29,12 +35,18 @@ class RestaurantStatusService {
 
       // Charger les horaires personnalisés ou utiliser les défauts
       const schedule = await this.getSchedule();
-      if (!schedule) {
+      if (!schedule || schedule.monday?.open === '18:00') {
+        // Migrer vers les nouveaux horaires 11h-01h55
         await this.setSchedule(this.defaultSchedule);
       }
 
       // Calculer le statut initial
-      await this.updateStatus();
+      const status = await this.updateStatus();
+
+      // Synchroniser le statut initial vers Firestore
+      if (status) {
+        await this.syncStatusToFirestore(status);
+      }
 
       // Démarrer le monitoring automatique (vérification toutes les minutes)
       this.startAutoMonitoring();
@@ -110,6 +122,8 @@ class RestaurantStatusService {
       if (hasChanged) {
         console.log(`🏪 Statut restaurant changé: ${newStatus.isOpen ? 'OUVERT' : 'FERMÉ'} (${newStatus.mode})`);
         this.notifyListeners(newStatus, previousStatus);
+        // Synchroniser vers Firestore pour que les clients le voient
+        await this.syncStatusToFirestore(newStatus);
       }
 
       return newStatus;
@@ -223,13 +237,37 @@ class RestaurantStatusService {
         return this.currentStatus;
       }
 
+      // En mode client, lire UNIQUEMENT depuis Firestore (jamais calculer/écrire)
+      if (this.isClientMode) {
+        try {
+          const docRef = doc(db, 'settings', 'restaurant_status');
+          const snapshot = await getDoc(docRef);
+          if (snapshot.exists()) {
+            const data = snapshot.data();
+            this.currentStatus = {
+              isOpen: data.isOpen,
+              mode: data.mode,
+              reason: data.reason,
+              lastUpdated: data.lastUpdated?.toDate?.()?.toISOString() || new Date().toISOString(),
+              nextChange: data.nextChange || null
+            };
+            return this.currentStatus;
+          }
+        } catch (firestoreError) {
+          console.error('❌ Client: Erreur lecture Firestore:', firestoreError);
+        }
+        // Firestore indisponible côté client → fermé par sécurité
+        return { isOpen: false, mode: 'error', reason: 'Impossible de vérifier le statut' };
+      }
+
+      // Mode admin : fallback AsyncStorage puis calcul
       const statusJson = await AsyncStorage.getItem(this.storageKey);
       if (statusJson) {
         this.currentStatus = JSON.parse(statusJson);
         return this.currentStatus;
       }
 
-      // Première utilisation, calculer le statut
+      // Première utilisation admin, calculer le statut
       return await this.updateStatus();
     } catch (error) {
       console.error('❌ Erreur récupération statut:', error);
@@ -277,6 +315,59 @@ class RestaurantStatusService {
     } catch (error) {
       console.error('❌ Erreur récupération override:', error);
       return null;
+    }
+  }
+
+  // Synchroniser le statut vers Firestore (appelé côté admin)
+  async syncStatusToFirestore(status) {
+    try {
+      const docRef = doc(db, 'settings', 'restaurant_status');
+      await setDoc(docRef, {
+        isOpen: status.isOpen,
+        mode: status.mode,
+        reason: status.reason,
+        lastUpdated: serverTimestamp(),
+        nextChange: status.nextChange || null
+      });
+      console.log('☁️ Statut synchronisé vers Firestore:', status.isOpen ? 'OUVERT' : 'FERMÉ');
+    } catch (error) {
+      console.error('❌ Erreur sync Firestore:', error);
+    }
+  }
+
+  // Écouter le statut depuis Firestore en temps réel (côté client)
+  subscribeToFirestoreStatus() {
+    try {
+      // Éviter les doublons de listeners
+      if (this.firestoreUnsubscribe) {
+        this.firestoreUnsubscribe();
+        this.firestoreUnsubscribe = null;
+      }
+      const docRef = doc(db, 'settings', 'restaurant_status');
+      this.firestoreUnsubscribe = onSnapshot(docRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          const newStatus = {
+            isOpen: data.isOpen,
+            mode: data.mode,
+            reason: data.reason,
+            lastUpdated: data.lastUpdated?.toDate?.()?.toISOString() || new Date().toISOString(),
+            nextChange: data.nextChange || null
+          };
+
+          const previousStatus = this.currentStatus;
+          this.currentStatus = newStatus;
+
+          console.log('☁️ Statut Firestore reçu:', newStatus.isOpen ? 'OUVERT' : 'FERMÉ', `(${newStatus.mode})`);
+          this.notifyListeners(newStatus, previousStatus);
+        }
+      }, (error) => {
+        console.error('❌ Erreur listener Firestore statut:', error);
+      });
+
+      console.log('🔄 Écoute Firestore du statut restaurant activée');
+    } catch (error) {
+      console.error('❌ Erreur setup listener Firestore:', error);
     }
   }
 
@@ -376,11 +467,49 @@ class RestaurantStatusService {
     return null;
   }
 
+  // Initialisation côté client (lecture seule depuis Firestore, jamais d'écriture)
+  async initializeClient() {
+    try {
+      console.log('🏪 Initialisation client du service de statut restaurant');
+      this.isClientMode = true; // IMPORTANT : empêche le client d'écrire dans Firestore
+
+      // Lire le statut actuel depuis Firestore (lecture unique)
+      const docRef = doc(db, 'settings', 'restaurant_status');
+      const snapshot = await getDoc(docRef);
+
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        this.currentStatus = {
+          isOpen: data.isOpen,
+          mode: data.mode,
+          reason: data.reason,
+          lastUpdated: data.lastUpdated?.toDate?.()?.toISOString() || new Date().toISOString(),
+          nextChange: data.nextChange || null
+        };
+        console.log('☁️ Client: Statut initial Firestore:', this.currentStatus.isOpen ? 'OUVERT' : 'FERMÉ');
+      }
+
+      // Écouter les mises à jour en temps réel depuis Firestore
+      this.subscribeToFirestoreStatus();
+
+      console.log('✅ Service de statut restaurant initialisé (mode client)');
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Erreur initialisation client statut:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
   // Nettoyage
   cleanup() {
     this.stopAutoMonitoring();
+    if (this.firestoreUnsubscribe) {
+      this.firestoreUnsubscribe();
+      this.firestoreUnsubscribe = null;
+    }
     this.statusListeners = [];
     this.currentStatus = null;
+    this.isClientMode = false;
     console.log('🧹 Service de statut restaurant nettoyé');
   }
 }

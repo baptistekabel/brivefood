@@ -46,6 +46,7 @@ export const ProductCategory = {
   BURGER: 'burger',
   TACOS: 'tacos',
   SANDWICH_AMERICAIN: 'sandwich_americain',
+  SANDWICH_COMPOSE: 'sandwich_compose',
   MENU_KIDS: 'menu_kids',
   TEX_MEX: 'tex_mex',
   FRITES_GARNIES: 'frites_garnies',
@@ -55,7 +56,8 @@ export const ProductCategory = {
   BRUNCH: 'brunch',
   BOWLS: 'bowls',
   DESSERTS: 'desserts',
-  BOISSONS: 'boissons'
+  BOISSONS: 'boissons',
+  PIZZDWICH: 'pizzdwich'
 };
 
 // Types pour les notifications

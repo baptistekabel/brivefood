@@ -67,6 +67,12 @@ const categoryInfo = {
     color: '#F97316',
     gradient: ['#F97316', '#FB923C'],
   },
+  [ProductCategory.SANDWICH_COMPOSE]: {
+    name: 'Compose ton Sandwich',
+    emoji: '🥖',
+    color: '#D97706',
+    gradient: ['#D97706', '#F59E0B'],
+  },
   [ProductCategory.MENU_KIDS]: {
     name: 'Menu Kids',
     emoji: '🧒',
@@ -108,6 +114,12 @@ const categoryInfo = {
     emoji: '🥣',
     color: '#8B5CF6',
     gradient: ['#8B5CF6', '#A78BFA'],
+  },
+  [ProductCategory.PIZZDWICH]: {
+    name: 'Pizzdwich',
+    emoji: '🫓',
+    color: '#E11D48',
+    gradient: ['#E11D48', '#F43F5E'],
   },
 };
 

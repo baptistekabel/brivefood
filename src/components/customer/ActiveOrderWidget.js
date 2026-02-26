@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { colors, typography, spacing, borderRadius } from '../../constants/theme';
 import { useActiveOrder } from '../../context/ActiveOrderContext';
@@ -157,8 +157,11 @@ export default function ActiveOrderWidget({ onPress }) {
     previousStatusRef.current = currentStatus;
   }, [activeOrder?.status, activeOrder?.id, triggerRatingRequest]);
 
-  // Cacher la miniature si pas de commande active
-  if (!activeOrder) {
+  // Cacher si pas de commande active ou si on est en mode admin/livreur
+  const pathname = usePathname();
+  const isAdminOrDelivery = pathname?.startsWith('/(admin)') || pathname?.startsWith('/(delivery)') || pathname?.includes('/admin/') || pathname?.includes('/delivery/');
+
+  if (!activeOrder || isAdminOrDelivery) {
     return null;
   }
 

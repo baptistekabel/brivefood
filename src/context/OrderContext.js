@@ -1,5 +1,8 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { isEveningOnlyCategory, isEveningOnlyProduct, isEveningServiceAvailable } from '../utils/eveningRestriction';
+import { useProducts } from './ProductsContext';
+import { ProductCategory } from '../types';
 
 const OrderContext = createContext();
 const FIRST_ORDER_KEY = '@brivefood_has_ordered';
@@ -13,6 +16,7 @@ export const useOrder = () => {
 };
 
 export const OrderProvider = ({ children }) => {
+  const { getProductsByCategory, products } = useProducts();
   const [orderType, setOrderType] = useState(null); // 'takeaway', 'delivery', 'dine-in'
   const [orderItems, setOrderItems] = useState([]);
   const [orderTotal, setOrderTotal] = useState(0);
@@ -20,6 +24,7 @@ export const OrderProvider = ({ children }) => {
   const [selectedFreeDessert, setSelectedFreeDessert] = useState(null);
   const [isFirstOrder, setIsFirstOrder] = useState(false);
   const [firstOrderCheeseAdded, setFirstOrderCheeseAdded] = useState(false);
+  const firstOrderCheeseAddedRef = useRef(false);
 
   // Vérifier si c'est la première commande au chargement
   useEffect(() => {
@@ -45,6 +50,29 @@ export const OrderProvider = ({ children }) => {
     }
   };
 
+  // Options de sauces récupérées depuis Firebase (via un produit burger qui a les sauces)
+  const sauceOptions = useMemo(() => {
+    // Chercher un produit burger dans Firebase qui contient les options de sauce
+    const burgers = getProductsByCategory(ProductCategory.BURGER) || [];
+    const burgerWithSauce = burgers.find(p => p.customizationOptions?.sauce);
+    if (burgerWithSauce?.customizationOptions?.sauce) {
+      return { sauce: burgerWithSauce.customizationOptions.sauce };
+    }
+    // Fallback minimal si Firebase n'a pas encore chargé
+    return {
+      sauce: {
+        title: 'Sauce',
+        required: true,
+        multiSelect: true,
+        minSelection: 1,
+        maxSelection: 2,
+        options: [
+          { id: 'pas-sauce', name: 'Pas de sauce', price: 0.00 },
+        ]
+      }
+    };
+  }, [products]);
+
   // Petit cheese offert pour la première commande
   const getFirstOrderCheese = () => ({
     id: 'first-order-cheese-offert',
@@ -53,12 +81,16 @@ export const OrderProvider = ({ children }) => {
     price: 0,
     originalPrice: 6.50,
     isFirstOrderGift: true,
+    customizable: true,
+    customizationOptions: sauceOptions,
     image: require('../../assets/images/nouveauxProduits/Cheese.png')
   });
 
   // Ajouter automatiquement le petit cheese si première commande
   const addFirstOrderCheese = () => {
-    if (isFirstOrder && !firstOrderCheeseAdded) {
+    if (isFirstOrder && !firstOrderCheeseAddedRef.current) {
+      firstOrderCheeseAddedRef.current = true;
+      setFirstOrderCheeseAdded(true);
       const cheese = getFirstOrderCheese();
       setOrderItems(prevItems => {
         const alreadyHasCheese = prevItems.some(item => item.id === 'first-order-cheese-offert');
@@ -67,13 +99,13 @@ export const OrderProvider = ({ children }) => {
         }
         return prevItems;
       });
-      setFirstOrderCheeseAdded(true);
     }
   };
 
   // Supprimer le cheese offert si le panier est vidé
   const removeFirstOrderCheese = () => {
     setOrderItems(prevItems => prevItems.filter(item => item.id !== 'first-order-cheese-offert'));
+    firstOrderCheeseAddedRef.current = false;
     setFirstOrderCheeseAdded(false);
   };
 
@@ -110,6 +142,17 @@ export const OrderProvider = ({ children }) => {
   };
 
   const addItem = (item) => {
+    // Bloquer si le produit est marqué indisponible
+    if (item.available === false) return;
+
+    // Vérification de la restriction horaire
+    if (!isEveningServiceAvailable()) {
+      if (isEveningOnlyProduct(item.id) || (item.category && isEveningOnlyCategory(item.category))) {
+        console.warn('Produit non disponible avant 18h:', item.name);
+        return;
+      }
+    }
+
     setOrderItems(prevItems => {
       const existingItem = prevItems.find(i => i.id === item.id);
 
@@ -126,7 +169,8 @@ export const OrderProvider = ({ children }) => {
 
       // Si c'est la première commande et qu'on n'a pas encore ajouté le cheese offert
       // et que c'est le premier article ajouté au panier
-      if (isFirstOrder && !firstOrderCheeseAdded && !prevItems.some(i => i.id === 'first-order-cheese-offert')) {
+      if (isFirstOrder && !firstOrderCheeseAddedRef.current && !prevItems.some(i => i.id === 'first-order-cheese-offert')) {
+        firstOrderCheeseAddedRef.current = true;
         const cheese = getFirstOrderCheese();
         newItems = [...newItems, { ...cheese, quantity: 1 }];
         setFirstOrderCheeseAdded(true);
@@ -168,6 +212,17 @@ export const OrderProvider = ({ children }) => {
       prevItems.map(item =>
         item.id === itemId
           ? { ...item, comment: comment }
+          : item
+      )
+    );
+  };
+
+  // Mettre à jour les personnalisations d'un item dans le panier
+  const updateItemCustomizations = (itemId, customizations) => {
+    setOrderItems(prevItems =>
+      prevItems.map(item =>
+        item.id === itemId
+          ? { ...item, customizations }
           : item
       )
     );
@@ -216,45 +271,24 @@ export const OrderProvider = ({ children }) => {
     return shouldApplyPromo;
   };
 
-  // Liste des desserts disponibles pour la promo
+  // Liste des desserts disponibles pour la promo — récupérés depuis Firebase
   const getAvailableDesserts = () => {
-    return [
-      {
-        id: 'tiramisu-nutella',
-        name: 'Tiramisu Nutella spéculoos',
-        description: 'Fait maison',
-        value: 4.50,
-        image: require('../../assets/images/desserts/tiramisuNutellaSpeculos.png')
-      },
-      {
-        id: 'tiramisu-oreo',
-        name: 'Tiramisu Oréo',
-        description: 'Fait Maison',
-        value: 4.50,
-        image: require('../../assets/images/desserts/tiramisuOreo.png')
-      },
-      {
-        id: 'tiramisu-speculoos',
-        name: 'Tiramisu Speculoos Caramel',
-        description: 'Fait Maison',
-        value: 4.50,
-        image: require('../../assets/images/desserts/tiramisuSpeculosCaramel.png')
-      },
-      {
-        id: 'tarte-daim',
-        name: 'Tarte Daim',
-        description: 'Tarte Daim',
-        value: 4.50,
-        image: require('../../assets/images/desserts/tarteDaim.png')
-      },
-      {
-        id: 'gaufre',
-        name: 'Gaufre',
-        description: 'Parfum au choix',
-        value: 6.90,
-        image: require('../../assets/images/desserts/Gaufre.png')
-      }
-    ];
+    const allDesserts = getProductsByCategory(ProductCategory.DESSERTS) || [];
+    if (allDesserts.length > 0) {
+      // Exclure les milkshakes (trop chers pour la promo) et prendre les desserts <= 6.90€
+      return allDesserts
+        .filter(d => d.price <= 6.90)
+        .slice(0, 6)
+        .map(d => ({
+          id: d.id,
+          name: d.name,
+          description: d.description || '',
+          value: d.price,
+          image: d.image || null
+        }));
+    }
+    // Fallback vide si Firebase n'a pas chargé
+    return [];
   };
 
   // Fonction pour sélectionner le dessert gratuit
@@ -306,7 +340,9 @@ export const OrderProvider = ({ children }) => {
     isFirstOrder,
     markAsHasOrdered,
     getFirstOrderCheese,
-    firstOrderCheeseAdded
+    firstOrderCheeseAdded,
+    updateItemCustomizations,
+    sauceOptions
   };
 
   return (

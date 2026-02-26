@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,13 @@ import {
   RefreshControl,
   Dimensions,
   TouchableOpacity,
+  TextInput,
+  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, router } from 'expo-router';
+import { Stack, router, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { colors, typography, spacing, borderRadius } from '../../src/constants/theme';
 import { OrderStatus, OrderMode } from '../../src/types';
@@ -19,10 +21,26 @@ import { useOrders } from '../../src/context/OrdersContext';
 import { isTablet, isLandscape, getResponsiveStyles } from '../../src/utils/deviceUtils';
 import orderRatingService from '../../src/services/orderRatingService';
 
+// Code PIN pour accéder aux statistiques
+const ACCESS_PIN = '6286';
+
 export default function AdminAnalytics() {
   const { orders, refreshOrders } = useOrders();
   const [refreshing, setRefreshing] = useState(false);
   const [ratingStats, setRatingStats] = useState(null);
+
+  // Protection par code PIN
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [pinCode, setPinCode] = useState('');
+
+  // Réinitialiser le code PIN à chaque fois qu'on entre sur la page
+  useFocusEffect(
+    useCallback(() => {
+      // Quand l'écran gagne le focus, on réinitialise
+      setIsUnlocked(false);
+      setPinCode('');
+    }, [])
+  );
 
   // Détection de l'appareil et orientation
   const isTabletDevice = isTablet();
@@ -59,6 +77,127 @@ export default function AdminAnalytics() {
     setRefreshing(false);
   };
 
+  // Vérifier le code PIN
+  const handlePinSubmit = () => {
+    if (pinCode === ACCESS_PIN) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setIsUnlocked(true);
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Code incorrect', 'Le code PIN est incorrect. Veuillez réessayer.');
+      setPinCode('');
+    }
+  };
+
+  // Ajouter un chiffre au PIN
+  const handlePinDigit = (digit: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (pinCode.length < 4) {
+      const newPin = pinCode + digit;
+      setPinCode(newPin);
+
+      // Vérifier automatiquement quand 4 chiffres sont entrés
+      if (newPin.length === 4) {
+        if (newPin === ACCESS_PIN) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          setIsUnlocked(true);
+        } else {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          Alert.alert('Code incorrect', 'Le code PIN est incorrect. Veuillez réessayer.');
+          setPinCode('');
+        }
+      }
+    }
+  };
+
+  // Supprimer le dernier chiffre
+  const handlePinDelete = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setPinCode(pinCode.slice(0, -1));
+  };
+
+  // Rendu de l'écran de saisie du PIN
+  const renderPinScreen = () => (
+    <LinearGradient
+      colors={['#000000', '#1a1a1a', '#000000']}
+      style={styles.container}
+    >
+      <StatusBar style="light" />
+      <View style={styles.pinContainer}>
+        <View style={styles.pinHeader}>
+          <Ionicons name="lock-closed" size={48} color="#FF6B35" />
+          <Text style={styles.pinTitle}>Accès protégé</Text>
+          <Text style={styles.pinSubtitle}>Entrez le code PIN à 4 chiffres</Text>
+        </View>
+
+        {/* Indicateurs de PIN */}
+        <View style={styles.pinDots}>
+          {[0, 1, 2, 3].map((index) => (
+            <View
+              key={index}
+              style={[
+                styles.pinDot,
+                pinCode.length > index && styles.pinDotFilled
+              ]}
+            />
+          ))}
+        </View>
+
+        {/* Clavier numérique */}
+        <View style={styles.pinKeypad}>
+          {[
+            ['1', '2', '3'],
+            ['4', '5', '6'],
+            ['7', '8', '9'],
+            ['', '0', 'delete']
+          ].map((row, rowIndex) => (
+            <View key={rowIndex} style={styles.pinKeypadRow}>
+              {row.map((digit, digitIndex) => (
+                <TouchableOpacity
+                  key={digitIndex}
+                  style={[
+                    styles.pinKey,
+                    digit === '' && styles.pinKeyEmpty
+                  ]}
+                  onPress={() => {
+                    if (digit === 'delete') {
+                      handlePinDelete();
+                    } else if (digit !== '') {
+                      handlePinDigit(digit);
+                    }
+                  }}
+                  disabled={digit === ''}
+                >
+                  {digit === 'delete' ? (
+                    <Ionicons name="backspace-outline" size={28} color="#FFF" />
+                  ) : (
+                    <Text style={styles.pinKeyText}>{digit}</Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          ))}
+        </View>
+
+        {/* Bouton retour */}
+        <TouchableOpacity
+          style={styles.pinBackButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.back();
+          }}
+        >
+          <Ionicons name="arrow-back" size={20} color="#999" />
+          <Text style={styles.pinBackText}>Retour</Text>
+        </TouchableOpacity>
+      </View>
+    </LinearGradient>
+  );
+
+  // Si non déverrouillé, afficher l'écran PIN
+  if (!isUnlocked) {
+    return renderPinScreen();
+  }
 
   // Filtrer les commandes d'aujourd'hui uniquement (journée commence à 4h du matin)
   const getTodayOrders = () => {
@@ -532,6 +671,85 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+
+  // Styles pour l'écran PIN
+  pinContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  pinHeader: {
+    alignItems: 'center',
+    marginBottom: spacing['2xl'],
+  },
+  pinTitle: {
+    fontSize: typography.fontSizes['2xl'],
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.white,
+    marginTop: spacing.lg,
+  },
+  pinSubtitle: {
+    fontSize: typography.fontSizes.base,
+    color: '#999',
+    marginTop: spacing.sm,
+  },
+  pinDots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: spacing['2xl'],
+    gap: spacing.lg,
+  },
+  pinDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#FF6B35',
+    backgroundColor: 'transparent',
+  },
+  pinDotFilled: {
+    backgroundColor: '#FF6B35',
+  },
+  pinKeypad: {
+    width: '100%',
+    maxWidth: 300,
+  },
+  pinKeypadRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+    gap: spacing.lg,
+  },
+  pinKey: {
+    width: 75,
+    height: 75,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pinKeyEmpty: {
+    backgroundColor: 'transparent',
+  },
+  pinKeyText: {
+    fontSize: 32,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.white,
+  },
+  pinBackButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing['2xl'],
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+  },
+  pinBackText: {
+    fontSize: typography.fontSizes.base,
+    color: '#999',
+  },
+
   header: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing['3xl'],

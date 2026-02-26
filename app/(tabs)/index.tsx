@@ -34,7 +34,7 @@ export default function HomeScreen() {
   const { triggerRatingRequest } = useOrderRating();
   const animatedValue = useRef(new Animated.Value(0)).current;
   const pulseValue = useRef(new Animated.Value(1)).current;
-  const [isRestaurantOpen, setIsRestaurantOpen] = useState(true);
+  const [isRestaurantOpen, setIsRestaurantOpen] = useState(null);
   const [restaurantStatus, setRestaurantStatus] = useState(null);
   
   // Animations d'apparition pour les éléments
@@ -149,17 +149,8 @@ export default function HomeScreen() {
       setIsRestaurantOpen(status.isOpen);
     } catch (error) {
       console.error('Erreur récupération statut restaurant:', error);
-      // Fallback sur l'ancien calcul en cas d'erreur
-      const now = new Date();
-      const currentHour = now.getHours();
-      const currentMinutes = now.getMinutes();
-      const currentTime = currentHour * 60 + currentMinutes;
-
-      const openTime = 18 * 60; // 18h00 en minutes
-      const closeTime = 1 * 60 + 55; // 1h55 en minutes
-
-      const isOpen = currentTime >= openTime || currentTime <= closeTime;
-      setIsRestaurantOpen(isOpen);
+      // En cas d'erreur, on affiche fermé par sécurité (ne jamais calculer côté client)
+      setIsRestaurantOpen(false);
     }
   };
 
@@ -193,10 +184,15 @@ export default function HomeScreen() {
   };
 
   useEffect(() => {
-    // Initialiser le service de statut restaurant
+    // Initialiser le service côté client (lecture seule depuis Firestore)
     const initializeStatusService = async () => {
-      await restaurantStatusService.initialize();
-      await checkRestaurantStatus();
+      await restaurantStatusService.initializeClient();
+      // Le statut est déjà chargé depuis Firestore par initializeClient
+      const status = restaurantStatusService.currentStatus;
+      if (status) {
+        setRestaurantStatus(status);
+        setIsRestaurantOpen(status.isOpen);
+      }
     };
 
     // Animation continue en arrière-plan
@@ -352,22 +348,17 @@ export default function HomeScreen() {
 
     const promoInterval = startPromoCarousel();
 
-    // Initialiser le service et écouter les changements
+    // Initialiser le service et écouter les changements via Firestore
     initializeStatusService();
 
-    // Écouter les changements de statut en temps réel
+    // Écouter les notifications de changement de statut
     const removeListener = restaurantStatusService.addStatusListener((newStatus, previousStatus) => {
       console.log('🔔 Client: Notification statut reçue:', newStatus);
-      console.log('🔔 Client: Statut précédent:', previousStatus);
       setRestaurantStatus(newStatus);
       setIsRestaurantOpen(newStatus.isOpen);
     });
 
-    // Vérifier le statut toutes les minutes comme backup
-    const statusInterval = setInterval(checkRestaurantStatus, 60000);
-
     return () => {
-      clearInterval(statusInterval);
       clearInterval(promoInterval);
       removeListener();
     };
@@ -563,25 +554,20 @@ export default function HomeScreen() {
             />
             
             {/* Statut du restaurant */}
-            <View style={[styles.statusWrapper, isRestaurantOpen ? styles.statusWrapperOpen : styles.statusWrapperClosed]}>
+            <View style={styles.statusWrapper}>
               <View style={styles.statusContainer}>
-                <Animated.View 
+                <Animated.View
                   style={[
                     styles.statusIndicator,
-                    { 
+                    {
                       backgroundColor: isRestaurantOpen ? '#10B981' : '#EF4444',
                       transform: [{ scale: pulseValue }]
                     }
                   ]}
                 />
-                <View style={styles.statusTextContainer}>
-                  <Text style={styles.statusText}>
-                    {isRestaurantOpen ? 'Ouvert maintenant' : 'Fermé'}
-                  </Text>
-                  <Text style={styles.statusSubtext}>
-                    {restaurantStatus ? restaurantStatus.reason : (isRestaurantOpen ? 'Horaires: 18h00 - 1h55' : 'Ouvre à 18h00')}
-                  </Text>
-                </View>
+                <Text style={styles.statusText}>
+                  {isRestaurantOpen ? 'Ouvert' : 'Fermé'}
+                </Text>
               </View>
             </View>
           </View>
@@ -592,11 +578,6 @@ export default function HomeScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {!isRestaurantOpen && (
-            <Text style={styles.statusTimeUntil}>
-              Ouvre {getTimeUntilOpen()}
-            </Text>
-          )}
 
         {/* Carrousel des Offres Spéciales avec défilement fluide et manuel */}
         <Animated.View
@@ -957,53 +938,37 @@ const styles = StyleSheet.create({
   },
   statusWrapper: {
     position: 'absolute',
+    bottom: -24,
     left: 0,
     right: 0,
     alignItems: 'center',
+    justifyContent: 'center',
     zIndex: 10,
-  },
-  statusWrapperClosed: {
-    bottom: -20,
-  },
-  statusWrapperOpen: {
-    bottom: -10,
   },
   statusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.95)',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm + 2,
     borderRadius: borderRadius.full,
     elevation: 4,
     shadowColor: colors.neutral.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
-    alignSelf: 'center',
-    minWidth: 0,
-    flexShrink: 1,
-    marginBottom: spacing.sm,
   },
   statusIndicator: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: spacing.sm,
-  },
-  statusText: {
-    fontSize: typography.fontSizes.base,
-    fontFamily: typography.fontFamily.bold,
-    color: colors.neutral.gray800,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     marginRight: spacing.xs,
   },
-  statusTextContainer: {
-    flexShrink: 1,
-  },
-  statusSubtext: {
+  statusText: {
     fontSize: typography.fontSizes.sm,
-    fontFamily: typography.fontFamily.medium,
-    color: colors.neutral.gray600,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.gray800,
   },
   statusTimeUntil: {
     fontSize: typography.fontSizes.sm,

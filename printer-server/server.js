@@ -142,45 +142,72 @@ app.post('/print/order', async (req, res) => {
     printer.bold(true);
     printer.println(`CLIENT: ${order.customerName || 'Anonyme'}`);
     printer.bold(false);
+    // Téléphone pour tous les types de commande
     if (order.phone) {
       printer.bold(true);
       printer.println(`TEL: ${order.phone}`);
       printer.bold(false);
     }
-    
+
     printer.drawLine();
-    
+
     // Mode de commande
     printer.alignCenter();
     printer.bold(true);
     const modeText = getModeText(order.mode);
     printer.println(`📦 ${modeText.toUpperCase()}`);
     printer.bold(false);
-    
+
     if (order.mode === 'DELIVERY' && order.address) {
       printer.bold(true);
       printer.println(`📍 ${order.address}`);
       printer.bold(false);
     }
-    
+
     printer.drawLine();
-    
+
     // Articles à préparer
     printer.alignCenter();
     printer.bold(true);
     printer.println('🍴 ARTICLES À PRÉPARER');
     printer.bold(false);
     printer.alignLeft();
-    
+
     if (order.items && order.items.length > 0) {
       order.items.forEach(item => {
         printer.newLine();
         printer.bold(true);
-        printer.println(`${item.quantity}x ${item.name}`);
+        printer.println(`${item.quantity}x ${item.name} — ${(item.price || 0).toFixed(2)}€`);
         printer.bold(false);
-        printer.println(`Taille: ${item.size}`);
+        if (item.size) {
+          printer.println(`Taille: ${item.size}`);
+        }
+        // Personnalisations détaillées — item.options contient toutes les options (frites, viandes, boissons, sauces, etc.)
         if (item.options) {
-          printer.println(`Options: ${item.options}`);
+          const optionsList = item.options.split(' | ');
+          optionsList.forEach(opt => {
+            printer.println(`  > ${opt}`);
+          });
+        }
+        // Toujours vérifier customizations en complément (au cas où options est incomplet ou absent)
+        if (item.customizations && item.customizationOptions) {
+          const alreadyShown = item.options || '';
+          Object.entries(item.customizations).forEach(([catKey, selectedOpts]) => {
+            const cat = item.customizationOptions[catKey];
+            if (cat && selectedOpts && selectedOpts.length > 0) {
+              selectedOpts.forEach(optId => {
+                const opt = cat.options ? cat.options.find(o => o.id === optId) : null;
+                if (opt && !alreadyShown.includes(opt.name)) {
+                  printer.println(`  > ${cat.title || catKey}: ${opt.name}${opt.price > 0 ? ` (+${opt.price.toFixed(2)}€)` : ''}`);
+                }
+              });
+            }
+          });
+        }
+        if (item.comment) {
+          printer.bold(true);
+          printer.println(`NOTE: ${item.comment}`);
+          printer.bold(false);
         }
         printer.drawLine();
       });

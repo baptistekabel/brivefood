@@ -270,24 +270,59 @@ export default function AdminOrderDetails() {
         </Text>
       </View>
 
-      {item.customizations && Object.keys(item.customizations).length > 0 && (
+      {/* Afficher toutes les options choisies (frites, sauces, boissons, viandes, etc.) */}
+      {(item.options || (item.customizations && Object.keys(item.customizations).length > 0)) && (
         <View style={styles.customizations}>
           <Text style={[
             styles.customizationsTitle,
             isTabletDevice && isLandscapeMode && styles.customizationsTitleTablet
           ]}>
-            Personnalisations:
+            Options:
           </Text>
-          {Object.entries(item.customizations || {})
-            .sort(([a], [b]) => a.localeCompare(b)) // Tri alphabétique des clés pour ordre stable
-            .map(([key, value], customIndex) => (
-            <Text key={`${key}-${customIndex}`} style={[
+          {/* Afficher depuis item.options (format texte) */}
+          {item.options && item.options.split(' | ').map((opt, optIndex) => (
+            <Text key={`opt-${optIndex}`} style={[
               styles.customizationItem,
               isTabletDevice && isLandscapeMode && styles.customizationItemTablet
             ]}>
-              • {key}: {Array.isArray(value) ? value.join(', ') : value}
+              • {opt}
             </Text>
           ))}
+          {/* Compléter avec customizations si des options manquent */}
+          {item.customizations && item.customizationOptions && Object.entries(item.customizations)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([key, value], customIndex) => {
+              const categoryOptions = item.customizationOptions?.[key];
+              const categoryTitle = categoryOptions?.title || key;
+              const selectedValues = Array.isArray(value) ? value : [value];
+              const alreadyShown = item.options || '';
+
+              return selectedValues
+                .filter(val => {
+                  if (categoryOptions?.options) {
+                    const option = categoryOptions.options.find(opt => opt.id === val);
+                    return option && !alreadyShown.includes(option.name);
+                  }
+                  return !alreadyShown.includes(val);
+                })
+                .map((val, valIndex) => {
+                  let displayText = val;
+                  if (categoryOptions?.options) {
+                    const option = categoryOptions.options.find(opt => opt.id === val);
+                    if (option) {
+                      displayText = option.price > 0 ? `${option.name} (+${option.price.toFixed(2)}€)` : option.name;
+                    }
+                  }
+                  return (
+                    <Text key={`custom-${key}-${customIndex}-${valIndex}`} style={[
+                      styles.customizationItem,
+                      isTabletDevice && isLandscapeMode && styles.customizationItemTablet
+                    ]}>
+                      • {categoryTitle}: {displayText}
+                    </Text>
+                  );
+                });
+            })}
         </View>
       )}
 
@@ -327,7 +362,7 @@ export default function AdminOrderDetails() {
           : 'Client BriveFood'),
         firstName: order.firstName,
         lastName: order.lastName,
-        phone: order.phone || '',
+        phone: order.phone || order.phoneNumber || '',
         mode: order.mode?.toUpperCase() || 'TAKEOUT',
         address: order.address || '',
         items: order.items || [],
@@ -453,7 +488,7 @@ export default function AdminOrderDetails() {
         customerName: order.customerName || order.firstName && order.lastName
           ? `${order.firstName} ${order.lastName}`
           : 'Client BriveFood',
-        phone: order.phone || '',
+        phone: order.phone || order.phoneNumber || '',
         mode: order.mode?.toUpperCase() || 'TAKEOUT',
         address: order.address || '',
         items: order.items || [],
@@ -539,7 +574,7 @@ export default function AdminOrderDetails() {
         customerName: order.customerName || order.firstName && order.lastName
           ? `${order.firstName} ${order.lastName}`
           : 'Client BriveFood',
-        phone: order.phone || '',
+        phone: order.phone || order.phoneNumber || '',
         mode: order.mode?.toUpperCase() || 'TAKEOUT',
         address: order.address || '',
         items: order.items || [],
@@ -676,21 +711,19 @@ export default function AdminOrderDetails() {
                 {order.customerName || 'Client BriveFood'}
               </Text>
 
-              {order.phone && (
-                <Text style={[
-                  styles.customerPhone,
-                  isTabletDevice && isLandscapeMode && styles.customerPhoneTablet
-                ]}>
-                  📞 {order.phone}
-                </Text>
-              )}
+              <Text style={[
+                styles.customerPhone,
+                isTabletDevice && isLandscapeMode && styles.customerPhoneTablet
+              ]}>
+                📞 {order.phone || 'Non renseigné'}
+              </Text>
 
-              {order.address && (
+              {order.mode === OrderMode.DELIVERY && (
                 <Text style={[
                   styles.customerAddress,
                   isTabletDevice && isLandscapeMode && styles.customerAddressTablet
                 ]}>
-                  📍 {order.address}
+                  📍 {order.address || 'Adresse non renseignée'}
                 </Text>
               )}
             </View>
@@ -848,14 +881,35 @@ export default function AdminOrderDetails() {
                             {preview.items.map((item, index) => (
                               <View key={index} style={styles.ticketPreviewItem}>
                                 <Text style={styles.ticketPreviewBold}>{item.quantity}x {item.name}</Text>
-                                <Text style={styles.ticketPreviewLine}>Taille: {item.size}</Text>
-                                {item.customizations && Object.keys(item.customizations).length > 0 && (
-                                  <Text style={styles.ticketPreviewLine}>
-                                    Options: {Object.entries(item.customizations)
-                                      .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`)
-                                      .join(', ')}
+                                {item.size && <Text style={styles.ticketPreviewLine}>Taille: {item.size}</Text>}
+                                {/* Afficher toutes les options (frites, viandes, boissons, sauces, etc.) */}
+                                {item.options && item.options.split(' | ').map((opt, optIdx) => (
+                                  <Text key={`opt-${optIdx}`} style={styles.ticketPreviewLine}>
+                                    → {opt}
                                   </Text>
-                                )}
+                                ))}
+                                {/* Compléter avec customizations si nécessaire */}
+                                {item.customizations && item.customizationOptions && (() => {
+                                  const alreadyShown = item.options || '';
+                                  return Object.entries(item.customizations).map(([key, value]) => {
+                                    const catOpts = item.customizationOptions?.[key];
+                                    const title = catOpts?.title || key;
+                                    const vals = Array.isArray(value) ? value : [value];
+                                    return vals
+                                      .filter(v => {
+                                        const opt = catOpts?.options?.find(o => o.id === v);
+                                        return opt && !alreadyShown.includes(opt.name);
+                                      })
+                                      .map((v, vIdx) => {
+                                        const opt = catOpts?.options?.find(o => o.id === v);
+                                        return (
+                                          <Text key={`custom-${key}-${vIdx}`} style={styles.ticketPreviewLine}>
+                                            → {title}: {opt ? opt.name : v}
+                                          </Text>
+                                        );
+                                      });
+                                  });
+                                })()}
                                 {item.comment && (
                                   <Text style={styles.ticketPreviewLine}>Note: {item.comment}</Text>
                                 )}

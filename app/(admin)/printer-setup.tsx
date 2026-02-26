@@ -40,6 +40,7 @@ const getPrinterService = () => ({
     return epsonBluetoothService.printTest();
   },
   setAutoPrintEnabled: async (enabled: boolean) => epsonBluetoothService.setAutoPrintEnabled(enabled),
+  setSimulationMode: async (enabled: boolean) => epsonBluetoothService.setSimulationMode(enabled),
   connectToWiFi: async (ipAddress: string) => {
     await epsonBluetoothService.waitForInit();
     return epsonBluetoothService.connectToWiFiPrinter(ipAddress);
@@ -55,6 +56,7 @@ interface PrinterStatus {
   } | null;
   autoPrintEnabled: boolean;
   moduleAvailable: boolean;
+  simulationMode?: boolean;
 }
 
 export default function PrinterSetup() {
@@ -65,6 +67,7 @@ export default function PrinterSetup() {
 
   const [printerStatus, setPrinterStatus] = useState<PrinterStatus | null>(null);
   const [autoPrintEnabled, setAutoPrintEnabled] = useState(true);
+  const [simulationMode, setSimulationMode] = useState(false);
 
   // WiFi mode
   const [showWiFiInput, setShowWiFiInput] = useState(false);
@@ -91,11 +94,13 @@ export default function PrinterSetup() {
       const status = service.getStatus();
       setPrinterStatus(status);
       setAutoPrintEnabled(status.autoPrintEnabled);
+      setSimulationMode(status.simulationMode || false);
 
       console.log('📋 Statut imprimante:', status);
       console.log('   - isConnected:', status.isConnected);
       console.log('   - device:', status.device?.name);
       console.log('   - moduleAvailable:', status.moduleAvailable);
+      console.log('   - simulationMode:', status.simulationMode);
 
     } catch (error) {
       console.error('Erreur chargement statut:', error);
@@ -166,6 +171,22 @@ export default function PrinterSetup() {
     setAutoPrintEnabled(value);
     await getPrinterService().setAutoPrintEnabled(value);
     setPrinterStatus(getPrinterService().getStatus());
+  };
+
+  // Toggle mode simulation
+  const toggleSimulationMode = async (value: boolean) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setSimulationMode(value);
+    await getPrinterService().setSimulationMode(value);
+    setPrinterStatus(getPrinterService().getStatus());
+
+    if (value) {
+      Alert.alert(
+        '🎮 Mode Simulation activé',
+        'Les impressions seront simulées dans la console.\n\nAucune vraie impression ne sera effectuée.\n\nParfait pour tester sans imprimante !',
+        [{ text: 'Compris' }]
+      );
+    }
   };
 
   // Vérifier/Demander la permission réseau local
@@ -305,25 +326,9 @@ export default function PrinterSetup() {
       console.log('📶 Connexion WiFi à:', ip);
       console.log('📱 Platform:', Platform.OS);
 
-      // Test de connectivité d'abord
-      const connectivityTest = await testNetworkConnectivity(ip);
-      console.log('🔍 Résultat test connectivité:', connectivityTest);
-
-      if (!connectivityTest.reachable) {
-        Alert.alert(
-          'Imprimante inaccessible',
-          `Impossible de joindre ${ip}\n\n${connectivityTest.error}\n\nVérifiez:\n• L'IP est correcte\n• L'imprimante est allumée\n• L'iPad et l'imprimante sont sur le même réseau WiFi\n• La permission réseau local est activée`,
-          [
-            { text: 'OK' },
-            {
-              text: 'Vérifier permission',
-              onPress: checkNetworkPermission
-            }
-          ]
-        );
-        setIsConnecting(false);
-        return;
-      }
+      // NOTE: On ne fait plus de test HTTP car l'imprimante Epson ne répond pas sur le port 80
+      // Le SDK Epson se connecte directement sur le port 9100 (TCP raw)
+      // Si la connexion échoue, le SDK donnera le vrai message d'erreur
 
       const result = await getPrinterService().connectToWiFi(ip);
 
@@ -365,7 +370,7 @@ export default function PrinterSetup() {
           </View>
           <View style={styles.statusInfo}>
             <Text style={styles.statusTitle}>
-              {isConnected ? 'Imprimante connectee' : 'Non connectee'}
+              {isConnected ? 'Imprimante connectée' : 'Non connectée'}
             </Text>
             {device && (
               <>
@@ -403,7 +408,7 @@ export default function PrinterSetup() {
             >
               <Ionicons name="unlink" size={18} color="#EF4444" />
               <Text style={[styles.actionButtonText, { color: '#EF4444' }]}>
-                Deconnecter
+                Déconnecter
               </Text>
             </TouchableOpacity>
           </View>
@@ -432,6 +437,41 @@ export default function PrinterSetup() {
           thumbColor="#FFF"
         />
       </View>
+    </View>
+  );
+
+  // Render option mode simulation
+  const renderSimulationModeOption = () => (
+    <View style={[styles.optionCard, simulationMode && styles.simulationCard]}>
+      <View style={styles.optionRow}>
+        <View style={styles.optionInfo}>
+          <Ionicons name="game-controller" size={24} color={simulationMode ? '#8B5CF6' : '#666'} />
+          <View style={styles.optionTexts}>
+            <Text style={[styles.optionTitle, simulationMode && { color: '#8B5CF6' }]}>
+              🎮 Mode Simulation
+            </Text>
+            <Text style={styles.optionSubtitle}>
+              {simulationMode
+                ? 'Actif - Les impressions sont simulées dans la console'
+                : 'Tester sans imprimante réelle'}
+            </Text>
+          </View>
+        </View>
+        <Switch
+          value={simulationMode}
+          onValueChange={toggleSimulationMode}
+          trackColor={{ false: '#E5E5E5', true: '#8B5CF6' }}
+          thumbColor="#FFF"
+        />
+      </View>
+      {simulationMode && (
+        <View style={styles.simulationWarning}>
+          <Ionicons name="information-circle" size={16} color="#8B5CF6" />
+          <Text style={styles.simulationWarningText}>
+            Aucune vraie impression - Voir les logs dans la console
+          </Text>
+        </View>
+      )}
     </View>
   );
 
@@ -496,7 +536,7 @@ export default function PrinterSetup() {
           <View style={styles.wifiMainText}>
             <Text style={styles.wifiMainTitle}>Connexion WiFi</Text>
             <Text style={styles.wifiMainSubtitle}>
-              Connectez votre imprimante via le reseau
+              Connectez votre imprimante via le réseau
             </Text>
           </View>
         </LinearGradient>
@@ -506,7 +546,7 @@ export default function PrinterSetup() {
       <View style={styles.infoBox}>
         <Ionicons name="information-circle" size={20} color="#4CAF50" />
         <Text style={styles.infoText}>
-          L'imprimante et l'iPhone doivent etre sur le meme reseau WiFi.
+          L'imprimante et l'iPhone doivent être sur le même réseau WiFi.
         </Text>
       </View>
     </View>
@@ -521,7 +561,7 @@ export default function PrinterSetup() {
         <View style={styles.instructionBox}>
           <Ionicons name="wifi" size={24} color="#4CAF50" />
           <Text style={styles.instructionText}>
-            <Text style={styles.instructionBold}>Connexion reseau{'\n\n'}</Text>
+            <Text style={styles.instructionBold}>Connexion réseau{'\n\n'}</Text>
             Trouvez l'adresse IP de l'imprimante dans TM Utility ou imprimez un ticket de statut.
           </Text>
         </View>
@@ -590,7 +630,7 @@ export default function PrinterSetup() {
             <Text style={styles.stepNumberText}>1</Text>
           </View>
           <Text style={styles.stepText}>
-            Allumez votre imprimante et connectez-la au meme reseau WiFi
+            Allumez votre imprimante et connectez-la au même réseau WiFi
           </Text>
         </View>
 
@@ -838,6 +878,27 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.sm,
     color: '#666',
     marginTop: 2,
+  },
+
+  // Simulation Mode
+  simulationCard: {
+    backgroundColor: '#F5F3FF',
+    borderWidth: 2,
+    borderColor: '#8B5CF6',
+  },
+  simulationWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5E5',
+    gap: spacing.xs,
+  },
+  simulationWarningText: {
+    fontSize: typography.fontSizes.xs,
+    color: '#8B5CF6',
+    flex: 1,
   },
 
   // Devices Section

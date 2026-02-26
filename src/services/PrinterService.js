@@ -63,22 +63,48 @@ class PrinterService {
         
         <div><strong>CLIENT: ${order.customerName}</strong></div>
         ${order.phone ? `<div><strong>TEL: ${order.phone}</strong></div>` : ''}
-        
+
         <div class="line"></div>
-        
+
         <div class="center"><strong>📦 ${this.getModeText(order.mode).toUpperCase()}</strong></div>
-        ${order.mode === 'DELIVERY' && order.address ? `<div><strong>📍 ${order.address}</strong></div>` : ''}
-        
+        ${order.mode === 'DELIVERY' && order.address ? `<div class="center"><strong>📍 ${order.address}</strong></div>` : ''}
+
         <div class="line"></div>
-        
+
         <div class="center"><strong>🍴 ARTICLES À PRÉPARER</strong></div>
-        ${order.items.map(item => `
+        ${order.items.map(item => {
+          let customizationHTML = '';
+          if (item.options) {
+            // item.options contient toutes les personnalisations (frites, sauces, boissons, viandes, etc.)
+            const optionsList = item.options.split(' | ');
+            optionsList.forEach(opt => {
+              customizationHTML += `<div>&nbsp;&nbsp;→ <strong>${opt}</strong></div>`;
+            });
+          }
+          // Toujours vérifier customizations en complément (au cas où options est incomplet)
+          if (item.customizations && item.customizationOptions) {
+            const alreadyShown = item.options || '';
+            Object.entries(item.customizations).forEach(([catKey, selectedOpts]) => {
+              const cat = item.customizationOptions[catKey];
+              if (cat && selectedOpts && selectedOpts.length > 0) {
+                selectedOpts.forEach(optId => {
+                  const opt = cat.options?.find(o => o.id === optId);
+                  if (opt && !alreadyShown.includes(opt.name)) {
+                    customizationHTML += `<div>&nbsp;&nbsp;→ <strong>${cat.title || catKey}: ${opt.name}${opt.price > 0 ? ` (+${opt.price.toFixed(2)}€)` : ''}</strong></div>`;
+                  }
+                });
+              }
+            });
+          }
+          return `
           <div style="margin: 8px 0; border: 1px solid #000; padding: 4px;">
-            <div class="bold">${item.quantity}x ${item.name}</div>
-            <div>Taille: ${item.size}</div>
-            ${item.options ? `<div>Options: ${item.options}</div>` : ''}
+            <div class="bold">${item.quantity}x ${item.name} — ${(item.price || 0).toFixed(2)}€</div>
+            ${item.size ? `<div>Taille: ${item.size}</div>` : ''}
+            ${customizationHTML}
+            ${item.comment ? `<div><strong>NOTE: ${item.comment}</strong></div>` : ''}
           </div>
-        `).join('')}
+        `;
+        }).join('')}
         
         <div class="line"></div>
         
@@ -360,6 +386,7 @@ class PrinterService {
       { type: 'style', bold: false }
     );
 
+    // Téléphone pour tous les types de commande
     if (order.phone) {
       commands.push(
         { type: 'style', bold: true },
@@ -400,13 +427,43 @@ class PrinterService {
         commands.push(
           { type: 'text', data: '\n' },
           { type: 'style', bold: true },
-          { type: 'text', data: `${item.quantity}x ${item.name}\n` },
-          { type: 'style', bold: false },
-          { type: 'text', data: `Taille: ${item.size}\n` }
+          { type: 'text', data: `${item.quantity}x ${item.name} — ${(item.price || 0).toFixed(2)}€\n` },
+          { type: 'style', bold: false }
         );
 
+        if (item.size) {
+          commands.push({ type: 'text', data: `Taille: ${item.size}\n` });
+        }
+
+        // Personnalisations détaillées — item.options contient toutes les options
         if (item.options) {
-          commands.push({ type: 'text', data: `Options: ${item.options}\n` });
+          const optionsList = item.options.split(' | ');
+          optionsList.forEach(opt => {
+            commands.push({ type: 'text', data: `  > ${opt}\n` });
+          });
+        }
+        // Toujours vérifier customizations en complément
+        if (item.customizations && item.customizationOptions) {
+          const alreadyShown = item.options || '';
+          Object.entries(item.customizations).forEach(([catKey, selectedOpts]) => {
+            const cat = item.customizationOptions[catKey];
+            if (cat && selectedOpts && selectedOpts.length > 0) {
+              selectedOpts.forEach(optId => {
+                const opt = cat.options?.find(o => o.id === optId);
+                if (opt && !alreadyShown.includes(opt.name)) {
+                  commands.push({ type: 'text', data: `  > ${cat.title || catKey}: ${opt.name}${opt.price > 0 ? ` (+${opt.price.toFixed(2)}€)` : ''}\n` });
+                }
+              });
+            }
+          });
+        }
+
+        if (item.comment) {
+          commands.push(
+            { type: 'style', bold: true },
+            { type: 'text', data: `NOTE: ${item.comment}\n` },
+            { type: 'style', bold: false }
+          );
         }
 
         commands.push({ type: 'text', data: '--------------------------------\n' });
@@ -484,6 +541,7 @@ class PrinterService {
     data += `CLIENT: ${order.customerName || 'Anonyme'}\n`;
     data += '\x1B\x45\x00';
 
+    // Téléphone pour tous les types de commande
     if (order.phone) {
       data += '\x1B\x45\x01';
       data += `TEL: ${order.phone}\n`;
@@ -497,6 +555,13 @@ class PrinterService {
     data += `📦 ${this.getModeText(order.mode).toUpperCase()}\n`;
     data += '\x1B\x45\x00'; // Normal
 
+    // Adresse (centrée) pour livraison
+    if (order.mode === 'DELIVERY' && order.address) {
+      data += '\x1B\x45\x01'; // Bold
+      data += `📍 ${order.address}\n`;
+      data += '\x1B\x45\x00'; // Normal
+    }
+
     // Articles
     data += '================================\n';
     data += '🍴 ARTICLES À PRÉPARER\n';
@@ -506,13 +571,42 @@ class PrinterService {
       order.items.forEach(item => {
         data += '\n';
         data += '\x1B\x45\x01'; // Bold
-        data += `${item.quantity}x ${item.name}\n`;
+        data += `${item.quantity}x ${item.name} — ${(item.price || 0).toFixed(2)}€\n`;
         data += '\x1B\x45\x00'; // Normal
-        data += `Taille: ${item.size}\n`;
 
-        if (item.options) {
-          data += `Options: ${item.options}\n`;
+        if (item.size) {
+          data += `Taille: ${item.size}\n`;
         }
+
+        // Personnalisations détaillées — item.options est toujours complet
+        if (item.options) {
+          const optionsList = item.options.split(' | ');
+          optionsList.forEach(opt => {
+            data += `  > ${opt}\n`;
+          });
+        }
+        // Toujours vérifier customizations en complément
+        if (item.customizations && item.customizationOptions) {
+          const alreadyShown = item.options || '';
+          Object.entries(item.customizations).forEach(([catKey, selectedOpts]) => {
+            const cat = item.customizationOptions[catKey];
+            if (cat && selectedOpts && selectedOpts.length > 0) {
+              selectedOpts.forEach(optId => {
+                const opt = cat.options?.find(o => o.id === optId);
+                if (opt && !alreadyShown.includes(opt.name)) {
+                  data += `  > ${cat.title || catKey}: ${opt.name}${opt.price > 0 ? ` (+${opt.price.toFixed(2)}€)` : ''}\n`;
+                }
+              });
+            }
+          });
+        }
+
+        if (item.comment) {
+          data += '\x1B\x45\x01';
+          data += `NOTE: ${item.comment}\n`;
+          data += '\x1B\x45\x00';
+        }
+
         data += '--------------------------------\n';
       });
     }

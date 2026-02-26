@@ -1,9 +1,13 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { View } from 'react-native';
+import { View, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { colors, typography } from '../../src/constants/theme';
+
+// Hauteurs adaptées par plateforme
+const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 85 : 65;
+const TAB_BAR_PADDING_BOTTOM = Platform.OS === 'ios' ? 25 : 10;
 
 export default function TabLayout() {
   return (
@@ -20,8 +24,8 @@ export default function TabLayout() {
           shadowOffset: { width: 0, height: -8 },
           shadowOpacity: 0.2,
           shadowRadius: 20,
-          height: 85,
-          paddingBottom: 25,
+          height: TAB_BAR_HEIGHT,
+          paddingBottom: TAB_BAR_PADDING_BOTTOM,
           paddingTop: 8,
           borderTopLeftRadius: 25,
           borderTopRightRadius: 25,
@@ -50,7 +54,7 @@ export default function TabLayout() {
               left: 0,
               right: 0,
               top: 0,
-              height: 85,
+              height: TAB_BAR_HEIGHT,
               borderTopLeftRadius: 25,
               borderTopRightRadius: 25,
               backgroundColor: 'rgba(255, 255, 255, 0.95)',

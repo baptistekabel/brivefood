@@ -194,7 +194,7 @@ export default function OrderDetailsScreen() {
   };
 
   const renderOrderItem = ({ item }) => {
-    // Formater les personnalisations si disponibles
+    // Formater les personnalisations complémentaires (même si item.options existe, vérifier customizations en complément)
     const formattedCustomizations = item.customizations && item.customizationOptions
       ? formatCustomizations(item.customizations, item.customizationOptions)
       : null;
@@ -236,19 +236,32 @@ export default function OrderDetailsScreen() {
           </View>
         </View>
 
-        {formattedCustomizations && formattedCustomizations.length > 0 && (
+        {/* Afficher toutes les options choisies (frites, viandes, boissons, sauces, etc.) */}
+        {(item.options || (formattedCustomizations && formattedCustomizations.length > 0)) && (
           <View style={styles.customizations}>
             <Text style={styles.customizationsTitle}>Personnalisations :</Text>
-            {formattedCustomizations.map((category, index) => (
-              <View key={index} style={styles.customizationCategory}>
-                <Text style={styles.customizationCategoryTitle}>{category.categoryTitle} :</Text>
-                {category.items.map((itemName, itemIndex) => (
-                  <Text key={itemIndex} style={styles.customizationText}>
-                    • {itemName}
-                  </Text>
-                ))}
-              </View>
+            {/* Options formatées */}
+            {item.options && item.options.split(' | ').map((opt, index) => (
+              <Text key={`opt-${index}`} style={styles.customizationText}>
+                • {opt}
+              </Text>
             ))}
+            {/* Compléter avec customizations si des options ne sont pas dans item.options */}
+            {formattedCustomizations && formattedCustomizations.length > 0 && formattedCustomizations.map((category, index) => {
+              const alreadyShown = item.options || '';
+              const filteredItems = category.items.filter(itemName => !alreadyShown.includes(itemName.split(' (+')[0]));
+              if (filteredItems.length === 0) return null;
+              return (
+                <View key={`custom-${index}`} style={styles.customizationCategory}>
+                  <Text style={styles.customizationCategoryTitle}>{category.categoryTitle} :</Text>
+                  {filteredItems.map((itemName, itemIndex) => (
+                    <Text key={itemIndex} style={styles.customizationText}>
+                      • {itemName}
+                    </Text>
+                  ))}
+                </View>
+              );
+            })}
           </View>
         )}
       </View>

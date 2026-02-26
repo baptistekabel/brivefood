@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
+  ScrollView,
   TouchableOpacity,
   Alert,
   RefreshControl,
+  Switch,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -42,6 +44,7 @@ export default function ProductsManager() {
   const [showCustomizationModal, setShowCustomizationModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const flatListRef = useRef(null);
 
   // Détection de l'appareil et orientation
   const isTabletDevice = isTablet();
@@ -100,6 +103,15 @@ export default function ProductsManager() {
     }
   };
 
+  const handleToggleAvailability = async (product) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const newAvailable = product.available === false ? true : false;
+    const result = await updateProduct(product.id, { available: newAvailable });
+    if (!result.success) {
+      Alert.alert('Erreur', 'Impossible de modifier la disponibilité');
+    }
+  };
+
   const handleDeleteProduct = (product) => {
     Alert.alert(
       'Supprimer le produit',
@@ -133,13 +145,14 @@ export default function ProductsManager() {
   const renderCategoryFilter = () => (
     <View style={styles.filterContainer}>
       <Text style={styles.filterTitle}>Filtrer par catégorie</Text>
-      <FlatList
-        data={[{ key: 'all', name: 'Toutes' }, ...Object.entries(categoryInfo).map(([key, info]) => ({ key, name: info.name, emoji: info.emoji }))]}
+      <ScrollView
         horizontal
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(item) => item.key}
-        renderItem={({ item }) => (
+        showsHorizontalScrollIndicator={true}
+        contentContainerStyle={styles.filterList}
+      >
+        {[{ key: 'all', name: 'Toutes' }, ...Object.entries(categoryInfo).map(([key, info]) => ({ key, name: info.name, emoji: info.emoji }))].map((item) => (
           <TouchableOpacity
+            key={item.key}
             style={[
               styles.filterChip,
               selectedCategory === item.key && styles.filterChipActive
@@ -147,6 +160,7 @@ export default function ProductsManager() {
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setSelectedCategory(item.key);
+              flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
             }}
           >
             {item.emoji && <Text style={styles.filterEmoji}>{item.emoji}</Text>}
@@ -157,14 +171,21 @@ export default function ProductsManager() {
               {item.name}
             </Text>
           </TouchableOpacity>
-        )}
-        contentContainerStyle={styles.filterList}
-      />
+        ))}
+      </ScrollView>
     </View>
   );
 
-  const renderProductItem = ({ item: product }) => (
-    <View style={styles.productCard}>
+  const renderProductItem = ({ item: product }) => {
+    const isUnavailable = product.available === false;
+
+    return (
+    <View style={[styles.productCard, isUnavailable && { opacity: 0.55 }]}>
+      {isUnavailable && (
+        <View style={styles.unavailableBadge}>
+          <Text style={styles.unavailableBadgeText}>INDISPONIBLE</Text>
+        </View>
+      )}
       <View style={styles.productHeader}>
         {/* Image du produit - key force le re-render quand l'image change */}
         <ProductImage
@@ -191,6 +212,14 @@ export default function ProductsManager() {
           >
             <Ionicons name="pencil-outline" size={20} color={colors.primary.main} />
           </TouchableOpacity>
+
+          <Switch
+            value={!isUnavailable}
+            onValueChange={() => handleToggleAvailability(product)}
+            trackColor={{ false: '#EF4444', true: '#22C55E' }}
+            thumbColor={colors.neutral.white}
+            style={styles.availabilitySwitch}
+          />
 
           <TouchableOpacity
             style={styles.deleteButton}
@@ -237,7 +266,7 @@ export default function ProductsManager() {
                 <Text style={styles.editCustomizationText}>Modifier</Text>
               </TouchableOpacity>
             </View>
-            {Object.entries(product.customizationOptions).map(([key, customization]) => (
+            {Object.entries(product.customizationOptions).filter(([, v]) => v != null).map(([key, customization]) => (
               <View key={key} style={styles.customizationGroup}>
                 <Text style={styles.customizationGroupTitle}>
                   {customization.title}
@@ -284,6 +313,7 @@ export default function ProductsManager() {
       </View>
     </View>
   );
+  };
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
@@ -328,6 +358,7 @@ export default function ProductsManager() {
 
           {/* Liste des produits */}
           <FlatList
+            ref={flatListRef}
             data={filteredProducts}
             keyExtractor={(item) => `${item.id}-${item.updatedAt?.seconds || item.firebaseImageUrl || ''}`}
             extraData={filteredProducts}
@@ -534,7 +565,27 @@ const styles = StyleSheet.create({
   },
   productActions: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.xs,
+  },
+  availabilitySwitch: {
+    transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }],
+  },
+  unavailableBadge: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    backgroundColor: colors.status.error,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: borderRadius.sm,
+    zIndex: 10,
+  },
+  unavailableBadgeText: {
+    fontSize: typography.fontSizes.xs,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.white,
+    letterSpacing: 0.5,
   },
   editButton: {
     width: 36,

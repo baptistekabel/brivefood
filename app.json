@@ -2,7 +2,7 @@
   "expo": {
     "name": "Brive Food",
     "slug": "brivefood",
-    "version": "1.0.0",
+    "version": "1.0.6",
     "orientation": "default",
     "icon": "./assets/images/logoBrivefood.png",
     "scheme": "brivefoodapp",
@@ -12,7 +12,7 @@
       "supportsTablet": true,
       "requireFullScreen": false,
       "bundleIdentifier": "com.brivefood.app",
-      "buildNumber": "19",
+      "buildNumber": "22",
       "splash": {
         "image": "./assets/images/logoBrivefood.png",
         "resizeMode": "cover",
@@ -47,13 +47,12 @@
       }
     },
     "android": {
-      "versionCode": 18,
+      "versionCode": 23,
       "package": "com.brivefood.app",
+      "icon": "./assets/images/logoBrivefood.png",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#000000",
+        "foregroundImage": "./assets/images/logoBrivefood.png"
       },
       "splash": {
         "image": "./assets/images/logoBrivefood.png",

@@ -449,7 +449,21 @@ class BluetoothPrinterServiceV2 {
             ticket += `   Prix: ${(item.price * item.quantity).toFixed(2)} EUR\n`;
           }
 
-          if (item.options) {
+          if (item.customizations && item.customizationOptions && Object.keys(item.customizations).length > 0) {
+            Object.entries(item.customizations).forEach(([key, values]) => {
+              const category = item.customizationOptions[key];
+              if (category && values && values.length > 0) {
+                ticket += COMMANDS.BOLD_ON;
+                ticket += `   ${(category.title || key).toUpperCase()}:\n`;
+                ticket += COMMANDS.BOLD_OFF;
+                const selectedValues = Array.isArray(values) ? values : [values];
+                selectedValues.forEach(val => {
+                  const option = category.options?.find(o => o.id === val);
+                  ticket += `   > ${option ? option.name : val}\n`;
+                });
+              }
+            });
+          } else if (item.options) {
             ticket += `   ${item.options}\n`;
           }
 

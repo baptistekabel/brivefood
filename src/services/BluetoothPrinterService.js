@@ -839,6 +839,7 @@ class BluetoothPrinterService {
     commands += `Date: ${new Date().toLocaleString('fr-FR')}\n`;
     commands += `Client: ${order.customerName || 'Anonyme'}\n`;
 
+    // Téléphone pour tous les types de commande
     if (order.phone) {
       commands += `Tel: ${order.phone}\n`;
     }
@@ -866,10 +867,39 @@ class BluetoothPrinterService {
 
     if (order.items && order.items.length > 0) {
       order.items.forEach(item => {
-        commands += `\n${item.quantity}x ${item.name}\n`;
-        commands += `   Taille: ${item.size}\n`;
+        commands += `\n${item.quantity}x ${item.name} — ${(item.price || 0).toFixed(2)}€\n`;
+
+        if (item.size) {
+          commands += `   Taille: ${item.size}\n`;
+        }
+
+        // Personnalisations détaillées — item.options est prioritaire (contient toutes les options avec prix)
         if (item.options) {
-          commands += `   Options: ${item.options}\n`;
+          const optionsList = item.options.split(' | ');
+          optionsList.forEach(opt => {
+            commands += `   > ${opt}\n`;
+          });
+        }
+        // Vérifier customizations en complément (au cas où options est incomplet ou absent)
+        if (item.customizations && item.customizationOptions) {
+          const alreadyShown = item.options || '';
+          Object.entries(item.customizations).forEach(([catKey, selectedOpts]) => {
+            const cat = item.customizationOptions[catKey];
+            if (cat && selectedOpts && selectedOpts.length > 0) {
+              selectedOpts.forEach(optId => {
+                const opt = cat.options ? cat.options.find(o => o.id === optId) : null;
+                if (opt && !alreadyShown.includes(opt.name)) {
+                  commands += `   > ${cat.title || catKey}: ${opt.name}${opt.price > 0 ? ` (+${opt.price.toFixed(2)}€)` : ''}\n`;
+                }
+              });
+            }
+          });
+        }
+
+        if (item.comment) {
+          commands += ESC + 'E' + '1';
+          commands += `   NOTE: ${item.comment}\n`;
+          commands += ESC + 'E' + '0';
         }
       });
     }

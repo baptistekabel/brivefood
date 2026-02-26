@@ -184,6 +184,12 @@ export default function AdminTabLayout() {
           href: null, // Cache cet écran des tabs - accessible via les paramètres
         }}
       />
+      <Tabs.Screen
+        name="dashboard-backup"
+        options={{
+          href: null, // Cache cet écran des tabs
+        }}
+      />
       </Tabs>
     </AdminProtectedRoute>
   );

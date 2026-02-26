@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Modal,
   Keyboard,
   Linking,
+  Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -27,17 +28,21 @@ import { useOrders } from '../src/context/OrdersContext';
 import { useAuth } from '../src/context/AuthContext';
 import { useLoyalty } from '../src/context/LoyaltyContext';
 import { useActiveOrder } from '../src/context/ActiveOrderContext';
+import { useProducts } from '../src/context/ProductsContext';
 import notificationService from '../src/services/notificationService';
 import { registerCustomerForOrderNotifications } from '../src/services/customerNotificationService';
 import OrderConfirmationPopup from '../src/components/customer/OrderConfirmationPopup';
 import * as Notifications from 'expo-notifications';
 import { registerCustomerForBroadcast } from '../src/services/broadcastNotificationService';
+import restaurantStatusService from '../src/services/restaurantStatusService';
+import { isEveningServiceAvailable } from '../src/utils/eveningRestriction';
 
 export default function CartScreen() {
   const fontsLoaded = useFonts();
-  const { orderItems, removeItem, addItem, clearOrder, getPromoDetails, selectFreeDessert, getAvailableDesserts, markAsHasOrdered } = useOrder();
+  const { orderItems, removeItem, addItem, clearOrder, getPromoDetails, selectFreeDessert, getAvailableDesserts, markAsHasOrdered, updateItemCustomizations, sauceOptions } = useOrder();
   const { createOrder } = useOrders();
   const { user, userProfile } = useAuth();
+  const { getProductsByCategory } = useProducts();
   const {
     pendingOrder,
     showConfirmationPopup,
@@ -75,109 +80,20 @@ export default function CartScreen() {
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [showRewardsModal, setShowRewardsModal] = useState(false);
   const [selectedReward, setSelectedReward] = useState(null);
+  // Recommandations de boissons et desserts — récupérées directement depuis Firebase
+  const recommendedDrinks = useMemo(() => {
+    const allDrinks = getProductsByCategory(ProductCategory.BOISSONS);
+    // Prendre les populaires en priorité, sinon les 6 premières
+    const popular = allDrinks.filter(d => d.popular);
+    return (popular.length >= 4 ? popular : allDrinks).slice(0, 6);
+  }, [getProductsByCategory]);
 
-  // Recommandations de boissons et desserts
-  const recommendedDrinks = [
-    {
-      id: 'coca-cola-rec',
-      name: 'Coca-Cola',
-      description: '33 cl.',
-      price: 2.90,
-      category: ProductCategory.BOISSONS,
-      image: require('../assets/images/boissons/coca.png')
-    },
-    {
-      id: 'fanta-rec',
-      name: 'Fanta Orange',
-      description: '33 cl.',
-      price: 2.90,
-      category: ProductCategory.BOISSONS,
-      image: require('../assets/images/boissons/fanta.png')
-    },
-    {
-      id: 'eau-rec',
-      name: 'Eau Cristalline',
-      description: 'Taille au choix.',
-      price: 2.90,
-      category: ProductCategory.BOISSONS,
-      image: require('../assets/images/boissons/Cristaline.png')
-    },
-    {
-      id: 'sprite-rec',
-      name: 'Sprite',
-      description: '33 cl.',
-      price: 2.90,
-      category: ProductCategory.BOISSONS,
-      image: require('../assets/images/boissons/sprite.png')
-    },
-    {
-      id: 'orangina-rec',
-      name: 'Orangina',
-      description: '33 cl.',
-      price: 2.90,
-      category: ProductCategory.BOISSONS,
-      image: require('../assets/images/boissons/orangina.png')
-    },
-    {
-      id: 'ice-tea-rec',
-      name: 'Ice Tea Pêche',
-      description: '33 cl.',
-      price: 2.90,
-      category: ProductCategory.BOISSONS,
-      image: require('../assets/images/boissons/iceTeaPeachh.png')
-    }
-  ];
-
-  const recommendedDesserts = [
-    {
-      id: 'tiramisu-nutella-rec',
-      name: 'Tiramisu Nutella spéculoos',
-      description: 'Fait maison',
-      price: 4.50,
-      category: ProductCategory.DESSERTS,
-      image: require('../assets/images/desserts/tiramisuNutellaSpeculos.png')
-    },
-    {
-      id: 'tarte-daim-rec',
-      name: 'Tarte Daim',
-      description: 'Tarte Daim',
-      price: 4.50,
-      category: ProductCategory.DESSERTS,
-      image: require('../assets/images/desserts/tarteDaim.png')
-    },
-    {
-      id: 'milkshake-vanille-rec',
-      name: 'Milkshake Vanille',
-      description: 'Milkshake Vanille',
-      price: 6.90,
-      category: ProductCategory.DESSERTS,
-      image: require('../assets/images/desserts/MilkshakeVanille.png')
-    },
-    {
-      id: 'tiramisu-oreo-rec',
-      name: 'Tiramisu Oreo',
-      description: 'Fait maison',
-      price: 4.50,
-      category: ProductCategory.DESSERTS,
-      image: require('../assets/images/desserts/tiramisuOreo.png')
-    },
-    {
-      id: 'milkshake-fraise-rec',
-      name: 'Milkshake Fraise',
-      description: 'Milkshake Fraise',
-      price: 6.90,
-      category: ProductCategory.DESSERTS,
-      image: require('../assets/images/desserts/MilkshakeFraise.png')
-    },
-    {
-      id: 'gaufre-rec',
-      name: 'Gaufre',
-      description: 'Gaufre maison',
-      price: 4.50,
-      category: ProductCategory.DESSERTS,
-      image: require('../assets/images/desserts/Gaufre.png')
-    }
-  ];
+  const recommendedDesserts = useMemo(() => {
+    const allDesserts = getProductsByCategory(ProductCategory.DESSERTS);
+    // Prendre les populaires en priorité, sinon les 6 premiers
+    const popular = allDesserts.filter(d => d.popular);
+    return (popular.length >= 4 ? popular : allDesserts).slice(0, 6);
+  }, [getProductsByCategory]);
 
   // Vérifier si le modal de dessert doit s'ouvrir
   useEffect(() => {
@@ -187,12 +103,15 @@ export default function CartScreen() {
     }
   }, [orderItems]);
 
-  // Pre-fill phone number from user profile for delivery orders
+  // Pre-fill phone number from user profile for all order modes
   useEffect(() => {
-    if (userProfile?.phoneNumber && orderMode === OrderMode.DELIVERY && !phoneNumber) {
-      setPhoneNumber(userProfile.phoneNumber);
+    if (!phoneNumber) {
+      const profilePhone = userProfile?.phoneNumber || userProfile?.phone;
+      if (profilePhone) {
+        setPhoneNumber(profilePhone);
+      }
     }
-  }, [userProfile, orderMode]);
+  }, [userProfile]);
 
   const formatPhoneNumber = (text) => {
     // Supprimer tous les caractères non numériques
@@ -303,9 +222,10 @@ export default function CartScreen() {
 
   const canProceedToCheckout = () => {
     if (orderItems.length === 0) return false;
+    if (!phoneNumber.trim()) return false;
     if (orderMode === OrderMode.DELIVERY) {
+      if (!isEveningServiceAvailable()) return false;
       if (!deliveryAddress) return false;
-      if (!phoneNumber.trim()) return false;
       if (dynamicDeliveryFee === 0 && deliveryAddress) return false;
     }
     return true;
@@ -393,6 +313,23 @@ export default function CartScreen() {
     console.log('phoneNumber:', phoneNumber);
     console.log('dynamicDeliveryFee:', dynamicDeliveryFee);
 
+    // Vérifier si le restaurant est ouvert
+    try {
+      const status = await restaurantStatusService.getStatus();
+      if (status && !status.isOpen) {
+        console.log('BLOCKED: Restaurant is closed');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert(
+          'Restaurant fermé',
+          status.reason || 'Le restaurant est actuellement fermé. Veuillez réessayer plus tard.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+    } catch (e) {
+      console.error('Erreur vérification statut restaurant:', e);
+    }
+
     if (orderItems.length === 0) {
       console.log('BLOCKED: No items in cart');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -405,9 +342,10 @@ export default function CartScreen() {
       return;
     }
 
-    if (orderMode === OrderMode.DELIVERY && !phoneNumber.trim()) {
+    if (!phoneNumber.trim()) {
       console.log('BLOCKED: No phone number');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Téléphone requis', 'Veuillez saisir votre numéro de téléphone pour commander.');
       return;
     }
 
@@ -438,16 +376,17 @@ export default function CartScreen() {
           Object.entries(item.customizations).forEach(([categoryKey, selectedOptions]) => {
             const category = item.customizationOptions[categoryKey];
             if (category && selectedOptions && selectedOptions.length > 0) {
+              const categoryTitle = category.title || categoryKey;
               selectedOptions.forEach(optionId => {
                 const option = category.options?.find(opt => opt.id === optionId);
                 if (option) {
-                  optionsList.push(option.name + (option.price > 0 ? ` (+${option.price.toFixed(2)}€)` : ''));
+                  optionsList.push(`${categoryTitle}: ${option.name}${option.price > 0 ? ` (+${option.price.toFixed(2)}€)` : ''}`);
                 }
               });
             }
           });
           if (optionsList.length > 0) {
-            formattedOptions = optionsList.join(', ');
+            formattedOptions = optionsList.join(' | ');
           }
         }
 
@@ -473,7 +412,7 @@ export default function CartScreen() {
       address: deliveryAddress?.label || null,
       deliveryFee: getDeliveryFee(),
       paymentMethod: orderMode === OrderMode.DELIVERY ? paymentMethod : null,
-      phone: orderMode === OrderMode.DELIVERY ? phoneNumber : null
+      phone: phoneNumber || userProfile?.phoneNumber || userProfile?.phone || null
     };
 
     const result = await createOrder(orderData);
@@ -677,8 +616,40 @@ export default function CartScreen() {
     );
   };
 
+  // Toggle sauce pour le petit cheese offert
+  const toggleGiftCheeseSauce = (itemId, sauceId) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const item = orderItems.find(i => i.id === itemId);
+    const currentSauces = item?.customizations?.sauce || [];
+    const maxSelection = 2;
+
+    let newSauces;
+    if (currentSauces.includes(sauceId)) {
+      newSauces = currentSauces.filter(s => s !== sauceId);
+    } else {
+      if (sauceId === 'pas-sauce') {
+        newSauces = ['pas-sauce'];
+      } else {
+        newSauces = currentSauces.filter(s => s !== 'pas-sauce');
+        if (newSauces.length >= maxSelection) {
+          newSauces = [...newSauces.slice(1), sauceId];
+        } else {
+          newSauces = [...newSauces, sauceId];
+        }
+      }
+    }
+
+    updateItemCustomizations(itemId, {
+      ...(item?.customizations || {}),
+      sauce: newSauces
+    });
+  };
+
   const renderCartItem = ({ item }) => {
     const customizationDetails = formatCustomizations(item.customizations, item.customizationOptions);
+    const isGiftCheese = item.isFirstOrderGift === true;
+    const giftSauceOptions = isGiftCheese ? (item.customizationOptions?.sauce || sauceOptions?.sauce) : null;
+    const selectedGiftSauces = isGiftCheese ? (item.customizations?.sauce || []) : [];
 
     return (
       <View style={styles.cartItem}>
@@ -716,15 +687,46 @@ export default function CartScreen() {
           </View>
         </View>
 
-        {/* Section pleine largeur pour personnalisations */}
-        {customizationDetails && (
+        {/* Sélecteur de sauce pour le petit cheese offert */}
+        {isGiftCheese && giftSauceOptions && (
+          <View style={styles.giftSauceSection}>
+            <Text style={styles.giftSauceTitle}>
+              {selectedGiftSauces.length === 0 ? '⚠️ Choisissez votre sauce :' : 'Sauce :'}
+            </Text>
+            <View style={styles.giftSauceGrid}>
+              {giftSauceOptions.options.map((sauce) => {
+                const isSelected = selectedGiftSauces.includes(sauce.id);
+                return (
+                  <TouchableOpacity
+                    key={sauce.id}
+                    style={[
+                      styles.giftSauceChip,
+                      isSelected && styles.giftSauceChipSelected
+                    ]}
+                    onPress={() => toggleGiftCheeseSauce(item.id, sauce.id)}
+                  >
+                    <Text style={[
+                      styles.giftSauceChipText,
+                      isSelected && styles.giftSauceChipTextSelected
+                    ]}>
+                      {sauce.name}{sauce.price > 0 ? ` +${sauce.price.toFixed(2)}€` : ''}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        {/* Section personnalisations */}
+        {customizationDetails && !isGiftCheese && (
           <View style={styles.customizationDetails}>
             <Text style={styles.customizationTitle}>Personnalisations :</Text>
             {customizationDetails.map((category, index) => (
               <View key={index} style={styles.customizationCategory}>
                 <Text style={styles.customizationCategoryName}>{category.categoryTitle} :</Text>
-                {category.items.map((item, itemIndex) => (
-                  <Text key={itemIndex} style={styles.customizationItem}>• {item}</Text>
+                {category.items.map((catItem, itemIndex) => (
+                  <Text key={itemIndex} style={styles.customizationItem}>• {catItem}</Text>
                 ))}
               </View>
             ))}
@@ -735,27 +737,39 @@ export default function CartScreen() {
     );
   };
 
-  const renderOrderMode = ({ item }) => (
-    <TouchableOpacity
-      style={[styles.orderModeItem, orderMode === item.id && styles.selectedOrderMode]}
-      onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        setOrderMode(item.id);
-      }}
-    >
-      <Ionicons 
-        name={item.icon} 
-        size={24} 
-        color={orderMode === item.id ? colors.neutral.white : '#000000'} 
-      />
-      <Text style={[
-        styles.orderModeText,
-        orderMode === item.id && styles.selectedOrderModeText
-      ]}>
-        {item.name}
-      </Text>
-    </TouchableOpacity>
-  );
+  const renderOrderMode = ({ item }) => {
+    const isDeliveryRestricted = item.id === OrderMode.DELIVERY && !isEveningServiceAvailable();
+    return (
+      <TouchableOpacity
+        style={[
+          styles.orderModeItem,
+          orderMode === item.id && styles.selectedOrderMode,
+          isDeliveryRestricted && { opacity: 0.4 }
+        ]}
+        onPress={() => {
+          if (isDeliveryRestricted) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            Alert.alert('Livraison indisponible', 'La livraison est disponible à partir de 18h.');
+            return;
+          }
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          setOrderMode(item.id);
+        }}
+      >
+        <Ionicons
+          name={item.icon}
+          size={24}
+          color={orderMode === item.id ? colors.neutral.white : '#000000'}
+        />
+        <Text style={[
+          styles.orderModeText,
+          orderMode === item.id && styles.selectedOrderModeText
+        ]}>
+          {isDeliveryRestricted ? 'Livraison (dès 18h)' : item.name}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
 
   const renderPaymentMethod = ({ item }) => (
     <TouchableOpacity
@@ -839,34 +853,34 @@ export default function CartScreen() {
                 contentContainerStyle={styles.orderModeList}
               />
               
+              {/* Section téléphone obligatoire pour tous les modes */}
+              <View style={styles.phoneSection}>
+                <Text style={styles.phoneSectionTitle}>Numéro de téléphone *</Text>
+                <View style={styles.phoneInputContainer}>
+                  <Ionicons name="call-outline" size={20} color={colors.neutral.gray500} />
+                  <TextInput
+                    style={styles.phoneInput}
+                    value={phoneNumber}
+                    onChangeText={(text) => {
+                      const formatted = formatPhoneNumber(text);
+                      setPhoneNumber(formatted);
+                    }}
+                    placeholder="Ex: 06 12 34 56 78"
+                    placeholderTextColor={colors.neutral.gray400}
+                    keyboardType="phone-pad"
+                    maxLength={14}
+                    returnKeyType="done"
+                    onSubmitEditing={() => Keyboard.dismiss()}
+                  />
+                </View>
+              </View>
+
               {orderMode === OrderMode.DELIVERY && (
                 <>
                   <AddressInput
                     onAddressSelect={handleAddressSelect}
                     onDeliveryFeeCalculated={handleDeliveryFeeCalculated}
                   />
-                  
-                  {/* Section téléphone pour livraison */}
-                  <View style={styles.phoneSection}>
-                    <Text style={styles.phoneSectionTitle}>Numéro de téléphone</Text>
-                    <View style={styles.phoneInputContainer}>
-                      <Ionicons name="call-outline" size={20} color={colors.neutral.gray500} />
-                      <TextInput
-                        style={styles.phoneInput}
-                        value={phoneNumber}
-                        onChangeText={(text) => {
-                          const formatted = formatPhoneNumber(text);
-                          setPhoneNumber(formatted);
-                        }}
-                        placeholder="Ex: 06 12 34 56 78"
-                        placeholderTextColor={colors.neutral.gray400}
-                        keyboardType="phone-pad"
-                        maxLength={14}
-                        returnKeyType="done"
-                        onSubmitEditing={() => Keyboard.dismiss()}
-                      />
-                    </View>
-                  </View>
 
                   {/* Section mode de paiement pour livraison */}
                   <View style={styles.paymentMethodSection}>
@@ -1059,19 +1073,17 @@ export default function CartScreen() {
                 style={[styles.checkoutButton, !canProceedToCheckout() && styles.checkoutButtonDisabled]}
                 onPress={() => {
                   if (!canProceedToCheckout()) {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                    if (!phoneNumber.trim()) {
+                      Alert.alert('Téléphone requis', 'Veuillez saisir votre numéro de téléphone pour commander.');
+                      return;
+                    }
                     if (orderMode === OrderMode.DELIVERY) {
                       if (!deliveryAddress) {
-                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
                         Alert.alert('Erreur', 'Veuillez saisir votre adresse de livraison');
                         return;
                       }
-                      if (!phoneNumber.trim()) {
-                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-                        Alert.alert('Erreur', 'Veuillez saisir votre numéro de téléphone pour la livraison');
-                        return;
-                      }
                       if (dynamicDeliveryFee === 0 && deliveryAddress) {
-                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
                         Alert.alert('Erreur', 'Désolé, nous ne livrons pas dans cette zone (> 10km)');
                         return;
                       }
@@ -1242,6 +1254,8 @@ export default function CartScreen() {
               contentContainerStyle={styles.rewardsList}
             />
 
+
+
             {/* Boutons de confirmation */}
             <View style={styles.rewardModalActions}>
               {selectedReward ? (
@@ -1250,6 +1264,7 @@ export default function CartScreen() {
                   onPress={() => {
                     handleUseReward(selectedReward);
                     setSelectedReward(null);
+                    setRewardSauces([]);
                   }}
                 >
                   <LinearGradient
@@ -1415,7 +1430,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: spacing.xl,
+    paddingBottom: Platform.OS === 'android' ? spacing.xl + 40 : spacing.xl,
   },
   orderModeSection: {
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -1629,6 +1644,44 @@ const styles = StyleSheet.create({
     lineHeight: typography.fontSizes.sm * 1.3,
     marginBottom: 2,
   },
+  giftSauceSection: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.neutral.gray100,
+  },
+  giftSauceTitle: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.semibold,
+    color: colors.neutral.gray800,
+    marginBottom: spacing.sm,
+  },
+  giftSauceGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  giftSauceChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: colors.neutral.gray300,
+    backgroundColor: colors.neutral.white,
+  },
+  giftSauceChipSelected: {
+    borderColor: colors.primary.main,
+    backgroundColor: colors.primary.main + '15',
+  },
+  giftSauceChipText: {
+    fontSize: typography.fontSizes.xs,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray700,
+  },
+  giftSauceChipTextSelected: {
+    color: colors.primary.main,
+    fontFamily: typography.fontFamily.semibold,
+  },
   quantityControls: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1766,7 +1819,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.neutral.white,
   },
   modalHeader: {
-    paddingTop: 60,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
     paddingBottom: spacing.lg,
     paddingHorizontal: spacing.lg,
   },

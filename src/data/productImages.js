@@ -189,6 +189,11 @@ const productImages = {
   pizzaChevreMiel: require('../../assets/images/pizzas/pizzaChevreMiel.png'),
   pizzaFermiere: require('../../assets/images/nouveauxProduits/pizzaFermiere.png'),
   pizzaBurger: require('../../assets/images/pizzas/pizzaburger.png'),
+  pizzaKebabRaclette: require('../../assets/images/pizzas/IMG_0168.jpg'),
+  pizzaCannibale: require('../../assets/images/pizzas/IMG_0130.jpg'),
+  pizzaChevrePoulet: require('../../assets/images/pizzas/pizzaChevrePoulet.jpg'),
+  pizzaChevreFigue: require('../../assets/images/pizzas/IMG_0176.jpg'),
+  pizzaComposee: require('../../assets/images/pizzas/PIZZA_VEGGI.png'),
 
   // Lasagnes - NOUVELLE IMAGE PRIORITAIRE
   lasagneBolognaise: require('../../assets/images/nouveauxProduits/lasagneBolognaise.png'),
@@ -210,6 +215,12 @@ const productImages = {
   // Boissons chaudes (nouveaux produits)
   cafe: require('../../assets/images/nouveauxProduits/cafe.png'),
   chocolatChaud: require('../../assets/images/nouveauxProduits/chocolatChaud.png'),
+
+  // Pizzdwich
+  pizzdwich: require('../../assets/images/pizzdwich.jpeg'),
+
+  // Image par défaut (logo BriveFood)
+  defaultImage: require('../../assets/images/logoBrivefood.png'),
 };
 
 export default productImages;

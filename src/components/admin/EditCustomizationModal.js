@@ -23,7 +23,7 @@ export default function EditCustomizationModal({ visible, onClose, product, onSa
   // Charger les personnalisations existantes
   useEffect(() => {
     if (visible && product?.customizationOptions) {
-      const loaded = Object.entries(product.customizationOptions).map(([key, data]) => ({
+      const loaded = Object.entries(product.customizationOptions).filter(([, v]) => v != null).map(([key, data]) => ({
         id: key,
         title: data.title || '',
         subtitle: data.subtitle || '',

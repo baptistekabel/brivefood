@@ -12,10 +12,10 @@ export const calculateCustomizedPrice = (product, selectedSizes = {}, customizat
   let additionalPrice = 0;
 
   if (product.customizationOptions) {
-    Object.entries(product.customizationOptions).forEach(([categoryKey, category]) => {
+    Object.entries(product.customizationOptions).filter(([, v]) => v != null).forEach(([categoryKey, category]) => {
       const selectedOptions = productCustomizations[categoryKey] || [];
       selectedOptions.forEach(optionId => {
-        const option = category.options.find(opt => (opt.id || opt.name) === optionId);
+        const option = category.options?.find(opt => (opt.id || opt.name) === optionId);
         if (option) {
           additionalPrice += option.price || 0;
         }
@@ -32,7 +32,7 @@ export const isCustomizationComplete = (product, customizations = {}) => {
 
   const productCustomizations = customizations[product.id] || {};
 
-  return Object.entries(product.customizationOptions).every(([categoryKey, category]) => {
+  return Object.entries(product.customizationOptions).filter(([, v]) => v != null).every(([categoryKey, category]) => {
     if (!category.required) return true;
 
     const selectedOptions = productCustomizations[categoryKey] || [];

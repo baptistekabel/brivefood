@@ -53,24 +53,81 @@ export const ProductsProvider = ({ children }) => {
       console.log('🔄 Initializing products...');
       setLoading(true);
 
-      // Charger immédiatement les données locales pour éviter un écran vide
-      loadLocalProducts();
-
       try {
-        // Essayer de charger depuis Firebase en arrière-plan
+        // Charger directement depuis Firebase (pas de données locales d'abord)
         const result = await productService.getAllProducts();
 
         if (result.success && result.products.length > 0) {
           console.log('✅ Products loaded from Firebase:', result.products.length, 'products');
+
+          // Afficher les produits Firebase immédiatement (avant les migrations)
           setProducts(result.products);
           setProductsByCategory(productService.organizeProductsByCategory(result.products));
           setIsFirebaseConnected(true);
+          setLoading(false);
+
+          // Migrations one-shot (chaque migration ne tourne qu'UNE SEULE FOIS grâce au flag Firebase)
+          const m = (name, fn) => productService.runMigrationOnce(name, fn);
+          const migrationsNeeded = await Promise.all([
+            m('updateDrinkPrices', () => productService.updateDrinkPrices()),
+            m('addSauceToCheeseProducts', () => productService.addSauceToCheeseProducts()),
+            m('addBissapToDrinks', () => productService.addBissapToDrinks()),
+            m('addMissingPizzasAndUpdateComposables', () => productService.addMissingPizzasAndUpdateComposables()),
+            m('addOptionsToVeggieBurger', () => productService.addOptionsToVeggieBurger()),
+            m('reorderAllProductOptions', () => productService.reorderAllProductOptions()),
+            m('updatePates3FromagesRecipe', () => productService.updatePates3FromagesRecipe()),
+            m('updateVariousPricesFeb2026', () => productService.updateVariousPricesFeb2026()),
+            m('addSupplementsToPates', () => productService.addSupplementsToPates()),
+            m('addSupplementsToTacos', () => productService.addSupplementsToTacos()),
+            m('addToppingsToPizzaBriochee', () => productService.addToppingsToPizzaBriochee()),
+            m('deleteRemovedPizzas', () => productService.deleteRemovedPizzas()),
+            m('addPizzaComposee', () => productService.addPizzaComposee()),
+            m('addOasisFraiseFramboise', () => productService.addOasisFraiseFramboise()),
+            m('fixAmericainAndSteakPrices', () => productService.fixAmericainAndSteakPrices()),
+            m('fixTendersPrice', () => productService.fixTendersPrice()),
+            m('updateSandwichComposeOptions', () => productService.updateSandwichComposeOptions()),
+            m('updateTexMexProducts', () => productService.updateTexMexProducts()),
+            m('updatePetitesFaimPrices', () => productService.updatePetitesFaimPrices()),
+            m('addOptionsToSalades', () => productService.addOptionsToSalades()),
+            m('updateDessertPrices', () => productService.updateDessertPrices()),
+            m('addPizzdwichProducts', () => productService.addPizzdwichProducts()),
+            m('addCruditesToPizzdwich', () => productService.addCruditesToPizzdwich()),
+            m('updatePizzaProducts', () => productService.updatePizzaProducts()),
+            m('updatePatesCustomizations', () => productService.updatePatesCustomizations()),
+            m('updateCocaVanillePrice', () => productService.updateCocaVanillePrice()),
+            m('addBoissonToBowls', () => productService.addBoissonToBowls()),
+            m('addBoissonToBruschettas', () => productService.addBoissonToBruschettas()),
+            m('updatePizzaBriocheeNutella', () => productService.updatePizzaBriocheeNutella()),
+            m('updatePizzdwichViandes', () => productService.updatePizzdwichViandes()),
+          ]);
+
+          // Migrations qui doivent tourner APRÈS les autres (dépendances / nettoyage doublons)
+          const postMigrations = await Promise.all([
+            m('updateTacosSupplements', () => productService.updateTacosSupplements()),
+            m('updateFritesOptions', () => productService.updateFritesOptions()),
+            m('fixFritesNormalesPriceV2', () => productService.updateFritesOptions()),
+            m('updateLasagnesPainOption', () => productService.updateLasagnesPainOption()),
+            m('ensureAllDrinksInFirebase', () => productService.ensureAllDrinksInFirebase()),
+          ]);
+
+          // Recharger seulement si des migrations ont modifié des données
+          const allResults = [...migrationsNeeded, ...postMigrations];
+          const anyUpdated = allResults.some(r => r && r.updatedCount > 0);
+          if (anyUpdated) {
+            const refreshed = await productService.getAllProducts();
+            if (refreshed.success && refreshed.products.length > 0) {
+              setProducts(refreshed.products);
+              setProductsByCategory(productService.organizeProductsByCategory(refreshed.products));
+            }
+          }
         } else {
-          console.log('⚠️ No products in Firebase, keeping local data');
+          console.log('⚠️ No products in Firebase, using local data');
+          loadLocalProducts();
         }
 
       } catch (firebaseError) {
         console.error('❌ Firebase unavailable, using local data:', firebaseError);
+        loadLocalProducts();
         setIsFirebaseConnected(false);
       }
 
@@ -78,8 +135,9 @@ export const ProductsProvider = ({ children }) => {
     } catch (err) {
       console.error('❌ Error initializing products:', err);
       setError(err.message);
-      // En cas d'erreur, s'assurer que les données locales sont chargées
-      loadLocalProducts();
+      if (products.length === 0) {
+        loadLocalProducts();
+      }
       setIsFirebaseConnected(false);
     } finally {
       setLoading(false);
@@ -203,12 +261,19 @@ export const ProductsProvider = ({ children }) => {
   const updateProduct = async (productId, updates) => {
     try {
       console.log('✏️ Updating product:', productId);
+
+      // Mise à jour IMMÉDIATE du state local (pas besoin d'attendre le listener Firebase)
+      setProducts(prev => prev.map(p =>
+        p.id === productId ? { ...p, ...updates } : p
+      ));
+
       const result = await productService.updateProduct(productId, updates);
 
       if (result.success) {
         console.log('✅ Product updated successfully');
         return { success: true };
       } else {
+        // Rollback en cas d'erreur
         setError(result.error);
         return { success: false, error: result.error };
       }

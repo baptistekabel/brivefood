@@ -20,6 +20,7 @@ import LoadingScreen from '../../src/components/common/LoadingScreen';
 import { colors, typography, spacing, borderRadius } from '../../src/constants/theme';
 import { ProductCategory } from '../../src/types';
 import { useOrder } from '../../src/context/OrderContext';
+import { isEveningOnlyCategory, isEveningServiceAvailable } from '../../src/utils/eveningRestriction';
 
 const { width } = Dimensions.get('window');
 
@@ -92,6 +93,9 @@ const categoryImages = {
   [ProductCategory.SANDWICH_AMERICAIN]: [
     require('../../assets/images/nouveauxProduits/AmericainSimple.png')
   ],
+  [ProductCategory.SANDWICH_COMPOSE]: [
+    require('../../assets/images/nouveauxProduits/AmericainSimple.png')
+  ],
   [ProductCategory.MENU_KIDS]: [
     require('../../assets/images/nouveauxProduits/MenuKidss.png')
   ],
@@ -100,6 +104,9 @@ const categoryImages = {
   ],
   [ProductCategory.BOWLS]: [
     require('../../assets/images/nouveauxProduits/bowls.png')
+  ],
+  [ProductCategory.PIZZDWICH]: [
+    require('../../assets/images/pizzdwich.jpeg')
   ]
 };
 
@@ -107,6 +114,7 @@ export default function MenuScreen() {
   const fontsLoaded = useFonts();
   const { orderType, getCurrentOrderType, getItemCount, orderTotal } = useOrder();
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [eveningAvailable, setEveningAvailable] = useState(isEveningServiceAvailable());
   const scrollY = useRef(new Animated.Value(0)).current;
 
   // Animations d'apparition des cartes
@@ -146,6 +154,14 @@ export default function MenuScreen() {
     outputRange: [0, -10],
     extrapolate: 'clamp',
   });
+
+  // Vérifier la disponibilité du service soir toutes les 60 secondes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setEveningAvailable(isEveningServiceAvailable());
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Animation des emojis flottants et des arrière-plans
   useEffect(() => {
@@ -290,25 +306,21 @@ export default function MenuScreen() {
       { id: 'patespouletcurry', name: 'Pâtes Poulet Curry' },
     ],
     [ProductCategory.PIZZA]: [
-      { id: 'pizza1', name: 'Pizza fermière' },
-      { id: 'pizza2', name: 'Pizza chèvre miel' },
-      { id: 'pizza3', name: 'Pizza curry' },
-      { id: 'pizza4', name: 'Pizza kebab' },
-      { id: 'pizza5', name: 'Pizza western' },
-      { id: 'pizza6', name: 'Pizza burger' },
-      { id: 'pizza7', name: 'Pizza Tex-Mex' },
-      { id: 'pizza8', name: 'Pizza raclette' },
-      { id: 'pizza9', name: 'Pizza saumon' },
       { id: 'pizza10', name: 'Pizza Margherita' },
-      { id: 'pizza11', name: 'Pizza 4 Fromages' },
-      { id: 'pizza12', name: 'Pizza chèvre figue' },
-      { id: 'pizza13', name: 'Pizza chèvre poulet' },
-      { id: 'pizza14', name: 'Pizza raclette poulet' },
-      { id: 'pizza15', name: 'Pizza spicy' },
-      { id: 'pizza16', name: 'Pizza chicken spicy' },
-      { id: 'pizza17', name: 'Pizza cannibale' },
-      { id: 'pizza18', name: 'Pizza kebab raclette' },
-      { id: 'pizza19', name: 'Pizza Saumon Boursin' },
+      { id: 'pizza1', name: 'Pizza Fermière' },
+      { id: 'pizza18', name: 'Pizza Kebab raclette' },
+      { id: 'pizza17', name: 'Pizza Cannibale' },
+      { id: 'pizza9', name: 'Pizza Saumon' },
+      { id: 'pizza2', name: 'Pizza Chèvre miel' },
+      { id: 'pizza13', name: 'Pizza Chèvre Poulet' },
+      { id: 'pizza3', name: 'Pizza Curry' },
+      { id: 'pizza4', name: 'Pizza Kebab' },
+      { id: 'pizza7', name: 'Pizza Tex-Mex' },
+      { id: 'pizza6', name: 'Pizza Burger' },
+      { id: 'pizza11', name: 'Pizza 4 fromages' },
+      { id: 'pizza12', name: 'Pizza Chèvre Figue' },
+      { id: 'pizza8', name: 'Pizza Raclette' },
+      { id: 'pizza-composee', name: 'Compose ta pizza' },
     ],
     [ProductCategory.BURGER]: [
       { id: 'burger1', name: 'Frenchy Burger' },
@@ -339,8 +351,10 @@ export default function MenuScreen() {
       { id: 'americain3', name: 'Américain Classic' },
       { id: 'americain4', name: 'Américain Spicy Kefta' },
       { id: 'americain5', name: 'Américain Poulet Boursin' },
-      { id: 'americain-double', name: 'Américain Double' },
-      { id: 'americain-simple', name: 'Américain Simple' },
+    ],
+    [ProductCategory.SANDWICH_COMPOSE]: [
+      { id: 'americain-double', name: 'Sandwich Double' },
+      { id: 'americain-simple', name: 'Sandwich Simple' },
     ],
     [ProductCategory.MENU_KIDS]: [
       { id: 'menukids1', name: 'Menu kids' },
@@ -462,6 +476,12 @@ export default function MenuScreen() {
     [ProductCategory.FORMULES_PIZZA_TRIO]: [
       { id: 'formule-pizza-trio', name: 'Formule Pizza Trio' },
     ],
+    [ProductCategory.PIZZDWICH]: [
+      { id: 'pizzdwich-m', name: 'Pizzdwich M' },
+      { id: 'pizzdwich-l', name: 'Pizzdwich L' },
+      { id: 'pizzdwich-xl', name: 'Pizzdwich XL' },
+      { id: 'pizzdwich-xxl', name: 'Pizzdwich XXL' },
+    ],
     // Autres catégories n'ont pas encore de produits définis
   };
 
@@ -518,6 +538,15 @@ export default function MenuScreen() {
       items: getRealItemCount(ProductCategory.TACOS)
     },
     {
+      id: ProductCategory.PIZZDWICH,
+      name: 'Pizzdwich',
+      subtitle: 'M, L, XL ou XXL',
+      emoji: '🫓',
+      color: '#E11D48',
+      gradient: ['#E11D48', '#F43F5E'],
+      items: getRealItemCount(ProductCategory.PIZZDWICH)
+    },
+    {
       id: ProductCategory.PATES,
       name: 'Pâtes',
       subtitle: 'Sauces crémeuses variées',
@@ -543,6 +572,15 @@ export default function MenuScreen() {
       color: '#F97316',
       gradient: ['#F97316', '#FB923C'],
       items: getRealItemCount(ProductCategory.SANDWICH_AMERICAIN)
+    },
+    {
+      id: ProductCategory.SANDWICH_COMPOSE,
+      name: 'Compose ton\nSandwich',
+      subtitle: 'Simple ou double',
+      emoji: '🥖',
+      color: '#D97706',
+      gradient: ['#D97706', '#F59E0B'],
+      items: getRealItemCount(ProductCategory.SANDWICH_COMPOSE)
     },
     // Catégories moyennes - plats légers et accompagnements
     {
@@ -669,13 +707,19 @@ export default function MenuScreen() {
     }, 150);
   };
 
+  // Vérifie si une catégorie est restreinte au soir
+  const isCategoryRestricted = (categoryId) => {
+    return isEveningOnlyCategory(categoryId) && !eveningAvailable;
+  };
+
   const renderCategoryCard = (category, index) => {
     // Toutes les cartes ont la même taille pour 2 par ligne
     const cardStyle = {
       width: (width - 48) / 2,
-      height: 120
+      height: 135
     };
     const images = categoryImages[category.id] || [];
+    const restricted = isCategoryRestricted(category.id);
 
     // Animation pour cette carte
     const cardAnim = cardAnimations[index] || { opacity: new Animated.Value(1), translateY: new Animated.Value(0), scale: new Animated.Value(1) };
@@ -694,7 +738,7 @@ export default function MenuScreen() {
       >
         <TouchableOpacity
           key={category.id}
-          style={[styles.categoryCard, cardStyle]}
+          style={[styles.categoryCard, cardStyle, restricted && styles.categoryCardRestricted]}
           onPress={() => handleCategoryPress(category, index)}
           activeOpacity={0.9}
         >
@@ -728,6 +772,13 @@ export default function MenuScreen() {
                 {category.popular && (
                   <View style={styles.popularBadge}>
                     <Text style={styles.popularText}>HOT</Text>
+                  </View>
+                )}
+                {/* Badge "Dès 18h" pour catégories restreintes */}
+                {restricted && (
+                  <View style={styles.eveningBadge}>
+                    <Ionicons name="time-outline" size={10} color={colors.neutral.white} />
+                    <Text style={styles.eveningBadgeText}>Dès 18h</Text>
                   </View>
                 )}
               </View>
@@ -772,6 +823,13 @@ export default function MenuScreen() {
               {category.popular && (
                 <View style={styles.popularBadge}>
                   <Text style={styles.popularText}>⭐</Text>
+                </View>
+              )}
+              {/* Badge "Dès 18h" pour catégories restreintes */}
+              {restricted && (
+                <View style={styles.eveningBadge}>
+                  <Ionicons name="time-outline" size={10} color={colors.neutral.white} />
+                  <Text style={styles.eveningBadgeText}>Dès 18h</Text>
                 </View>
               )}
             </View>
@@ -1212,6 +1270,26 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
 
+  categoryCardRestricted: {
+    opacity: 0.6,
+  },
+  eveningBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.85)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 2,
+    borderRadius: 16,
+    marginLeft: spacing.xs,
+    gap: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  eveningBadgeText: {
+    fontSize: 9,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.white,
+  },
   cardOverlay: {
     position: 'absolute',
     top: 0,

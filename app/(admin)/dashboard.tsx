@@ -19,6 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { Audio } from 'expo-av';
 import { colors, typography, spacing, borderRadius } from '../../src/constants/theme';
 import { OrderStatus, OrderMode } from '../../src/types';
 import { useOrders } from '../../src/context/OrdersContext';
@@ -32,7 +33,7 @@ import restaurantStatusService from '../../src/services/restaurantStatusService'
 import ProductImage from '../../src/components/common/ProductImage';
 
 export default function AdminDashboard() {
-  const { orders, loading, refreshOrders, updateOrderStatus } = useOrders();
+  const { orders, loading, refreshOrders, updateOrderStatus, deleteOrder } = useOrders();
   const [refreshing, setRefreshing] = useState(false);
   const [acceptingOrders, setAcceptingOrders] = useState(true);
   const [selectedFilter, setSelectedFilter] = useState('all');
@@ -41,11 +42,104 @@ export default function AdminDashboard() {
   const [printerConnected, setPrinterConnected] = useState(false);
   const previousOrdersCount = useRef(0);
 
+  // Son de notification pour nouvelles commandes
+  const soundRef = useRef<Audio.Sound | null>(null);
+  const soundPlayCountRef = useRef(0);
+  const isSoundPlayingRef = useRef(false);
+  const pendingNewOrdersRef = useRef<Set<string>>(new Set()); // Commandes en attente de clic
+
   console.log('📊 [DASHBOARD] Orders from Firestore:', orders.length);
 
   // Détection de l'appareil et orientation
   const isTabletDevice = isTablet();
   const isLandscapeMode = isLandscape();
+
+  // Fonction pour jouer le son de notification 4 fois
+  const playNotificationSound = async () => {
+    if (isSoundPlayingRef.current) {
+      console.log('🔊 Son déjà en cours de lecture');
+      return;
+    }
+
+    try {
+      isSoundPlayingRef.current = true;
+      soundPlayCountRef.current = 0;
+
+      // Charger le son
+      const { sound } = await Audio.Sound.createAsync(
+        require('../../assets/images/notification.mp3'),
+        { shouldPlay: false }
+      );
+      soundRef.current = sound;
+
+      // Jouer le son 4 fois
+      const playOnce = async () => {
+        if (soundPlayCountRef.current >= 4 || !isSoundPlayingRef.current) {
+          // Arrêter après 4 lectures ou si arrêté manuellement
+          await stopNotificationSound();
+          return;
+        }
+
+        soundPlayCountRef.current++;
+        console.log(`🔊 Lecture son ${soundPlayCountRef.current}/4`);
+
+        await soundRef.current?.setPositionAsync(0);
+        await soundRef.current?.playAsync();
+
+        // Écouter la fin de la lecture pour rejouer
+        soundRef.current?.setOnPlaybackStatusUpdate((status) => {
+          if (status.isLoaded && status.didJustFinish && isSoundPlayingRef.current) {
+            playOnce();
+          }
+        });
+      };
+
+      await playOnce();
+
+    } catch (error) {
+      console.error('❌ Erreur lecture son notification:', error);
+      isSoundPlayingRef.current = false;
+    }
+  };
+
+  // Fonction pour arrêter le son
+  const stopNotificationSound = async () => {
+    try {
+      isSoundPlayingRef.current = false;
+      if (soundRef.current) {
+        await soundRef.current.stopAsync();
+        await soundRef.current.unloadAsync();
+        soundRef.current = null;
+      }
+      soundPlayCountRef.current = 0;
+      console.log('🔇 Son notification arrêté');
+    } catch (error) {
+      console.error('❌ Erreur arrêt son:', error);
+    }
+  };
+
+  // Configurer le mode audio au montage
+  useEffect(() => {
+    const setupAudio = async () => {
+      try {
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: false,
+          playsInSilentModeIOS: true, // Jouer même en mode silencieux
+          staysActiveInBackground: false,
+          shouldDuckAndroid: true,
+        });
+        console.log('🔊 Mode audio configuré');
+      } catch (error) {
+        console.error('❌ Erreur config audio:', error);
+      }
+    };
+    setupAudio();
+
+    // Cleanup au démontage
+    return () => {
+      stopNotificationSound();
+    };
+  }, []);
 
   // Initialiser les services au chargement
   useEffect(() => {
@@ -176,6 +270,12 @@ export default function AdminDashboard() {
         // Marquer immédiatement comme imprimée
         await savePrintedOrder(order.id);
 
+        // Ajouter aux commandes en attente de clic (pour le son)
+        pendingNewOrdersRef.current.add(order.id);
+
+        // Jouer le son de notification (4 fois en boucle)
+        playNotificationSound();
+
         // Vibration
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
@@ -185,7 +285,7 @@ export default function AdminDashboard() {
             customerName: order.customerName || order.firstName || 'Client BriveFood',
             firstName: order.firstName,
             lastName: order.lastName,
-            phone: order.phone || '',
+            phone: order.phone || order.phoneNumber || '',
             mode: order.mode?.toUpperCase() || 'TAKEOUT',
             address: order.address || '',
             items: order.items || [],
@@ -195,6 +295,8 @@ export default function AdminDashboard() {
             createdAt: order.createdAt || new Date().toISOString(),
             deliveryFee: order.deliveryFee || 0
           };
+
+          console.log(`📞 [AUTO-PRINT] Téléphone client: "${orderForPrint.phone}" (order.phone="${order.phone}", order.phoneNumber="${order.phoneNumber}")`);
 
           const printerStatus = epsonBluetoothService.getStatus();
 
@@ -260,6 +362,15 @@ export default function AdminDashboard() {
     setSelectedOrder(order);
     setShowStatusMenu(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Retirer cette commande des commandes en attente et arrêter le son
+    if (pendingNewOrdersRef.current.has(order.id)) {
+      pendingNewOrdersRef.current.delete(order.id);
+      // Si plus aucune commande en attente, arrêter le son
+      if (pendingNewOrdersRef.current.size === 0) {
+        stopNotificationSound();
+      }
+    }
   };
 
   // Fonction pour fermer le menu
@@ -299,6 +410,60 @@ export default function AdminDashboard() {
       console.error('Error updating order status:', error);
       Alert.alert('Erreur', 'Impossible de mettre à jour la commande.');
     }
+  };
+
+  // Fonction pour supprimer toutes les commandes affichées
+  const deleteAllDisplayedOrders = () => {
+    const ordersToDelete = filteredOrders;
+
+    if (ordersToDelete.length === 0) {
+      Alert.alert('Aucune commande', 'Il n\'y a aucune commande à supprimer.');
+      return;
+    }
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+
+    Alert.alert(
+      'Supprimer toutes les commandes',
+      `Êtes-vous sûr de vouloir supprimer ${ordersToDelete.length} commande(s) ?\n\nCette action est irréversible.`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer tout',
+          style: 'destructive',
+          onPress: async () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+
+            let deletedCount = 0;
+            let errorCount = 0;
+
+            for (const order of ordersToDelete) {
+              try {
+                const result = await deleteOrder(order.id);
+                if (result.success) {
+                  deletedCount++;
+                } else {
+                  errorCount++;
+                }
+              } catch (error) {
+                console.error(`Erreur suppression commande ${order.id}:`, error);
+                errorCount++;
+              }
+            }
+
+            if (errorCount === 0) {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert('Succès', `${deletedCount} commande(s) supprimée(s).`);
+            } else {
+              Alert.alert(
+                'Terminé',
+                `${deletedCount} commande(s) supprimée(s).\n${errorCount} erreur(s).`
+              );
+            }
+          }
+        }
+      ]
+    );
   };
 
   // Obtenir le statut suivant pour le swipe
@@ -738,12 +903,19 @@ export default function AdminDashboard() {
             </Text>
           </View>
 
-          {order.phone && (
+          <Text style={[
+            styles.orderPhone,
+            isTabletDevice && isLandscapeMode && styles.orderPhoneTablet
+          ]}>
+            📞 {order.phone || 'Non renseigné'}
+          </Text>
+
+          {order.mode === 'DELIVERY' && (
             <Text style={[
-              styles.orderPhone,
+              styles.orderAddress,
               isTabletDevice && isLandscapeMode && styles.orderPhoneTablet
             ]}>
-              📞 {order.phone}
+              📍 {order.address || 'Adresse non renseignée'}
             </Text>
           )}
 
@@ -777,6 +949,34 @@ export default function AdminDashboard() {
                       <Text style={styles.orderItemQuantity}>
                         {item.quantity}x · {(item.price * item.quantity).toFixed(2)}€
                       </Text>
+                      {/* Afficher options + complément customizations */}
+                      {(item.options || (item.customizations && Object.keys(item.customizations).length > 0)) && (
+                        <Text style={styles.orderItemOptions} numberOfLines={3}>
+                          {(() => {
+                            const parts = [];
+                            // D'abord les options formatées
+                            if (item.options) {
+                              parts.push(item.options);
+                            }
+                            // Compléter avec customizations si manquant
+                            if (item.customizations && item.customizationOptions) {
+                              const alreadyShown = item.options || '';
+                              Object.entries(item.customizations).forEach(([key, value]) => {
+                                const catOpts = item.customizationOptions?.[key];
+                                const title = catOpts?.title || key;
+                                const vals = Array.isArray(value) ? value : [value];
+                                vals.forEach(v => {
+                                  const opt = catOpts?.options?.find(o => o.id === v);
+                                  if (opt && !alreadyShown.includes(opt.name)) {
+                                    parts.push(`${title}: ${opt.name}`);
+                                  }
+                                });
+                              });
+                            }
+                            return parts.join(' | ');
+                          })()}
+                        </Text>
+                      )}
                     </View>
                   </View>
                 ))}
@@ -904,6 +1104,13 @@ export default function AdminDashboard() {
               <View style={[styles.printerDot, {
                 backgroundColor: printerConnected ? '#22C55E' : '#ef4444'
               }]} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.deleteAllButton}
+              onPress={deleteAllDisplayedOrders}
+            >
+              <Ionicons name="trash-outline" size={20} color="#ef4444" />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -1264,6 +1471,13 @@ export default function AdminDashboard() {
             </TouchableOpacity>
 
             <TouchableOpacity
+              style={styles.deleteAllButton}
+              onPress={deleteAllDisplayedOrders}
+            >
+              <Ionicons name="trash-outline" size={20} color="#ef4444" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
               style={styles.settingsButton}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -1545,6 +1759,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  deleteAllButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
   printerIndicator: {
     width: 40,
     height: 40,
@@ -1777,6 +2001,11 @@ const styles = StyleSheet.create({
     color: colors.neutral.gray600,
     marginBottom: spacing.xs / 2,
   },
+  orderAddress: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.neutral.gray600,
+    marginBottom: spacing.xs / 2,
+  },
   orderPhoneTablet: {
     fontSize: typography.fontSizes.base,
   },
@@ -1828,6 +2057,13 @@ const styles = StyleSheet.create({
   orderItemQuantity: {
     fontSize: typography.fontSizes.xs,
     color: colors.neutral.gray500,
+  },
+  orderItemOptions: {
+    fontSize: typography.fontSizes.xs,
+    fontFamily: typography.fontFamily.regular,
+    color: colors.primary.main,
+    fontStyle: 'italic',
+    marginTop: 2,
   },
   moreItemsText: {
     fontSize: typography.fontSizes.xs,

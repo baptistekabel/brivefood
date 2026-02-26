@@ -13,6 +13,7 @@ import {
   Modal,
   TextInput,
   Keyboard,
+  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -27,7 +28,57 @@ import productImages from '../../src/data/productImages';
 import categoryInfo from '../../src/data/categories';
 import ProductImage from '../../src/components/common/ProductImage';
 import { calculateCustomizedPrice, isCustomizationComplete, getSizeDisplayText, getProductQuantity } from '../../src/utils/categoryUtils';
+import { isEveningOnlyCategory, isEveningOnlyProduct, isEveningServiceAvailable } from '../../src/utils/eveningRestriction';
+import restaurantStatusService from '../../src/services/restaurantStatusService';
 import styles from '../../src/styles/CategoryScreen.styles';
+
+const restrictionStyles = StyleSheet.create({
+  banner: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    padding: 14,
+  },
+  bannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  bannerTextContainer: {
+    flex: 1,
+  },
+  bannerTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FCD34D',
+    marginBottom: 2,
+  },
+  bannerSubtitle: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
+  productBadge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.85)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    gap: 4,
+    zIndex: 10,
+  },
+  productBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+});
 
 
 export default function CategoryScreen() {
@@ -38,6 +89,32 @@ export default function CategoryScreen() {
   const [customizations, setCustomizations] = useState({});
   const [expandedCustomizations, setExpandedCustomizations] = useState({});
   const [productComments, setProductComments] = useState({});
+
+  // Statut restaurant (ouvert/fermé)
+  const [isRestaurantOpen, setIsRestaurantOpen] = useState(true);
+
+  useEffect(() => {
+    // Lire le statut déjà en cache (chargé par la home via initializeClient)
+    if (restaurantStatusService.currentStatus) {
+      setIsRestaurantOpen(restaurantStatusService.currentStatus.isOpen);
+    }
+    const removeListener = restaurantStatusService.addStatusListener((newStatus) => {
+      setIsRestaurantOpen(newStatus.isOpen);
+    });
+    return () => removeListener();
+  }, []);
+
+  // Restriction horaire : vérifier si la catégorie ou le produit est disponible
+  const [eveningAvailable, setEveningAvailable] = useState(isEveningServiceAvailable());
+  const categoryRestricted = isEveningOnlyCategory(id) && !eveningAvailable;
+
+  // Vérifier la disponibilité toutes les 60 secondes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setEveningAvailable(isEveningServiceAvailable());
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Modal state for image zoom
   const [imageModalVisible, setImageModalVisible] = useState(false);
@@ -56,6 +133,42 @@ export default function CategoryScreen() {
   // Animations d'arrière-plan et emojis flottants
   const floatingEmojis = useRef(
     Array.from({ length: 18 }, () => new Animated.Value(0))
+  ).current;
+
+  // Pré-calculer les trajectoires des emojis une seule fois (pas à chaque re-render)
+  const emojiTrajectories = useRef(
+    Array.from({ length: 18 }, (_, index) => {
+      const trajectoryType = index % 4;
+      let startX, endX, startY, endY;
+      switch (trajectoryType) {
+        case 0:
+          startX = Math.random() * (Dimensions.get('window').width - 50);
+          endX = startX + (Math.random() - 0.5) * 150;
+          startY = Dimensions.get('window').height + 50;
+          endY = -100;
+          break;
+        case 1:
+          startX = -100;
+          endX = Dimensions.get('window').width + 50;
+          startY = 150 + Math.random() * (Dimensions.get('window').height - 300);
+          endY = startY + (Math.random() - 0.5) * 200;
+          break;
+        case 2:
+          startX = Dimensions.get('window').width + 50;
+          endX = -100;
+          startY = 200 + Math.random() * (Dimensions.get('window').height - 400);
+          endY = startY + (Math.random() - 0.5) * 150;
+          break;
+        case 3:
+          startX = Math.random() * (Dimensions.get('window').width - 50);
+          endX = startX + (Math.random() - 0.5) * 100;
+          startY = -100;
+          endY = Dimensions.get('window').height + 50;
+          break;
+      }
+      const amplitude = 15 + (index % 3) * 10;
+      return { startX, endX, startY, endY, amplitude };
+    })
   ).current;
   const rotateAnimation = useRef(new Animated.Value(0)).current;
   const scaleAnimation = useRef(new Animated.Value(1)).current;
@@ -187,6 +300,18 @@ export default function CategoryScreen() {
       });
       setExpandedCustomizations(prev => ({ ...prev, ...expanded }));
     }
+    // Pré-sélectionner 29cm pour toutes les pizzas
+    if (id === ProductCategory.PIZZA && products.length > 0) {
+      const sizesUpdate = {};
+      products.forEach(product => {
+        if (product.sizes && !selectedSizes[product.id]) {
+          sizesUpdate[product.id] = product.sizes['29cm'] ? '29cm' : Object.keys(product.sizes)[0];
+        }
+      });
+      if (Object.keys(sizesUpdate).length > 0) {
+        setSelectedSizes(prev => ({ ...prev, ...sizesUpdate }));
+      }
+    }
   }, [id, products]);
 
   // Animation d'ajout au panier
@@ -242,9 +367,15 @@ export default function CategoryScreen() {
 
   // Fonction pour confirmer l'ajout au panier avec commentaire
   const confirmAddToCart = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
     if (!commentProduct) return;
+
+    // Bloquer si le produit est restreint avant 18h
+    if (isProductRestricted(commentProduct)) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      return;
+    }
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     // Déclencher l'animation
     triggerCartAnimation(commentProduct, null);
@@ -317,8 +448,44 @@ export default function CategoryScreen() {
     setCommentSize(null);
   };
 
+  // Vérifie si un produit individuel est restreint (horaires, restaurant fermé, ou indisponible)
+  const isProductRestricted = (product) => {
+    if (product.available === false) return true;
+    if (!isRestaurantOpen) return true;
+    if (categoryRestricted) return true;
+    if (isEveningOnlyProduct(product.id) && !eveningAvailable) return true;
+    return false;
+  };
+
+  // Retourne le texte de restriction adapté au cas
+  const getRestrictionLabel = (product) => {
+    if (product.available === false) return 'Indisponible';
+    if ((isEveningOnlyProduct(product.id) || categoryRestricted) && !eveningAvailable) return 'Disponible dès 18h';
+    if (!isRestaurantOpen) return 'Restaurant fermé';
+    return 'Indisponible';
+  };
+
+  // Retourne l'icône de restriction adaptée au cas
+  const getRestrictionIcon = (product) => {
+    if (product.available === false) return 'close-circle-outline';
+    if ((isEveningOnlyProduct(product.id) || categoryRestricted) && !eveningAvailable) return 'time-outline';
+    if (!isRestaurantOpen) return 'lock-closed-outline';
+    return 'close-circle-outline';
+  };
+
   // Fonction pour ajouter au panier (maintenant ouvre la modal sauf pour les boissons)
   const handleAddToCart = (product, selectedSize = 'M', event = null) => {
+    // Bloquer si restaurant fermé
+    if (!isRestaurantOpen) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Restaurant fermé', 'Le restaurant est actuellement fermé. Vous ne pouvez pas passer commande pour le moment.');
+      return;
+    }
+    // Bloquer si le produit est restreint avant 18h
+    if (isProductRestricted(product)) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     // Déclencher l'animation
@@ -353,6 +520,12 @@ export default function CategoryScreen() {
 
   // Fonction pour ajouter au panier avec personnalisations
   const handleAddCustomizedToCart = (product, event = null) => {
+    // Bloquer si le produit est restreint avant 18h
+    if (isProductRestricted(product)) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      return;
+    }
+
     // Vérifier si la personnalisation est complète
     if (!isCustomizationComplete(product, customizations)) {
       return;
@@ -372,7 +545,7 @@ export default function CategoryScreen() {
     const customizedProduct = {
       ...product,
       price: calculateCustomizedPrice(product, selectedSizes, customizations),
-      selectedCustomizations: productCustomizations,
+      customizations: productCustomizations,
       customizationOptions: product.customizationOptions,
       comment: comment,
       ...(selectedSize && product.sizes && {
@@ -568,7 +741,7 @@ export default function CategoryScreen() {
             }}
           >
             <Text style={styles.customizationToggleText}>
-              {id === 'pizza' ? `Ajouter une boisson à la ${product.name}` : `Personnaliser votre ${product.name}`}
+              {`Personnaliser votre ${product.name}`}
             </Text>
             <Ionicons
               name={isExpanded ? "chevron-up" : "chevron-down"}
@@ -580,7 +753,16 @@ export default function CategoryScreen() {
 
         {(isExpanded || alwaysExpanded) && (
           <View style={styles.customizationOptions}>
-            {Object.entries(product.customizationOptions).map(([categoryKey, category]) => {
+            {Object.entries(product.customizationOptions)
+            .filter(([, value]) => value != null)
+            .sort(([a], [b]) => {
+              // Ordre logique des catégories de personnalisation
+              const order = ['taille', 'base', 'gratine', 'steak', 'viande', 'viandes', 'crudites', 'fromage', 'fromages', 'sauce', 'gout', 'supplement', 'topping', 'supplements', 'chantilly', 'frites', 'pain', 'boisson'];
+              const ia = order.indexOf(a);
+              const ib = order.indexOf(b);
+              return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+            })
+            .map(([categoryKey, category]) => {
               const selectedOptions = productCustomizations[categoryKey] || [];
 
               return (
@@ -602,6 +784,16 @@ export default function CategoryScreen() {
                         return (
                           <Text style={styles.selectionCounter}>
                             {' '}({selectedCount}/{maxViandes})
+                          </Text>
+                        );
+                      })()}
+                      {/* Afficher le compteur pour les catégories multi-select (ex: viande pizzdwich) */}
+                      {category.multiSelect === true && (category.maxSelections || category.maxSelection) > 1 && !(categoryKey === 'viandes' && product.sizes) && (() => {
+                        const maxSel = category.maxSelections || category.maxSelection;
+                        const selectedCount = selectedOptions.length;
+                        return (
+                          <Text style={styles.selectionCounter}>
+                            {' '}({selectedCount}/{maxSel})
                           </Text>
                         );
                       })()}
@@ -635,7 +827,12 @@ export default function CategoryScreen() {
                   <View style={styles.customizationOptionsList}>
                     {(category.options || [])
                       .sort((a, b) => {
-                        // Trier les options populaires en premier
+                        // Les options "Pas de..." toujours en premier
+                        const aIsNone = a.id?.startsWith('pas') || a.id?.startsWith('frites-non');
+                        const bIsNone = b.id?.startsWith('pas') || b.id?.startsWith('frites-non');
+                        if (aIsNone && !bIsNone) return -1;
+                        if (!aIsNone && bIsNone) return 1;
+                        // Puis les options populaires
                         if (a.popular && !b.popular) return -1;
                         if (!a.popular && b.popular) return 1;
                         return 0;
@@ -744,21 +941,26 @@ export default function CategoryScreen() {
             <TouchableOpacity
               style={[
                 styles.customizedAddToCartButton,
-                !isCustomizationComplete(product, customizations) && styles.customizedAddToCartButtonDisabled
+                (!isCustomizationComplete(product, customizations) || isProductRestricted(product)) && styles.customizedAddToCartButtonDisabled
               ]}
               onPress={() => handleAddCustomizedToCart(product)}
-              disabled={!isCustomizationComplete(product, customizations)}
+              disabled={!isCustomizationComplete(product, customizations) || isProductRestricted(product)}
             >
               <LinearGradient
                 colors={
-                  isCustomizationComplete(product, customizations)
-                    ? ['#FF6B6B', '#FF8E53']
-                    : ['#ccc', '#aaa']
+                  isProductRestricted(product)
+                    ? ['#6B7280', '#4B5563']
+                    : isCustomizationComplete(product, customizations)
+                      ? ['#FF6B6B', '#FF8E53']
+                      : ['#ccc', '#aaa']
                 }
                 style={styles.customizedAddToCartGradient}
               >
                 <Text style={styles.customizedAddToCartText}>
-                  Ajouter au panier - {calculateCustomizedPrice(product, selectedSizes, customizations).toFixed(2)}€
+                  {isProductRestricted(product)
+                    ? (getRestrictionLabel(product))
+                    : `Ajouter au panier - ${calculateCustomizedPrice(product, selectedSizes, customizations).toFixed(2)}€`
+                  }
                 </Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -770,7 +972,7 @@ export default function CategoryScreen() {
 
   // Rendu d'un plat avec image
   const renderProductWithImage = (product, selectedSize, currentPrice, productIdWithSize, quantity, isInCart) => (
-    <View key={product.id} style={styles.productCardWithImage}>
+    <View key={product.id} style={[styles.productCardWithImage, categoryRestricted && { opacity: 0.55 }]}>
       {/* Container avec image en fond et overlay gradient */}
       <TouchableOpacity
         onPress={() => openImageModal(product.image)}
@@ -805,12 +1007,18 @@ export default function CategoryScreen() {
       
       {/* Section info détaillée */}
       <View style={styles.productInfoDetailed}>
-        {/* Sélecteur de tailles */}
-        {product.sizes && (
+        {/* Sélecteur de tailles (masqué si taille déjà dans customizationOptions) */}
+        {product.sizes && !product.customizationOptions?.taille && (
           <View style={styles.sizeSelector}>
             <Text style={styles.sizeLabel}>Taille :</Text>
             <View style={id === ProductCategory.PATES ? styles.sizeButtonsVertical : styles.sizeButtons}>
-              {Object.keys(product.sizes).map((size) => (
+              {Object.keys(product.sizes).sort((a, b) => {
+                if (id === ProductCategory.PIZZA) {
+                  if (a === '29cm') return -1;
+                  if (b === '29cm') return 1;
+                }
+                return 0;
+              }).map((size) => (
                 <TouchableOpacity
                   key={size}
                   style={[
@@ -836,7 +1044,7 @@ export default function CategoryScreen() {
             </View>
           </View>
         )}
-        
+
         {/* Badge quantité */}
         {isInCart && (
           <View style={styles.quantityBadge}>
@@ -870,15 +1078,16 @@ export default function CategoryScreen() {
             <TouchableOpacity
               style={styles.addToCartButtonStyled}
               onPress={() => handleAddToCart(product, selectedSize)}
+              disabled={isProductRestricted(product)}
             >
               <LinearGradient
-                colors={['#FF6B6B', '#FF8E53']}
+                colors={isProductRestricted(product) ? ['#6B7280', '#4B5563'] : ['#FF6B6B', '#FF8E53']}
                 style={styles.addToCartGradientStyled}
               >
                 <View style={styles.addToCartContentStyled}>
-                  <Ionicons name="cart" size={18} color={colors.neutral.white} />
+                  <Ionicons name={isProductRestricted(product) ? (getRestrictionIcon(product)) : "cart"} size={18} color={colors.neutral.white} />
                   <Text style={styles.addToCartTextStyled}>
-                    {isInCart ? 'Ajouter encore' : 'Ajouter au panier'}
+                    {isProductRestricted(product) ? (getRestrictionLabel(product)) : (isInCart ? 'Ajouter encore' : 'Ajouter au panier')}
                   </Text>
                 </View>
               </LinearGradient>
@@ -891,7 +1100,7 @@ export default function CategoryScreen() {
 
   // Rendu d'un plat sans image (design actuel amélioré)
   const renderProductWithoutImage = (product, selectedSize, currentPrice, productIdWithSize, quantity, isInCart) => (
-    <View key={product.id} style={styles.productCardNoImage}>
+    <View key={product.id} style={[styles.productCardNoImage, categoryRestricted && { opacity: 0.55 }]}>
       {/* Header avec emoji de catégorie et design coloré */}
       <LinearGradient
         colors={[currentCategory.gradient[0] + '20', currentCategory.gradient[1] + '10']}
@@ -912,13 +1121,19 @@ export default function CategoryScreen() {
       
       <View style={styles.productInfoNoImage}>
         <Text style={styles.productDescriptionNoImage}>{product.description}</Text>
-        
-        {/* Sélecteur de tailles */}
-        {product.sizes && (
+
+        {/* Sélecteur de tailles (masqué si taille déjà dans customizationOptions) */}
+        {product.sizes && !product.customizationOptions?.taille && (
           <View style={styles.sizeSelector}>
             <Text style={styles.sizeLabel}>Taille :</Text>
             <View style={id === ProductCategory.PATES ? styles.sizeButtonsVertical : styles.sizeButtons}>
-              {Object.keys(product.sizes).map((size) => (
+              {Object.keys(product.sizes).sort((a, b) => {
+                if (id === ProductCategory.PIZZA) {
+                  if (a === '29cm') return -1;
+                  if (b === '29cm') return 1;
+                }
+                return 0;
+              }).map((size) => (
                 <TouchableOpacity
                   key={size}
                   style={[
@@ -944,7 +1159,7 @@ export default function CategoryScreen() {
             </View>
           </View>
         )}
-        
+
         {/* Badge quantité */}
         {isInCart && (
           <View style={styles.quantityBadge}>
@@ -978,15 +1193,16 @@ export default function CategoryScreen() {
             <TouchableOpacity
               style={styles.addToCartButton}
               onPress={() => handleAddToCart(product, selectedSize)}
+              disabled={isProductRestricted(product)}
             >
               <LinearGradient
-                colors={['#FF6B6B', '#FF8E53']}
+                colors={isProductRestricted(product) ? ['#6B7280', '#4B5563'] : ['#FF6B6B', '#FF8E53']}
                 style={styles.addToCartGradient}
               >
                 <View style={styles.addToCartContent}>
-                  <Ionicons name="cart" size={16} color={colors.neutral.white} />
+                  <Ionicons name={isProductRestricted(product) ? (getRestrictionIcon(product)) : "cart"} size={16} color={colors.neutral.white} />
                   <Text style={styles.addToCartText}>
-                    {isInCart ? 'Ajouter encore' : 'Ajouter au panier'}
+                    {isProductRestricted(product) ? (getRestrictionLabel(product)) : (isInCart ? 'Ajouter encore' : 'Ajouter au panier')}
                   </Text>
                 </View>
               </LinearGradient>
@@ -1005,7 +1221,7 @@ export default function CategoryScreen() {
     const productCustomizations = customizations[product.id] || {};
     const isComplete = isCustomizationComplete(product, customizations);
     const selectedSize = selectedSizes[product.id] || (product.sizes ? Object.keys(product.sizes)[0] : null);
-    const currentPrice = product.sizes && selectedSize ? product.sizes[selectedSize].price : product.price;
+    const currentPrice = product.sizes && selectedSize && product.sizes[selectedSize] ? product.sizes[selectedSize].price : product.price;
     const finalPrice = calculateCustomizedPrice(product, selectedSizes, customizations);
     const productIdWithSize = product.sizes ? `${product.id}_${selectedSize}` : product.id;
     const quantity = getProductQuantity(orderItems, productIdWithSize);
@@ -1109,12 +1325,14 @@ export default function CategoryScreen() {
   const renderBoissonCard = (product) => {
     const quantity = getProductQuantity(orderItems, product.id);
     const isInCart = quantity > 0;
+    const isUnavailable = product.available === false;
 
     return (
       <TouchableOpacity
         key={product.id}
-        style={styles.boissonCard}
+        style={[styles.boissonCard, isUnavailable && { opacity: 0.5 }]}
         onPress={() => {
+          if (isUnavailable) return;
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           triggerCartAnimation(product, null);
           addItem(product);
@@ -1123,9 +1341,14 @@ export default function CategoryScreen() {
             router.back();
           }, 300);
         }}
-        activeOpacity={0.8}
+        activeOpacity={isUnavailable ? 1 : 0.8}
       >
-        {isInCart && (
+        {isUnavailable && (
+          <View style={restrictionStyles.productBadge}>
+            <Text style={restrictionStyles.productBadgeText}>Indisponible</Text>
+          </View>
+        )}
+        {isInCart && !isUnavailable && (
           <View style={styles.boissonQuantityBadge}>
             <Text style={styles.boissonQuantityText}>{quantity}</Text>
           </View>
@@ -1147,7 +1370,7 @@ export default function CategoryScreen() {
           <View style={styles.boissonBottomContainer}>
             <Text style={styles.boissonPrice}>{product.price.toFixed(2)}€</Text>
             <View style={styles.boissonAddButton}>
-              <Text style={styles.boissonAddButtonText}>Ajouter</Text>
+              <Text style={styles.boissonAddButtonText}>{isUnavailable ? 'Indisponible' : 'Ajouter'}</Text>
             </View>
           </View>
         </View>
@@ -1160,7 +1383,7 @@ export default function CategoryScreen() {
     // Déterminer la taille par défaut basée sur les tailles disponibles du produit
     const defaultSize = product.sizes ? Object.keys(product.sizes)[0] : null;
     const selectedSize = selectedSizes[product.id] || defaultSize;
-    const currentPrice = product.sizes && selectedSize ? product.sizes[selectedSize].price : product.price;
+    const currentPrice = product.sizes && selectedSize && product.sizes[selectedSize] ? product.sizes[selectedSize].price : product.price;
     const productIdWithSize = product.sizes ? `${product.id}_${selectedSize}` : product.id;
     const quantity = getProductQuantity(orderItems, productIdWithSize);
     const isInCart = quantity > 0;
@@ -1168,12 +1391,32 @@ export default function CategoryScreen() {
     // Vérification de la présence d'image (locale ou Firebase)
     const hasValidImage = product.image || product.firebaseImageUrl;
 
-    // Rendu conditionnel selon la présence d'image
-    if (hasValidImage) {
-      return renderProductWithImage(product, selectedSize, currentPrice, productIdWithSize, quantity, isInCart);
-    } else {
-      return renderProductWithoutImage(product, selectedSize, currentPrice, productIdWithSize, quantity, isInCart);
+    // Vérifier si ce produit individuel est restreint (ex: pizza briochée dans desserts)
+    const productIsRestricted = isProductRestricted(product);
+
+    // Wrapper avec overlay de restriction si le produit est restreint individuellement
+    const productContent = hasValidImage
+      ? renderProductWithImage(product, selectedSize, currentPrice, productIdWithSize, quantity, isInCart)
+      : renderProductWithoutImage(product, selectedSize, currentPrice, productIdWithSize, quantity, isInCart);
+
+    if (productIsRestricted && !categoryRestricted) {
+      const isUnavailable = product.available === false;
+      const isEveningRestricted = (isEveningOnlyProduct(product.id) || (product.category && isEveningOnlyCategory(product.category))) && !eveningAvailable;
+      const badgeLabel = isUnavailable ? 'Indisponible' : isEveningRestricted ? 'Dès 18h' : 'Fermé';
+      const badgeIcon = isUnavailable ? "close-circle-outline" : isEveningRestricted ? "time-outline" : "lock-closed-outline";
+      const badgeColor = isUnavailable ? "#FFFFFF" : isEveningRestricted ? "#FCD34D" : "#FFFFFF";
+      return (
+        <View key={product.id} style={{ opacity: 0.5 }}>
+          {productContent}
+          <View style={restrictionStyles.productBadge}>
+            <Ionicons name={badgeIcon} size={14} color={badgeColor} />
+            <Text style={restrictionStyles.productBadgeText}>{badgeLabel}</Text>
+          </View>
+        </View>
+      );
     }
+
+    return productContent;
   };
 
   return (
@@ -1243,39 +1486,7 @@ export default function CategoryScreen() {
       {floatingEmojis.map((animValue, index) => {
         const fastFoodEmojis = ['🍔', '🍟', '🍕', '🌮', '🌭', '🥪', '🥙', '🍗', '🥓', '🧀', '🥯', '🌯'];
         const currentEmoji = fastFoodEmojis[index % fastFoodEmojis.length];
-
-        // Trajectoires variées
-        const trajectoryType = index % 4;
-        let startX, endX, startY, endY;
-
-        switch (trajectoryType) {
-          case 0: // Du bas vers le haut
-            startX = Math.random() * (width - 50);
-            endX = startX + (Math.random() - 0.5) * 150;
-            startY = height + 50;
-            endY = -100;
-            break;
-          case 1: // De la gauche vers la droite
-            startX = -100;
-            endX = width + 50;
-            startY = 150 + Math.random() * (height - 300);
-            endY = startY + (Math.random() - 0.5) * 200;
-            break;
-          case 2: // De la droite vers la gauche
-            startX = width + 50;
-            endX = -100;
-            startY = 200 + Math.random() * (height - 400);
-            endY = startY + (Math.random() - 0.5) * 150;
-            break;
-          case 3: // Du haut vers le bas
-            startX = Math.random() * (width - 50);
-            endX = startX + (Math.random() - 0.5) * 100;
-            startY = -100;
-            endY = height + 50;
-            break;
-        }
-
-        const amplitude = 15 + (index % 3) * 10;
+        const { startX, endX, startY, endY, amplitude } = emojiTrajectories[index];
 
         return (
           <Animated.View
@@ -1339,6 +1550,21 @@ export default function CategoryScreen() {
         </View>
       </LinearGradient>
 
+      {/* Bannière de restriction horaire */}
+      {categoryRestricted && (
+        <View style={restrictionStyles.banner}>
+          <View style={restrictionStyles.bannerContent}>
+            <Ionicons name="time-outline" size={20} color="#FCD34D" />
+            <View style={restrictionStyles.bannerTextContainer}>
+              <Text style={restrictionStyles.bannerTitle}>Disponible à partir de 18h</Text>
+              <Text style={restrictionStyles.bannerSubtitle}>
+                Cette catégorie n'est pas encore disponible. Revenez à partir de 18h pour commander.
+              </Text>
+            </View>
+          </View>
+        </View>
+      )}
+
       {/* Liste des produits */}
       <ScrollView
         style={styles.content}
@@ -1366,7 +1592,17 @@ export default function CategoryScreen() {
               </View>
             ) : (
               // Pour les autres catégories, afficher tous les produits
-              products.map(renderProduct)
+              // Pour les pizzas, mettre la pizza à composer en premier
+              (id === ProductCategory.PIZZA
+                ? [...products].sort((a, b) => {
+                    const aIsComposee = a.id === 'pizza-composee' || (a.name || '').toLowerCase().includes('composer');
+                    const bIsComposee = b.id === 'pizza-composee' || (b.name || '').toLowerCase().includes('composer');
+                    if (aIsComposee && !bIsComposee) return -1;
+                    if (!aIsComposee && bIsComposee) return 1;
+                    return 0;
+                  })
+                : products
+              ).map(renderProduct)
             )
           ) : (
             <View style={styles.emptyContainer}>

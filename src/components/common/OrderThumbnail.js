@@ -8,15 +8,17 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { colors, typography, spacing, borderRadius } from '../../constants/theme';
 import { useOrder } from '../../context/OrderContext';
 
 export default function OrderThumbnail() {
   const { orderItems, getItemCount, getCurrentOrderType, clearOrder } = useOrder();
+  const pathname = usePathname();
+  const isAdminOrDelivery = pathname?.startsWith('/(admin)') || pathname?.startsWith('/(delivery)') || pathname?.includes('/admin/') || pathname?.includes('/delivery/');
 
-  if (getItemCount() === 0) {
+  if (getItemCount() === 0 || isAdminOrDelivery) {
     return null;
   }
 

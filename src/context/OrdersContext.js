@@ -390,18 +390,24 @@ export const OrdersProvider = ({ children }) => {
   const deleteOrder = async (orderId) => {
     try {
       console.log('=== DELETING ORDER FROM FIRESTORE ===');
+      console.log('Order ID to delete:', orderId);
 
       // Trouver la commande par son ID
       const orderToDelete = orders.find(order => order.id === orderId);
-      if (!orderToDelete || !orderToDelete.firestoreId) {
-        throw new Error('Order not found or missing Firestore ID');
+
+      if (!orderToDelete) {
+        throw new Error('Order not found');
       }
 
+      // Utiliser firestoreId si disponible, sinon utiliser id directement
+      const docId = orderToDelete.firestoreId || orderToDelete.id;
+      console.log('Firestore doc ID:', docId);
+
       // Supprimer de Firestore
-      const orderDoc = doc(db, 'orders', orderToDelete.firestoreId);
+      const orderDoc = doc(db, 'orders', docId);
       await deleteDoc(orderDoc);
 
-      console.log('✅ Order deleted from Firestore');
+      console.log('✅ Order deleted from Firestore:', orderId);
       return { success: true };
     } catch (error) {
       console.error('❌ Error deleting order from Firestore:', error);

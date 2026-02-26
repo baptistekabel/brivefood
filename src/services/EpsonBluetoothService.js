@@ -5,6 +5,7 @@ const STORAGE_KEYS = {
   PRINTER_CONFIG: '@epson_printer_config',
   AUTO_PRINT_ENABLED: '@epson_auto_print',
   CONNECTION_TYPE: '@epson_connection_type', // 'bluetooth' ou 'wifi'
+  SIMULATION_MODE: '@epson_simulation_mode', // Mode simulation pour tester sans imprimante
 };
 
 class EpsonBluetoothService {
@@ -20,6 +21,7 @@ class EpsonBluetoothService {
     this.discoveredPrinters = [];
     this.isInitialized = false;
     this.initPromise = null;
+    this.simulationMode = false; // Mode simulation pour tester sans imprimante
 
     // Initialiser le module
     this.initPromise = this.initModule();
@@ -78,6 +80,13 @@ class EpsonBluetoothService {
       const autoPrint = await AsyncStorage.getItem(STORAGE_KEYS.AUTO_PRINT_ENABLED);
       this.autoPrintEnabled = autoPrint !== 'false';
 
+      // Charger le mode simulation
+      const simulation = await AsyncStorage.getItem(STORAGE_KEYS.SIMULATION_MODE);
+      this.simulationMode = simulation === 'true';
+      if (this.simulationMode) {
+        console.log('🎮 Mode SIMULATION activé');
+      }
+
     } catch (error) {
       console.error('Erreur chargement config:', error);
     }
@@ -99,6 +108,18 @@ class EpsonBluetoothService {
     this.autoPrintEnabled = enabled;
     await AsyncStorage.setItem(STORAGE_KEYS.AUTO_PRINT_ENABLED, enabled.toString());
     console.log(`🖨️ Impression auto: ${enabled ? 'activee' : 'desactivee'}`);
+  }
+
+  // Activer/désactiver le mode simulation
+  async setSimulationMode(enabled) {
+    this.simulationMode = enabled;
+    await AsyncStorage.setItem(STORAGE_KEYS.SIMULATION_MODE, enabled.toString());
+    console.log(`🎮 Mode simulation: ${enabled ? 'ACTIVÉ' : 'DÉSACTIVÉ'}`);
+  }
+
+  // Vérifier si le mode simulation est activé
+  isSimulationEnabled() {
+    return this.simulationMode;
   }
 
   // Vérifier si le module est disponible
@@ -315,8 +336,56 @@ class EpsonBluetoothService {
       return { success: false, error: 'Aucune imprimante configuree' };
     }
 
+    // MODE SIMULATION - Teste sans vraie imprimante
+    if (this.simulationMode) {
+      console.log('🎮 ========== MODE SIMULATION ==========');
+      console.log('🎮 Imprimante:', device.name);
+      console.log('🎮 Adresse:', device.address || device.ip);
+      console.log('🎮 Type:', device.type);
+      console.log('🎮 ');
+      console.log('🎮 📄 TICKET TEST SIMULÉ:');
+      console.log('🎮 ================================');
+      console.log('🎮       BON DE CUISINE');
+      console.log('🎮 ================================');
+      console.log('🎮 ');
+      console.log('🎮        #' + (Math.floor(Math.random() * 900) + 100));
+      console.log('🎮 ');
+      console.log('🎮        ' + new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }));
+      console.log('🎮 ================================');
+      console.log('🎮       Jean Dupont');
+      console.log('🎮 ');
+      console.log('🎮        LIVRAISON');
+      console.log('🎮 ');
+      console.log('🎮  12 Rue de la Paix');
+      console.log('🎮  75001 Paris');
+      console.log('🎮  TEL: 06 12 34 56 78');
+      console.log('🎮 ================================');
+      console.log('🎮  PRODUITS');
+      console.log('🎮  --------------------------------');
+      console.log('🎮  2x Bacon BBQ Burger');
+      console.log('🎮  1x Frites Cheddar Bacon');
+      console.log('🎮  2x Coca-Cola');
+      console.log('🎮  1x Tiramisu Speculoos');
+      console.log('🎮 ================================');
+      console.log('🎮        40.80 EUR');
+      console.log('🎮        CARTE');
+      console.log('🎮 ================================');
+      console.log('🎮       *** TEST OK ***');
+      console.log('🎮 ');
+      console.log('🎮 ✅ Simulation terminée avec succès');
+      console.log('🎮 =====================================');
+
+      // Simuler un délai d'impression
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      return { success: true, message: '🎮 Test SIMULÉ imprimé avec succès !' };
+    }
+
     if (!this.Printer || !this.PrinterConstants) {
-      return { success: false, error: 'Module Epson non disponible' };
+      console.error('❌ Module Epson non disponible');
+      console.error('   - Printer:', this.Printer ? 'OK' : 'NULL');
+      console.error('   - PrinterConstants:', this.PrinterConstants ? 'OK' : 'NULL');
+      return { success: false, error: 'Module Epson non disponible.\n\nVérifiez que l\'app est compilée avec le module natif.\nUtilisez: npx expo run:ios' };
     }
 
     // Déterminer le type de connexion (WiFi ou Bluetooth)
@@ -465,15 +534,28 @@ class EpsonBluetoothService {
 
     } catch (error) {
       console.error('❌ Erreur test impression:', error.message);
+      console.error('❌ Stack:', error.stack);
 
-      // Messages d'erreur plus explicites
+      // Messages d'erreur plus explicites selon le type de connexion
       let errorMsg = error.message;
+      const isWiFiConnection = device.type === 'wifi' || device.ip;
+
       if (error.message.includes('Failed to open the device')) {
-        errorMsg = 'Impossible d\'ouvrir la connexion.\n\nVérifiez que:\n• L\'imprimante est allumée\n• Le Bluetooth est activé\n• L\'imprimante est jumelée dans les réglages iOS';
-      } else if (error.message.includes('connect')) {
-        errorMsg = 'Échec de connexion Bluetooth.\n\nL\'imprimante doit être jumelée dans Réglages → Bluetooth avant utilisation.';
-      } else if (error.message.includes('timeout')) {
-        errorMsg = 'Délai d\'attente dépassé.\n\nL\'imprimante ne répond pas. Vérifiez qu\'elle est allumée et à portée.';
+        if (isWiFiConnection) {
+          errorMsg = 'Impossible d\'ouvrir la connexion WiFi.\n\nVérifiez que:\n• L\'imprimante est allumée\n• L\'iPad et l\'imprimante sont sur le même réseau WiFi\n• L\'adresse IP est correcte\n• La permission réseau local est activée';
+        } else {
+          errorMsg = 'Impossible d\'ouvrir la connexion Bluetooth.\n\nVérifiez que:\n• L\'imprimante est allumée\n• Le Bluetooth est activé\n• L\'imprimante est jumelée dans les réglages iOS';
+        }
+      } else if (error.message.includes('connect') || error.message.includes('Connect')) {
+        if (isWiFiConnection) {
+          errorMsg = 'Échec de connexion WiFi.\n\nVérifiez:\n• L\'imprimante est allumée\n• L\'adresse IP est correcte\n• Même réseau WiFi\n• Permission réseau local activée';
+        } else {
+          errorMsg = 'Échec de connexion Bluetooth.\n\nL\'imprimante doit être jumelée dans Réglages → Bluetooth avant utilisation.';
+        }
+      } else if (error.message.includes('timeout') || error.message.includes('Timeout')) {
+        errorMsg = 'Délai d\'attente dépassé (30s).\n\nL\'imprimante ne répond pas. Vérifiez qu\'elle est allumée et accessible.';
+      } else if (error.message.includes('Network') || error.message.includes('network')) {
+        errorMsg = 'Erreur réseau.\n\nVérifiez la permission réseau local dans Réglages > Confidentialité > Réseau local > BriveFood';
       }
 
       return { success: false, error: errorMsg };
@@ -496,8 +578,57 @@ class EpsonBluetoothService {
       return { success: false, error: 'Aucune imprimante configuree' };
     }
 
+    // MODE SIMULATION - Simule l'impression sans vraie imprimante
+    if (this.simulationMode) {
+      const mode = this.getModeText(order.mode);
+      const customerName = order.customerName || order.firstName || 'Client';
+
+      console.log('🎮 ========== MODE SIMULATION ==========');
+      console.log(`🎮 📄 COMMANDE #${order.id} SIMULÉE:`);
+      console.log('🎮 ================================');
+      console.log('🎮       BON DE CUISINE');
+      console.log('🎮 ================================');
+      console.log(`🎮        #${order.id}`);
+      console.log(`🎮        ${order.orderTime || new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`);
+      console.log('🎮 ================================');
+      console.log(`🎮       ${customerName}`);
+      console.log(`🎮        ${mode}`);
+      if (order.address) {
+        console.log(`🎮  ${order.address}`);
+      }
+      if (order.phone) {
+        console.log(`🎮  TEL: ${order.phone}`);
+      }
+      console.log('🎮 ================================');
+      console.log('🎮  PRODUITS');
+      console.log('🎮  --------------------------------');
+      if (order.items && order.items.length > 0) {
+        order.items.forEach(item => {
+          console.log(`🎮  ${item.quantity}x ${item.name}`);
+          if (item.options) {
+            console.log(`🎮     OPTIONS: ${item.options}`);
+          }
+        });
+      }
+      console.log('🎮 ================================');
+      console.log(`🎮        ${(order.total || 0).toFixed(2)} EUR`);
+      console.log(`🎮        ${order.paymentMethod === 'cash' ? 'ESPECES' : 'CARTE'}`);
+      console.log('🎮 ================================');
+      console.log('🎮 ');
+      console.log(`🎮 ✅ Commande #${order.id} simulée avec succès`);
+      console.log('🎮 =====================================');
+
+      // Simuler un délai d'impression
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      return { success: true, message: `🎮 Commande #${order.id} SIMULÉE` };
+    }
+
     if (!this.Printer || !this.PrinterConstants) {
-      return { success: false, error: 'Module Epson non disponible' };
+      console.error('❌ Module Epson non disponible');
+      console.error('   - Printer:', this.Printer ? 'OK' : 'NULL');
+      console.error('   - PrinterConstants:', this.PrinterConstants ? 'OK' : 'NULL');
+      return { success: false, error: 'Module Epson non disponible.\n\nVérifiez que l\'app est compilée avec le module natif.\nUtilisez: npx expo run:ios' };
     }
 
     console.log(`🖨️ Impression commande #${order.id}...`);
@@ -543,65 +674,56 @@ class EpsonBluetoothService {
         minute: '2-digit'
       });
 
+      // === TOUT EN GRAS ===
+      await printer.addTextStyle({ em: PC.TRUE });
+
       // === EN-TÊTE ===
       await printer.addTextAlign(PC.ALIGN_CENTER);
-      await printer.addTextSize({ width: 2, height: 2 });
-      await printer.addTextStyle({ em: PC.TRUE });
+      await printer.addTextSize({ width: 1, height: 2 });
       await printer.addText('BON DE CUISINE\n');
-      await printer.addTextStyle({ em: PC.FALSE });
       await printer.addTextSize({ width: 1, height: 1 });
       await printer.addText('================================\n\n');
 
       // === NUMÉRO DE COMMANDE (TRÈS GROS) ===
       await printer.addTextSize({ width: 2, height: 3 });
-      await printer.addTextStyle({ em: PC.TRUE });
       await printer.addText(`#${order.id}\n\n`);
 
       // === HEURE ===
-      await printer.addTextSize({ width: 2, height: 2 });
+      await printer.addTextSize({ width: 1, height: 2 });
       await printer.addText(`${heureCommande}\n`);
-      await printer.addTextStyle({ em: PC.FALSE });
       await printer.addTextSize({ width: 1, height: 1 });
       await printer.addText('================================\n\n');
 
-      // === NOM CLIENT (GROS) ===
+      // === NOM CLIENT ===
       const customerName = order.customerName ||
                           (order.firstName && order.lastName ? `${order.firstName} ${order.lastName}` : null) ||
                           order.firstName ||
                           'Client';
-      await printer.addTextSize({ width: 2, height: 2 });
-      await printer.addTextStyle({ em: PC.TRUE });
+      await printer.addTextSize({ width: 1, height: 2 });
       await printer.addText(`${customerName}\n\n`);
-      await printer.addTextStyle({ em: PC.FALSE });
 
       // === MODE (TRÈS VISIBLE) ===
-      await printer.addTextSize({ width: 2, height: 3 });
-      await printer.addTextStyle({ em: PC.TRUE });
+      await printer.addTextSize({ width: 2, height: 2 });
       await printer.addText(`${mode}\n`);
-      await printer.addTextStyle({ em: PC.FALSE });
       await printer.addTextSize({ width: 1, height: 1 });
 
-      // === INFOS CLIENT (livraison + à emporter) ===
-      const isEmporter = order.mode?.toUpperCase() === 'TAKEOUT';
-
+      // === INFOS CLIENT ===
       if (isLivraison && order.address) {
-        // Adresse uniquement pour livraison
+        // Adresse centrée pour livraison
         await printer.addText('\n');
         await printer.addTextSize({ width: 1, height: 2 });
-        await printer.addTextAlign(PC.ALIGN_LEFT);
+        await printer.addTextAlign(PC.ALIGN_CENTER);
         await printer.addText(`${order.address}\n`);
         await printer.addTextSize({ width: 1, height: 1 });
-        await printer.addTextAlign(PC.ALIGN_CENTER);
       }
 
-      // Téléphone pour livraison ET à emporter
-      if ((isLivraison || isEmporter) && order.phone) {
+      // Téléphone pour TOUS les types de commande
+      const customerPhone = order.phone || order.phoneNumber || '';
+      if (customerPhone) {
         await printer.addText('\n');
         await printer.addTextSize({ width: 1, height: 2 });
         await printer.addTextAlign(PC.ALIGN_CENTER);
-        await printer.addTextStyle({ em: PC.TRUE });
-        await printer.addText(`TEL: ${order.phone}\n`);
-        await printer.addTextStyle({ em: PC.FALSE });
+        await printer.addText(`TEL: ${customerPhone}\n`);
         await printer.addTextSize({ width: 1, height: 1 });
       }
 
@@ -609,51 +731,50 @@ class EpsonBluetoothService {
 
       // === PRODUITS A PREPARER ===
       await printer.addTextSize({ width: 1, height: 2 });
-      await printer.addTextStyle({ em: PC.TRUE });
       await printer.addText('PRODUITS\n');
-      await printer.addTextStyle({ em: PC.FALSE });
       await printer.addTextSize({ width: 1, height: 1 });
       await printer.addText('--------------------------------\n\n');
 
-      // Liste des produits (GROS et LISIBLE)
+      // Liste des produits (GRAS et LISIBLE)
       await printer.addTextAlign(PC.ALIGN_LEFT);
-      await printer.addTextSize({ width: 2, height: 2 });
+      await printer.addTextSize({ width: 1, height: 2 });
 
       if (order.items && order.items.length > 0) {
         for (const item of order.items) {
-          // Nom du produit en gros
-          await printer.addTextStyle({ em: PC.TRUE });
-          await printer.addText(`${item.quantity}x ${item.name}\n`);
-          await printer.addTextStyle({ em: PC.FALSE });
+          // Nom du produit en gras avec prix
+          await printer.addText(`${item.quantity}x ${item.name} — ${(item.price || 0).toFixed(2)}€\n`);
 
           // Taille si présente
           if (item.size) {
-            await printer.addTextSize({ width: 1, height: 2 });
             await printer.addText(`   Taille: ${item.size}\n`);
-            await printer.addTextSize({ width: 2, height: 2 });
           }
 
-          // OPTIONS CHOISIES (bien visible)
+          // PERSONNALISATIONS DÉTAILLÉES — item.options contient toutes les options (frites, sauces, boissons, viandes, etc.)
           if (item.options) {
-            await printer.addTextSize({ width: 1, height: 2 });
-            await printer.addTextStyle({ em: PC.TRUE });
-            await printer.addText(`   OPTIONS:\n`);
-            await printer.addTextStyle({ em: PC.FALSE });
-            // Afficher chaque option sur une ligne
-            const optionsList = item.options.split(', ');
+            const optionsList = item.options.split(' | ');
             for (const opt of optionsList) {
               await printer.addText(`   > ${opt}\n`);
             }
-            await printer.addTextSize({ width: 2, height: 2 });
+          }
+          // Toujours vérifier customizations en complément (au cas où options est incomplet ou absent)
+          if (item.customizations && item.customizationOptions) {
+            const alreadyShown = item.options || '';
+            for (const [catKey, selectedOpts] of Object.entries(item.customizations)) {
+              const cat = item.customizationOptions[catKey];
+              if (cat && selectedOpts && selectedOpts.length > 0) {
+                for (const optId of selectedOpts) {
+                  const opt = cat.options?.find(o => o.id === optId);
+                  if (opt && !alreadyShown.includes(opt.name)) {
+                    await printer.addText(`   > ${cat.title || catKey}: ${opt.name}${opt.price > 0 ? ` (+${opt.price.toFixed(2)}€)` : ''}\n`);
+                  }
+                }
+              }
+            }
           }
 
           // Notes/commentaires importants
           if (item.comment || item.comments) {
-            await printer.addTextSize({ width: 1, height: 2 });
-            await printer.addTextStyle({ em: PC.TRUE });
             await printer.addText(`   NOTE: ${item.comment || item.comments}\n`);
-            await printer.addTextStyle({ em: PC.FALSE });
-            await printer.addTextSize({ width: 2, height: 2 });
           }
 
           await printer.addText('\n');
@@ -664,20 +785,19 @@ class EpsonBluetoothService {
       await printer.addTextAlign(PC.ALIGN_CENTER);
       await printer.addText('\n================================\n\n');
 
-      // === TOTAL (TRÈS GROS) ===
-      await printer.addTextSize({ width: 2, height: 3 });
-      await printer.addTextStyle({ em: PC.TRUE });
+      // === TOTAL ===
+      await printer.addTextSize({ width: 2, height: 2 });
       await printer.addText(`${(order.total || 0).toFixed(2)} EUR\n\n`);
 
       // === PAIEMENT ===
       const paymentText = order.paymentMethod === 'cash' ? 'ESPECES' : 'CARTE';
-      await printer.addTextSize({ width: 2, height: 2 });
+      await printer.addTextSize({ width: 1, height: 2 });
       await printer.addText(`${paymentText}\n`);
-      await printer.addTextStyle({ em: PC.FALSE });
 
       await printer.addTextSize({ width: 1, height: 1 });
       await printer.addText('\n================================\n');
 
+      await printer.addTextStyle({ em: PC.FALSE });
       await printer.addFeedLine(4);
       await printer.addCut();
 
@@ -744,6 +864,7 @@ class EpsonBluetoothService {
       autoPrintEnabled: this.autoPrintEnabled,
       moduleAvailable: this.isModuleAvailable(),
       savedConfig: this.savedConfig,
+      simulationMode: this.simulationMode,
     };
   }
 

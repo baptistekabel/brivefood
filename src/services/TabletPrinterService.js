@@ -433,13 +433,38 @@ class TabletPrinterService {
         <div class="line"></div>
 
         <div class="center bold">📋 ARTICLES A PREPARER</div>
-        ${order.items ? order.items.map(item => `
+        ${order.items ? order.items.map(item => {
+          let customHTML = '';
+          if (item.options) {
+            // item.options est toujours complet (inclut frites, sauces, boissons, etc.)
+            const optionsList = item.options.split(' | ');
+            optionsList.forEach(opt => {
+              customHTML += `<div>&nbsp;&nbsp;→ ${opt}</div>`;
+            });
+          } else if (item.customizations && item.customizationOptions) {
+            // Fallback pour les anciennes commandes sans options formatées
+            Object.entries(item.customizations).forEach(([catKey, selectedOpts]) => {
+              const cat = item.customizationOptions[catKey];
+              if (cat && selectedOpts && selectedOpts.length > 0) {
+                customHTML += `<div style="margin-top:2px;"><strong>${cat.title || catKey}:</strong></div>`;
+                selectedOpts.forEach(optId => {
+                  const opt = cat.options ? cat.options.find(o => o.id === optId) : null;
+                  if (opt) {
+                    customHTML += `<div>&nbsp;&nbsp;→ ${opt.name}${opt.price > 0 ? ` (+${opt.price.toFixed(2)}€)` : ''}</div>`;
+                  }
+                });
+              }
+            });
+          }
+          return `
           <div class="item-box">
-            <div class="bold">${item.quantity}x ${item.name}</div>
-            <div>📏 Taille: ${item.size}</div>
-            ${item.options ? `<div>⚙️ Options: ${item.options}</div>` : ''}
+            <div class="bold">${item.quantity}x ${item.name} — ${(item.price || 0).toFixed(2)}€</div>
+            ${item.size ? `<div>📏 Taille: ${item.size}</div>` : ''}
+            ${customHTML}
+            ${item.comment ? `<div><strong>📝 NOTE: ${item.comment}</strong></div>` : ''}
           </div>
-        `).join('') : '<div class="item-box">⚠️ Aucun article</div>'}
+        `;
+        }).join('') : '<div class="item-box">⚠️ Aucun article</div>'}
 
         <div class="line"></div>
         <div class="bold">💰 PAIEMENT: ${order.paymentMethod === 'cash' ? 'ESPECES' : 'CARTE'}</div>
@@ -487,6 +512,7 @@ class TabletPrinterService {
     cmd += `Date: ${now}\n`;
     cmd += `Client: ${order.customerName || 'Anonyme'}\n`;
 
+    // Téléphone pour tous les types de commande
     if (order.phone) {
       cmd += `Tel: ${order.phone}\n`;
     }
@@ -528,12 +554,41 @@ class TabletPrinterService {
       order.items.forEach((item, index) => {
         cmd += '\n';
         cmd += ESC + 'E' + '\x01'; // Gras ON
-        cmd += `${item.quantity}x ${item.name}\n`;
+        cmd += `${item.quantity}x ${item.name} — ${(item.price || 0).toFixed(2)}€\n`;
         cmd += ESC + 'E' + '\x00'; // Gras OFF
-        cmd += `   Taille: ${item.size}\n`;
 
+        if (item.size) {
+          cmd += `   Taille: ${item.size}\n`;
+        }
+
+        // Personnalisations détaillées — item.options est toujours complet
         if (item.options) {
-          cmd += `   Options: ${item.options}\n`;
+          const optionsList = item.options.split(' | ');
+          optionsList.forEach(opt => {
+            cmd += `   > ${opt}\n`;
+          });
+        } else if (item.customizations && item.customizationOptions) {
+          // Fallback pour les anciennes commandes sans options formatées
+          Object.entries(item.customizations).forEach(([catKey, selectedOpts]) => {
+            const cat = item.customizationOptions[catKey];
+            if (cat && selectedOpts && selectedOpts.length > 0) {
+              cmd += ESC + 'E' + '\x01';
+              cmd += `   ${(cat.title || catKey).toUpperCase()}:\n`;
+              cmd += ESC + 'E' + '\x00';
+              selectedOpts.forEach(optId => {
+                const opt = cat.options ? cat.options.find(o => o.id === optId) : null;
+                if (opt) {
+                  cmd += `   > ${opt.name}${opt.price > 0 ? ` (+${opt.price.toFixed(2)}€)` : ''}\n`;
+                }
+              });
+            }
+          });
+        }
+
+        if (item.comment) {
+          cmd += ESC + 'E' + '\x01';
+          cmd += `   NOTE: ${item.comment}\n`;
+          cmd += ESC + 'E' + '\x00';
         }
 
         if (index < order.items.length - 1) {
