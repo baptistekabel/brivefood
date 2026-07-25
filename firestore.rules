@@ -1,0 +1,82 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ⚠️ Ces règles restent très permissives sur la plupart des collections :
+    // l'application lit et écrit les commandes sans authentification (commande
+    // invité, calcul des points de fidélité côté client). Les resserrer suppose
+    // de revoir l'architecture de lecture des commandes.
+    //
+    // Ce qui EST verrouillé ici : le champ `blocked` des profils utilisateurs.
+    // Sans ça, un client bloqué réécrit `blocked: false` sur son propre document
+    // et la Cloud Function le réactive aussitôt.
+
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email in [
+          'admin@brivefood.com',
+          'kabelbaptiste971@gmail.com',
+          'brivefood@gmail.com'
+        ];
+    }
+
+    // La mise à jour touche-t-elle au statut de blocage ?
+    function touchesBlockFields() {
+      return request.resource.data.diff(resource.data)
+        .affectedKeys()
+        .hasAny(['blocked', 'blockedAt']);
+    }
+
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if true;
+
+      // Chacun modifie son profil, mais seul un admin peut bloquer ou débloquer
+      allow update: if isAdmin() || !touchesBlockFields();
+
+      // Suppression de son propre compte depuis l'app
+      allow delete: if isAdmin() || (request.auth != null && request.auth.uid == userId);
+    }
+
+    match /orders/{orderId} {
+      allow read, write: if true;
+    }
+
+    match /products/{productId} {
+      allow read, write: if true;
+    }
+
+    match /settings/{settingId} {
+      allow read, write: if true;
+    }
+
+    match /push_tokens/{tokenId} {
+      allow read, write: if true;
+    }
+
+    match /migrations/{migrationId} {
+      allow read, write: if true;
+    }
+
+    // Collections héritées : plus référencées nulle part dans l'application, mais
+    // conservées par précaution pour d'éventuels outils externes. Elles étaient
+    // entièrement ouvertes via l'ancien joker `match /{document=**}` — on reprend
+    // donc cet accès à l'identique plutôt que l'intention plus stricte qui était
+    // écrite dans le fichier sans jamais s'appliquer.
+    match /restaurants/{restaurantId} {
+      allow read, write: if true;
+    }
+
+    match /menu/{menuId} {
+      allow read, write: if true;
+    }
+
+    match /categories/{categoryId} {
+      allow read, write: if true;
+    }
+
+    match /test/{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

@@ -1,0 +1,1348 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
+  TextInput,
+  ActivityIndicator,
+  RefreshControl,
+  Switch,
+  Platform,
+  Linking,
+} from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import { router, Stack } from 'expo-router';
+import * as Haptics from 'expo-haptics';
+import { colors, typography, spacing, borderRadius } from '../../src/constants/theme';
+import epsonBluetoothService from '../../src/services/EpsonBluetoothService';
+import {
+  getPrinterIpHistory,
+  rememberPrinterIp,
+  forgetPrinterIp,
+} from '../../src/utils/printerIpHistory';
+
+// Wrapper pour compatibilité - avec attente d'initialisation
+const getPrinterService = () => ({
+  waitForInit: async () => {
+    console.log('⏳ Attente initialisation service Epson...');
+    const result = await epsonBluetoothService.waitForInit();
+    console.log('✅ Service initialisé:', result);
+    return result;
+  },
+  getStatus: () => {
+    const status = epsonBluetoothService.getStatus();
+    console.log('📊 Status service:', status);
+    return status;
+  },
+  disconnect: async () => epsonBluetoothService.disconnect(),
+  printTest: async () => {
+    await epsonBluetoothService.waitForInit();
+    return epsonBluetoothService.printTest();
+  },
+  printBlankTest: async () => {
+    await epsonBluetoothService.waitForInit();
+    return epsonBluetoothService.printBlankTest();
+  },
+  setAutoPrintEnabled: async (enabled: boolean) => epsonBluetoothService.setAutoPrintEnabled(enabled),
+  setSimulationMode: async (enabled: boolean) => epsonBluetoothService.setSimulationMode(enabled),
+  connectToWiFi: async (ipAddress: string) => {
+    await epsonBluetoothService.waitForInit();
+    return epsonBluetoothService.connectToWiFiPrinter(ipAddress);
+  },
+});
+
+interface PrinterStatus {
+  isConnected: boolean;
+  device: {
+    name?: string;
+    ip?: string;
+    address?: string;
+  } | null;
+  autoPrintEnabled: boolean;
+  moduleAvailable: boolean;
+  simulationMode?: boolean;
+}
+
+export default function PrinterSetup() {
+  const [isLoading, setIsLoading] = useState(true);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [isTestingBlank, setIsTestingBlank] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const [printerStatus, setPrinterStatus] = useState<PrinterStatus | null>(null);
+  const [autoPrintEnabled, setAutoPrintEnabled] = useState(true);
+  const [simulationMode, setSimulationMode] = useState(false);
+
+  // WiFi mode
+  const [showWiFiInput, setShowWiFiInput] = useState(false);
+  const [wifiAddress, setWifiAddress] = useState('');
+  // Adresses déjà utilisées, proposées en raccourci
+  const [ipHistory, setIpHistory] = useState<string[]>([]);
+  const [isCheckingNetwork, setIsCheckingNetwork] = useState(false);
+  const [networkPermissionStatus, setNetworkPermissionStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown');
+
+  // Charger l'état initial
+  useEffect(() => {
+    loadPrinterStatus();
+    getPrinterIpHistory().then(setIpHistory);
+  }, []);
+
+  const handleSelectHistoryIp = (ip: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setWifiAddress(ip);
+  };
+
+  const handleForgetHistoryIp = (ip: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert(
+      'Oublier cette adresse',
+      `Retirer ${ip} des adresses enregistrées ?`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Oublier',
+          style: 'destructive',
+          onPress: async () => setIpHistory(await forgetPrinterIp(ip)),
+        },
+      ]
+    );
+  };
+
+  // Charger le statut de l'imprimante
+  const loadPrinterStatus = async () => {
+    try {
+      setIsLoading(true);
+
+      const service = getPrinterService();
+
+      // IMPORTANT: Attendre que le service soit initialisé
+      console.log('⏳ Chargement statut imprimante...');
+      await service.waitForInit();
+
+      const status = service.getStatus();
+      setPrinterStatus(status);
+      setAutoPrintEnabled(status.autoPrintEnabled);
+      setSimulationMode(status.simulationMode || false);
+
+      console.log('📋 Statut imprimante:', status);
+      console.log('   - isConnected:', status.isConnected);
+      console.log('   - device:', status.device?.name);
+      console.log('   - moduleAvailable:', status.moduleAvailable);
+      console.log('   - simulationMode:', status.simulationMode);
+
+    } catch (error) {
+      console.error('Erreur chargement statut:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Rafraîchir
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadPrinterStatus();
+    setRefreshing(false);
+  }, []);
+
+  // Déconnecter l'imprimante
+  const disconnectPrinter = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    Alert.alert(
+      'Déconnecter l\'imprimante',
+      'Voulez-vous vraiment déconnecter l\'imprimante ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Déconnecter',
+          style: 'destructive',
+          onPress: async () => {
+            const result = await getPrinterService().disconnect();
+            setPrinterStatus(getPrinterService().getStatus());
+            if (result.success) {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert('Déconnecté', 'Imprimante déconnectée.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  // Test d'impression
+  const testPrint = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsTesting(true);
+
+    try {
+      console.log('🧪 Lancement test impression...');
+      const result = await getPrinterService().printTest();
+
+      if (result.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert('Succès !', 'Ticket test imprimé !');
+      } else {
+        Alert.alert('Échec', result.error || 'Impossible d\'imprimer');
+      }
+
+    } catch (error: any) {
+      console.error('Erreur test impression:', error);
+      Alert.alert('Erreur', error.message);
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  // Test à blanc : vérifie que l'imprimante répond, sans rien écrire dessus
+  const testBlankPrint = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsTestingBlank(true);
+
+    try {
+      const result = await getPrinterService().printBlankTest();
+
+      if (result.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(
+          'Imprimante fonctionnelle',
+          'Le papier a avancé et la coupe s\'est faite. La connexion est bonne.'
+        );
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert('Aucune réponse', result.error || 'L\'imprimante n\'a pas répondu');
+      }
+    } catch (error: any) {
+      console.error('Erreur test à blanc:', error);
+      Alert.alert('Erreur', error.message);
+    } finally {
+      setIsTestingBlank(false);
+    }
+  };
+
+  // Toggle impression automatique
+  const toggleAutoPrint = async (value: boolean) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setAutoPrintEnabled(value);
+    await getPrinterService().setAutoPrintEnabled(value);
+    setPrinterStatus(getPrinterService().getStatus());
+  };
+
+  // Toggle mode simulation
+  const toggleSimulationMode = async (value: boolean) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setSimulationMode(value);
+    await getPrinterService().setSimulationMode(value);
+    setPrinterStatus(getPrinterService().getStatus());
+
+    if (value) {
+      Alert.alert(
+        '🎮 Mode Simulation activé',
+        'Les impressions seront simulées dans la console.\n\nAucune vraie impression ne sera effectuée.\n\nParfait pour tester sans imprimante !',
+        [{ text: 'Compris' }]
+      );
+    }
+  };
+
+  // Vérifier/Demander la permission réseau local
+  const checkNetworkPermission = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsCheckingNetwork(true);
+
+    try {
+      console.log('🔍 Vérification permission réseau local...');
+
+      // Tenter d'accéder à une adresse locale pour déclencher la demande de permission
+      // Cette requête va déclencher la popup iOS si pas encore acceptée
+      const testIPs = ['192.168.1.1', '192.168.0.1', '10.0.0.1'];
+      let networkAccessible = false;
+
+      for (const ip of testIPs) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+          await fetch(`http://${ip}`, {
+            method: 'HEAD',
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+          networkAccessible = true;
+          break;
+        } catch (error: any) {
+          // Une erreur de timeout ou connexion refusée signifie qu'on a accès au réseau
+          // (la permission a été accordée), juste que l'hôte n'existe pas
+          if (error.name === 'AbortError' || error.message?.includes('Network request failed')) {
+            networkAccessible = true;
+            break;
+          }
+        }
+      }
+
+      if (networkAccessible) {
+        setNetworkPermissionStatus('granted');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(
+          'Permission accordée',
+          'L\'accès au réseau local est activé. Vous pouvez maintenant connecter l\'imprimante WiFi.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        setNetworkPermissionStatus('denied');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        Alert.alert(
+          'Permission requise',
+          'L\'accès au réseau local est nécessaire pour l\'impression WiFi.\n\nAllez dans Réglages > BriveFood > Réseau local et activez l\'option.',
+          [
+            { text: 'Annuler', style: 'cancel' },
+            {
+              text: 'Ouvrir Réglages',
+              onPress: () => {
+                if (Platform.OS === 'ios') {
+                  Linking.openURL('app-settings:');
+                }
+              }
+            }
+          ]
+        );
+      }
+
+    } catch (error: any) {
+      console.error('Erreur vérification réseau:', error);
+      // Si on arrive ici avec une erreur, c'est probablement que la permission est refusée
+      setNetworkPermissionStatus('denied');
+      Alert.alert(
+        'Permission requise',
+        'Activez l\'accès au réseau local dans les Réglages pour utiliser l\'impression WiFi.',
+        [
+          { text: 'Annuler', style: 'cancel' },
+          {
+            text: 'Ouvrir Réglages',
+            onPress: () => {
+              if (Platform.OS === 'ios') {
+                Linking.openURL('app-settings:');
+              }
+            }
+          }
+        ]
+      );
+    } finally {
+      setIsCheckingNetwork(false);
+    }
+  };
+
+  // Test de connectivité réseau vers l'imprimante
+  const testNetworkConnectivity = async (ip: string): Promise<{reachable: boolean, error?: string}> => {
+    try {
+      console.log(`🔍 Test connectivité vers ${ip}...`);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      const response = await fetch(`http://${ip}`, {
+        method: 'HEAD',
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      console.log(`✅ ${ip} accessible, status: ${response.status}`);
+      return { reachable: true };
+
+    } catch (error: any) {
+      console.log(`⚠️ Test ${ip}:`, error.name, error.message);
+
+      // AbortError = timeout, mais ça peut signifier que l'IP existe mais ne répond pas en HTTP
+      if (error.name === 'AbortError') {
+        return { reachable: false, error: `Timeout - l'imprimante ne répond pas sur ${ip}` };
+      }
+
+      // Network request failed peut signifier permission refusée OU IP inaccessible
+      if (error.message?.includes('Network request failed')) {
+        return { reachable: false, error: `Réseau inaccessible - vérifiez la permission réseau local et que l'iPad est sur le même WiFi` };
+      }
+
+      return { reachable: false, error: error.message };
+    }
+  };
+
+  // Connexion WiFi
+  const connectWiFi = async () => {
+    if (!wifiAddress.trim()) {
+      Alert.alert('Erreur', 'Veuillez entrer l\'adresse IP de l\'imprimante');
+      return;
+    }
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsConnecting(true);
+
+    try {
+      const ip = wifiAddress.trim();
+      console.log('📶 Connexion WiFi à:', ip);
+      console.log('📱 Platform:', Platform.OS);
+
+      // NOTE: On ne fait plus de test HTTP car l'imprimante Epson ne répond pas sur le port 80
+      // Le SDK Epson se connecte directement sur le port 9100 (TCP raw)
+      // Si la connexion échoue, le SDK donnera le vrai message d'erreur
+
+      const result = await getPrinterService().connectToWiFi(ip);
+
+      if (result.success) {
+        setPrinterStatus(getPrinterService().getStatus());
+        setShowWiFiInput(false);
+        setWifiAddress('');
+        // On ne mémorise que les adresses qui ont réellement abouti :
+        // proposer une IP erronée en raccourci ne ferait que répéter l'échec
+        setIpHistory(await rememberPrinterIp(ip));
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert('Succès !', `Imprimante WiFi configurée !\n\nIP: ${ip}\n\nTestez l'impression.`);
+      } else {
+        console.error('❌ Erreur connectToWiFi:', result.error);
+        Alert.alert('Échec connexion', `${result.error}\n\nL'imprimante est accessible mais la connexion a échoué.`);
+      }
+    } catch (error: any) {
+      console.error('❌ Erreur connexion WiFi:', error);
+      Alert.alert('Erreur', `${error.message}\n\nConsultez les logs pour plus de détails.`);
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  // Render statut de connexion
+  const renderConnectionStatus = () => {
+    const isConnected = printerStatus?.isConnected;
+    const device = printerStatus?.device;
+
+    return (
+      <View style={styles.statusCard}>
+        <View style={styles.statusHeader}>
+          <View style={[
+            styles.statusIndicator,
+            { backgroundColor: isConnected ? '#22C55E' : '#EF4444' }
+          ]}>
+            <Ionicons
+              name={isConnected ? 'checkmark' : 'close'}
+              size={16}
+              color="#FFF"
+            />
+          </View>
+          <View style={styles.statusInfo}>
+            <Text style={styles.statusTitle}>
+              {isConnected ? 'Imprimante connectée' : 'Non connectée'}
+            </Text>
+            {device && (
+              <>
+                <Text style={styles.statusSubtitle}>
+                  {device.name}
+                </Text>
+                <Text style={styles.statusAddress}>
+                  {device.ip || device.address?.replace('TCP:', '') || ''}
+                </Text>
+              </>
+            )}
+          </View>
+        </View>
+
+        {/* Test à blanc : disponible dès qu'une imprimante est configurée,
+            même si la connexion n'est pas encore établie */}
+        {(isConnected || device) && (
+          <TouchableOpacity
+            style={styles.blankTestButton}
+            onPress={testBlankPrint}
+            disabled={isTestingBlank}
+          >
+            {isTestingBlank ? (
+              <ActivityIndicator size="small" color="#2563EB" />
+            ) : (
+              <>
+                <Ionicons name="pulse-outline" size={18} color="#2563EB" />
+                <View style={styles.blankTestContent}>
+                  <Text style={styles.blankTestTitle}>Tester l'imprimante</Text>
+                  <Text style={styles.blankTestSubtitle}>
+                    Ticket vierge, sans rien d'imprimé dessus
+                  </Text>
+                </View>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+
+        {isConnected && (
+          <View style={styles.statusActions}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={testPrint}
+              disabled={isTesting}
+            >
+              {isTesting ? (
+                <ActivityIndicator size="small" color="#000" />
+              ) : (
+                <>
+                  <Ionicons name="print" size={18} color="#000" />
+                  <Text style={styles.actionButtonText}>Test</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.actionButton, styles.disconnectButton]}
+              onPress={disconnectPrinter}
+            >
+              <Ionicons name="unlink" size={18} color="#EF4444" />
+              <Text style={[styles.actionButtonText, { color: '#EF4444' }]}>
+                Déconnecter
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  // Render option impression auto
+  const renderAutoPrintOption = () => (
+    <View style={styles.optionCard}>
+      <View style={styles.optionRow}>
+        <View style={styles.optionInfo}>
+          <Ionicons name="flash" size={24} color="#FF6B35" />
+          <View style={styles.optionTexts}>
+            <Text style={styles.optionTitle}>Impression automatique</Text>
+            <Text style={styles.optionSubtitle}>
+              Imprimer les tickets a chaque nouvelle commande
+            </Text>
+          </View>
+        </View>
+        <Switch
+          value={autoPrintEnabled}
+          onValueChange={toggleAutoPrint}
+          trackColor={{ false: '#E5E5E5', true: '#FF6B35' }}
+          thumbColor="#FFF"
+        />
+      </View>
+    </View>
+  );
+
+  // Render option mode simulation
+  const renderSimulationModeOption = () => (
+    <View style={[styles.optionCard, simulationMode && styles.simulationCard]}>
+      <View style={styles.optionRow}>
+        <View style={styles.optionInfo}>
+          <Ionicons name="game-controller" size={24} color={simulationMode ? '#8B5CF6' : '#666'} />
+          <View style={styles.optionTexts}>
+            <Text style={[styles.optionTitle, simulationMode && { color: '#8B5CF6' }]}>
+              🎮 Mode Simulation
+            </Text>
+            <Text style={styles.optionSubtitle}>
+              {simulationMode
+                ? 'Actif - Les impressions sont simulées dans la console'
+                : 'Tester sans imprimante réelle'}
+            </Text>
+          </View>
+        </View>
+        <Switch
+          value={simulationMode}
+          onValueChange={toggleSimulationMode}
+          trackColor={{ false: '#E5E5E5', true: '#8B5CF6' }}
+          thumbColor="#FFF"
+        />
+      </View>
+      {simulationMode && (
+        <View style={styles.simulationWarning}>
+          <Ionicons name="information-circle" size={16} color="#8B5CF6" />
+          <Text style={styles.simulationWarningText}>
+            Aucune vraie impression - Voir les logs dans la console
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+
+  // Render bouton permission réseau
+  const renderNetworkPermissionButton = () => (
+    <TouchableOpacity
+      style={styles.permissionCard}
+      onPress={checkNetworkPermission}
+      disabled={isCheckingNetwork}
+    >
+      <View style={styles.permissionContent}>
+        <View style={[
+          styles.permissionIcon,
+          networkPermissionStatus === 'granted' && styles.permissionIconGranted,
+          networkPermissionStatus === 'denied' && styles.permissionIconDenied,
+        ]}>
+          {isCheckingNetwork ? (
+            <ActivityIndicator size="small" color="#FFF" />
+          ) : (
+            <Ionicons
+              name={
+                networkPermissionStatus === 'granted' ? 'checkmark-circle' :
+                networkPermissionStatus === 'denied' ? 'close-circle' : 'globe-outline'
+              }
+              size={24}
+              color="#FFF"
+            />
+          )}
+        </View>
+        <View style={styles.permissionTexts}>
+          <Text style={styles.permissionTitle}>Permission réseau local</Text>
+          <Text style={styles.permissionSubtitle}>
+            {networkPermissionStatus === 'granted'
+              ? 'Accès activé - prêt pour l\'impression'
+              : networkPermissionStatus === 'denied'
+              ? 'Accès refusé - appuyez pour réessayer'
+              : 'Appuyez pour vérifier/activer'}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color="#999" />
+      </View>
+    </TouchableOpacity>
+  );
+
+  // Render bouton connexion WiFi
+  const renderConnectButton = () => (
+    <View style={styles.devicesSection}>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Connecter une imprimante</Text>
+      </View>
+
+      {/* Bouton WiFi */}
+      <TouchableOpacity
+        style={styles.wifiMainButton}
+        onPress={() => setShowWiFiInput(true)}
+      >
+        <LinearGradient
+          colors={['#4CAF50', '#388E3C']}
+          style={styles.wifiMainGradient}
+        >
+          <Ionicons name="wifi" size={24} color="#FFF" />
+          <View style={styles.wifiMainText}>
+            <Text style={styles.wifiMainTitle}>Connexion WiFi</Text>
+            <Text style={styles.wifiMainSubtitle}>
+              Connectez votre imprimante via le réseau
+            </Text>
+          </View>
+        </LinearGradient>
+      </TouchableOpacity>
+
+      {/* Info */}
+      <View style={styles.infoBox}>
+        <Ionicons name="information-circle" size={20} color="#4CAF50" />
+        <Text style={styles.infoText}>
+          L'imprimante et l'iPhone doivent être sur le même réseau WiFi.
+        </Text>
+      </View>
+    </View>
+  );
+
+  // Render input WiFi
+  const renderWiFiInput = () => (
+    <View style={styles.manualSection}>
+      <Text style={styles.sectionTitle}>Configuration WiFi</Text>
+      <View style={styles.manualInputCard}>
+        {/* Instructions */}
+        <View style={styles.instructionBox}>
+          <Ionicons name="wifi" size={24} color="#4CAF50" />
+          <Text style={styles.instructionText}>
+            <Text style={styles.instructionBold}>Connexion réseau{'\n\n'}</Text>
+            Trouvez l'adresse IP de l'imprimante dans TM Utility ou imprimez un ticket de statut.
+          </Text>
+        </View>
+
+        <Text style={styles.inputLabel}>Adresse IP de l'imprimante</Text>
+        <TextInput
+          style={styles.textInput}
+          value={wifiAddress}
+          onChangeText={setWifiAddress}
+          placeholder="192.168.1.20"
+          placeholderTextColor="#AAA"
+          keyboardType="numbers-and-punctuation"
+          autoCapitalize="none"
+        />
+        <Text style={styles.inputHint}>
+          Exemple: 192.168.1.20 ou 10.0.0.50
+        </Text>
+
+        {/* Adresses déjà utilisées : un appui remplit le champ */}
+        {ipHistory.length > 0 && (
+          <View style={styles.ipHistorySection}>
+            <Text style={styles.ipHistoryLabel}>Adresses enregistrées</Text>
+            <View style={styles.ipHistoryList}>
+              {ipHistory.map(ip => (
+                <View
+                  key={ip}
+                  style={[
+                    styles.ipHistoryChip,
+                    wifiAddress.trim() === ip && styles.ipHistoryChipSelected,
+                  ]}
+                >
+                  <TouchableOpacity
+                    style={styles.ipHistoryChipMain}
+                    onPress={() => handleSelectHistoryIp(ip)}
+                  >
+                    <Ionicons name="print-outline" size={14} color="#4CAF50" />
+                    <Text style={styles.ipHistoryChipText}>{ip}</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.ipHistoryChipRemove}
+                    onPress={() => handleForgetHistoryIp(ip)}
+                    hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+                    accessibilityLabel={`Oublier l'adresse ${ip}`}
+                  >
+                    <Ionicons name="close" size={14} color={colors.neutral.gray500} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        <View style={styles.manualButtons}>
+          <TouchableOpacity
+            style={styles.cancelManualButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowWiFiInput(false);
+              setWifiAddress('');
+            }}
+          >
+            <Text style={styles.cancelManualText}>Annuler</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.connectManualButton, !wifiAddress.trim() && styles.connectManualButtonDisabled]}
+            onPress={connectWiFi}
+            disabled={isConnecting || !wifiAddress.trim()}
+          >
+            <LinearGradient
+              colors={wifiAddress.trim() ? ['#4CAF50', '#388E3C'] : ['#CCC', '#CCC']}
+              style={styles.connectManualGradient}
+            >
+              {isConnecting ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <>
+                  <Ionicons name="wifi" size={18} color="#FFF" />
+                  <Text style={styles.connectManualText}>Connecter</Text>
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+
+  // Render instructions
+  const renderInstructions = () => (
+    <View style={styles.instructionsCard}>
+      <View style={styles.instructionHeader}>
+        <Ionicons name="information-circle" size={24} color="#4CAF50" />
+        <Text style={styles.instructionTitle}>Comment configurer</Text>
+      </View>
+
+      <View style={styles.instructionSteps}>
+        <View style={styles.step}>
+          <View style={styles.stepNumber}>
+            <Text style={styles.stepNumberText}>1</Text>
+          </View>
+          <Text style={styles.stepText}>
+            Allumez votre imprimante et connectez-la au même réseau WiFi
+          </Text>
+        </View>
+
+        <View style={styles.step}>
+          <View style={styles.stepNumber}>
+            <Text style={styles.stepNumberText}>2</Text>
+          </View>
+          <Text style={styles.stepText}>
+            Trouvez l'adresse IP de l'imprimante (TM Utility ou ticket de statut)
+          </Text>
+        </View>
+
+        <View style={styles.step}>
+          <View style={styles.stepNumber}>
+            <Text style={styles.stepNumberText}>3</Text>
+          </View>
+          <Text style={styles.stepText}>
+            Entrez l'adresse IP et appuyez sur "Connecter"
+          </Text>
+        </View>
+
+        <View style={styles.step}>
+          <View style={styles.stepNumber}>
+            <Text style={styles.stepNumberText}>4</Text>
+          </View>
+          <Text style={styles.stepText}>
+            Testez l'impression avec le bouton "Test"
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FF6B35" />
+        <Text style={styles.loadingText}>Chargement...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <LinearGradient
+        colors={['#000000', '#000000', '#000000']}
+        style={styles.container}
+      >
+        <StatusBar style="light" />
+
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              // (admin) est un navigateur a onglets : router.back() retombe sur
+              // le tableau de bord. On revient explicitement aux parametres,
+              // l'ecran depuis lequel on arrive.
+              router.replace('/(admin)/settings');
+            }}
+          >
+            <Ionicons name="arrow-back" size={24} color={colors.neutral.white} />
+          </TouchableOpacity>
+
+          <Text style={styles.headerTitle}>Imprimante WiFi</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+
+        {/* Content */}
+        <ScrollView
+          style={styles.content}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+          {/* Statut de connexion */}
+          {renderConnectionStatus()}
+
+          {/* Option impression auto */}
+          {renderAutoPrintOption()}
+
+          {/* Permission réseau local (iOS) */}
+          {Platform.OS === 'ios' && renderNetworkPermissionButton()}
+
+          {/* Input WiFi */}
+          {showWiFiInput ? renderWiFiInput() : renderConnectButton()}
+
+          {/* Instructions */}
+          {!printerStatus?.isConnected && renderInstructions()}
+
+          <View style={{ height: 100 }} />
+        </ScrollView>
+      </LinearGradient>
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000',
+  },
+  loadingText: {
+    marginTop: spacing.md,
+    color: '#FFF',
+    fontSize: typography.fontSizes.base,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing['3xl'],
+    paddingBottom: spacing.lg,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: typography.fontSizes.xl,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.white,
+    letterSpacing: 1,
+  },
+  headerSpacer: {
+    width: 40,
+  },
+  content: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+  },
+
+  // Status Card
+  statusCard: {
+    backgroundColor: '#FFF',
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  statusHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statusIndicator: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statusInfo: {
+    marginLeft: spacing.md,
+    flex: 1,
+  },
+  statusTitle: {
+    fontSize: typography.fontSizes.lg,
+    fontFamily: typography.fontFamily.bold,
+    color: '#000',
+  },
+  statusSubtitle: {
+    fontSize: typography.fontSizes.sm,
+    color: '#666',
+    marginTop: 2,
+  },
+  statusAddress: {
+    fontSize: typography.fontSizes.xs,
+    color: '#999',
+    fontFamily: 'monospace',
+    marginTop: 2,
+  },
+  statusActions: {
+    flexDirection: 'row',
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  blankTestButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.lg,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    minHeight: 56,
+    justifyContent: 'center',
+  },
+  blankTestContent: {
+    flex: 1,
+  },
+  blankTestTitle: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.bold,
+    color: '#2563EB',
+  },
+  blankTestSubtitle: {
+    fontSize: typography.fontSizes.xs,
+    fontFamily: typography.fontFamily.medium,
+    color: '#3B82F6',
+    marginTop: 1,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    backgroundColor: '#F0F0F0',
+    gap: spacing.xs,
+  },
+  actionButtonText: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.semibold,
+    color: '#000',
+  },
+  disconnectButton: {
+    backgroundColor: '#FEE2E2',
+  },
+
+  // Option Card
+  optionCard: {
+    backgroundColor: '#FFF',
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  optionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  optionInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  optionTexts: {
+    marginLeft: spacing.md,
+    flex: 1,
+  },
+  optionTitle: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.semibold,
+    color: '#000',
+  },
+  optionSubtitle: {
+    fontSize: typography.fontSizes.sm,
+    color: '#666',
+    marginTop: 2,
+  },
+
+  // Simulation Mode
+  simulationCard: {
+    backgroundColor: '#F5F3FF',
+    borderWidth: 2,
+    borderColor: '#8B5CF6',
+  },
+  simulationWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5E5',
+    gap: spacing.xs,
+  },
+  simulationWarningText: {
+    fontSize: typography.fontSizes.xs,
+    color: '#8B5CF6',
+    flex: 1,
+  },
+
+  // Devices Section
+  devicesSection: {
+    marginBottom: spacing.lg,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  sectionTitle: {
+    fontSize: typography.fontSizes.lg,
+    fontFamily: typography.fontFamily.bold,
+    color: '#000',
+  },
+  wifiMainButton: {
+    marginBottom: spacing.md,
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  wifiMainGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
+  },
+  wifiMainText: {
+    flex: 1,
+  },
+  wifiMainTitle: {
+    fontSize: typography.fontSizes.xl,
+    fontFamily: typography.fontFamily.bold,
+    color: '#FFF',
+  },
+  wifiMainSubtitle: {
+    fontSize: typography.fontSizes.sm,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 2,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#E8F5E9',
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    gap: spacing.sm,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: typography.fontSizes.sm,
+    color: '#2E7D32',
+    lineHeight: 20,
+  },
+
+  // Manual Section
+  manualSection: {
+    marginBottom: spacing.lg,
+  },
+  manualInputCard: {
+    backgroundColor: '#FFF',
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  instructionBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#E8F5E9',
+    padding: spacing.lg,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.lg,
+    gap: spacing.md,
+    borderLeftWidth: 4,
+    borderLeftColor: '#4CAF50',
+  },
+  instructionText: {
+    flex: 1,
+    fontSize: typography.fontSizes.sm,
+    color: '#2E7D32',
+    lineHeight: 22,
+  },
+  instructionBold: {
+    fontFamily: typography.fontFamily.bold,
+  },
+  inputLabel: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.semibold,
+    color: '#000',
+    marginBottom: spacing.sm,
+  },
+  textInput: {
+    borderWidth: 2,
+    borderColor: '#E0E0E0',
+    borderRadius: borderRadius.md,
+    padding: spacing.lg,
+    fontSize: typography.fontSizes.xl,
+    backgroundColor: '#FFFFFF',
+    fontFamily: 'monospace',
+    color: '#000000',
+    fontWeight: 'bold',
+    letterSpacing: 2,
+    textAlign: 'center',
+  },
+  inputHint: {
+    fontSize: typography.fontSizes.xs,
+    color: '#999',
+    marginTop: spacing.xs,
+    textAlign: 'center',
+  },
+  ipHistorySection: {
+    marginTop: spacing.lg,
+  },
+  ipHistoryLabel: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.semibold,
+    color: colors.neutral.gray600,
+    marginBottom: spacing.sm,
+  },
+  ipHistoryList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  ipHistoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: spacing.md,
+    paddingRight: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.neutral.gray50,
+    borderWidth: 1,
+    borderColor: colors.neutral.gray200,
+  },
+  ipHistoryChipSelected: {
+    backgroundColor: '#E8F5E9',
+    borderColor: '#4CAF50',
+  },
+  ipHistoryChipMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  ipHistoryChipText: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.semibold,
+    color: colors.neutral.gray800,
+  },
+  ipHistoryChipRemove: {
+    marginLeft: spacing.sm,
+  },
+  manualButtons: {
+    flexDirection: 'row',
+    marginTop: spacing.lg,
+    gap: spacing.md,
+  },
+  cancelManualButton: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  cancelManualText: {
+    fontSize: typography.fontSizes.base,
+    color: '#666',
+  },
+  connectManualButton: {
+    flex: 1,
+    borderRadius: borderRadius.md,
+    overflow: 'hidden',
+  },
+  connectManualButtonDisabled: {
+    opacity: 0.6,
+  },
+  connectManualGradient: {
+    flexDirection: 'row',
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  connectManualText: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.semibold,
+    color: '#FFF',
+  },
+
+  // Instructions
+  instructionsCard: {
+    backgroundColor: '#E8F5E9',
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: '#C8E6C9',
+  },
+  instructionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  instructionTitle: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.bold,
+    color: '#2E7D32',
+    marginLeft: spacing.sm,
+  },
+  instructionSteps: {
+    gap: spacing.md,
+  },
+  step: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  stepNumber: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.sm,
+  },
+  stepNumberText: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.bold,
+    color: '#FFF',
+  },
+  stepText: {
+    flex: 1,
+    fontSize: typography.fontSizes.sm,
+    color: '#2E7D32',
+    lineHeight: 20,
+  },
+
+  // Permission Card
+  permissionCard: {
+    backgroundColor: '#FFF',
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  permissionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  permissionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#3B82F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  permissionIconGranted: {
+    backgroundColor: '#22C55E',
+  },
+  permissionIconDenied: {
+    backgroundColor: '#EF4444',
+  },
+  permissionTexts: {
+    flex: 1,
+    marginLeft: spacing.md,
+  },
+  permissionTitle: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.semibold,
+    color: '#000',
+  },
+  permissionSubtitle: {
+    fontSize: typography.fontSizes.sm,
+    color: '#666',
+    marginTop: 2,
+  },
+});

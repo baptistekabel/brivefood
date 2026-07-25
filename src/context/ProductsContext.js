@@ -1,0 +1,392 @@
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import productService from '../services/productService';
+import localProductsData from '../data/products.js'; // Données existantes pour fallback
+import { ProductCategory } from '../types';
+
+const ProductsContext = createContext({});
+
+// À incrémenter uniquement si de NOUVELLES migrations doivent être rejouées.
+// Tant que la valeur ne change pas, le bloc de migrations reste ignoré et les
+// modifications faites depuis l'interface admin ne peuvent pas être écrasées.
+const MIGRATIONS_VERSION = 1;
+
+export const useProducts = () => {
+  const context = useContext(ProductsContext);
+  if (!context) {
+    throw new Error('useProducts must be used within ProductsProvider');
+  }
+  return context;
+};
+
+export const ProductsProvider = ({ children }) => {
+  const [products, setProducts] = useState([]);
+  const [productsByCategory, setProductsByCategory] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isFirebaseConnected, setIsFirebaseConnected] = useState(false);
+
+  // Initialiser et écouter les produits
+  useEffect(() => {
+    let unsubscribe = null;
+
+    const init = async () => {
+      await initializeProducts();
+      // Activer le listener après l'initialisation
+      unsubscribe = setupRealtimeListener();
+    };
+
+    init();
+
+    // Cleanup: arrêter le listener quand le composant se démonte
+    return () => {
+      if (unsubscribe) {
+        console.log('🔇 Cleaning up products listener');
+        unsubscribe();
+      }
+    };
+  }, []);
+
+  // Recalculer productsByCategory quand les produits changent
+  useEffect(() => {
+    setProductsByCategory(productService.organizeProductsByCategory(products));
+  }, [products]);
+
+  const initializeProducts = async () => {
+    try {
+      console.log('🔄 Initializing products...');
+      setLoading(true);
+
+      try {
+        // Charger directement depuis Firebase (pas de données locales d'abord)
+        const result = await productService.getAllProducts();
+
+        if (result.success && result.products.length > 0) {
+          console.log('✅ Products loaded from Firebase:', result.products.length, 'products');
+
+          // Afficher les produits Firebase immédiatement (avant les migrations)
+          setProducts(result.products);
+          setProductsByCategory(productService.organizeProductsByCategory(result.products));
+          setIsFirebaseConnected(true);
+          setLoading(false);
+
+          // Verrou global : si toutes les migrations sont déjà passées, on saute
+          // le bloc entier (1 lecture au lieu de 35, et aucun risque qu'une
+          // migration réécrase un prix modifié depuis l'interface admin)
+          const alreadyMigrated = await productService.areMigrationsCompleted(MIGRATIONS_VERSION);
+          if (alreadyMigrated) {
+            console.log('⏭️ Migrations déjà appliquées, étape ignorée');
+            setError(null);
+            return;
+          }
+
+          // Migrations one-shot (chaque migration ne tourne qu'UNE SEULE FOIS grâce au flag Firebase)
+          const m = (name, fn) => productService.runMigrationOnce(name, fn);
+          const migrationsNeeded = await Promise.all([
+            m('updateDrinkPrices', () => productService.updateDrinkPrices()),
+            m('addSauceToCheeseProducts', () => productService.addSauceToCheeseProducts()),
+            m('addBissapToDrinks', () => productService.addBissapToDrinks()),
+            m('addMissingPizzasAndUpdateComposables', () => productService.addMissingPizzasAndUpdateComposables()),
+            m('addOptionsToVeggieBurger', () => productService.addOptionsToVeggieBurger()),
+            m('reorderAllProductOptions', () => productService.reorderAllProductOptions()),
+            m('updatePates3FromagesRecipe', () => productService.updatePates3FromagesRecipe()),
+            m('updateVariousPricesFeb2026', () => productService.updateVariousPricesFeb2026()),
+            m('addSupplementsToPates', () => productService.addSupplementsToPates()),
+            m('addSupplementsToTacos', () => productService.addSupplementsToTacos()),
+            m('addToppingsToPizzaBriochee', () => productService.addToppingsToPizzaBriochee()),
+            m('deleteRemovedPizzas', () => productService.deleteRemovedPizzas()),
+            m('addPizzaComposee', () => productService.addPizzaComposee()),
+            m('addOasisFraiseFramboise', () => productService.addOasisFraiseFramboise()),
+            m('fixAmericainAndSteakPrices', () => productService.fixAmericainAndSteakPrices()),
+            m('fixTendersPrice', () => productService.fixTendersPrice()),
+            m('updateSandwichComposeOptions', () => productService.updateSandwichComposeOptions()),
+            m('updateTexMexProducts', () => productService.updateTexMexProducts()),
+            m('updatePetitesFaimPrices', () => productService.updatePetitesFaimPrices()),
+            m('addOptionsToSalades', () => productService.addOptionsToSalades()),
+            m('updateDessertPrices', () => productService.updateDessertPrices()),
+            m('addPizzdwichProducts', () => productService.addPizzdwichProducts()),
+            m('addCruditesToPizzdwich', () => productService.addCruditesToPizzdwich()),
+            m('updatePizzaProducts', () => productService.updatePizzaProducts()),
+            m('updatePatesCustomizations', () => productService.updatePatesCustomizations()),
+            m('updateCocaVanillePrice', () => productService.updateCocaVanillePrice()),
+            m('addBoissonToBowls', () => productService.addBoissonToBowls()),
+            m('addBoissonToBruschettas', () => productService.addBoissonToBruschettas()),
+            m('updatePizzaBriocheeNutella', () => productService.updatePizzaBriocheeNutella()),
+            m('updatePizzdwichViandes', () => productService.updatePizzdwichViandes()),
+          ]);
+
+          // Migrations qui doivent tourner APRÈS les autres (dépendances / nettoyage doublons)
+          const postMigrations = await Promise.all([
+            m('updateTacosSupplements', () => productService.updateTacosSupplements()),
+            m('updateFritesOptions', () => productService.updateFritesOptions()),
+            m('fixFritesNormalesPriceV2', () => productService.updateFritesOptions()),
+            m('updateLasagnesPainOption', () => productService.updateLasagnesPainOption()),
+            m('ensureAllDrinksInFirebase', () => productService.ensureAllDrinksInFirebase()),
+          ]);
+
+          // Poser le verrou global : plus aucune migration ne sera rejouée
+          await productService.markMigrationsCompleted(MIGRATIONS_VERSION);
+
+          // Recharger seulement si des migrations ont modifié des données
+          const allResults = [...migrationsNeeded, ...postMigrations];
+          const anyUpdated = allResults.some(r => r && r.updatedCount > 0);
+          if (anyUpdated) {
+            const refreshed = await productService.getAllProducts();
+            if (refreshed.success && refreshed.products.length > 0) {
+              setProducts(refreshed.products);
+              setProductsByCategory(productService.organizeProductsByCategory(refreshed.products));
+            }
+          }
+        } else {
+          console.log('⚠️ No products in Firebase, using local data');
+          loadLocalProducts();
+        }
+
+      } catch (firebaseError) {
+        console.error('❌ Firebase unavailable, using local data:', firebaseError);
+        loadLocalProducts();
+        setIsFirebaseConnected(false);
+      }
+
+      setError(null);
+    } catch (err) {
+      console.error('❌ Error initializing products:', err);
+      setError(err.message);
+      if (products.length === 0) {
+        loadLocalProducts();
+      }
+      setIsFirebaseConnected(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Référence aux produits locaux (ne change jamais)
+  const getLocalProducts = () => {
+    const allProducts = [];
+    Object.entries(localProductsData).forEach(([category, categoryProducts]) => {
+      categoryProducts.forEach(product => {
+        allProducts.push({
+          ...product,
+          category,
+          source: 'local'
+        });
+      });
+    });
+    return allProducts;
+  };
+
+  const loadLocalProducts = () => {
+    console.log('📦 Loading local products from data/products.js');
+    const allProducts = getLocalProducts();
+    console.log(`✅ Loaded ${allProducts.length} products from local data`);
+    setProducts(allProducts);
+    setProductsByCategory(localProductsData);
+  };
+
+  const setupRealtimeListener = () => {
+    console.log('🔄 Setting up real-time products listener');
+
+    const unsubscribe = productService.subscribeToProducts((firebaseProducts, meta = {}) => {
+      // Erreur réseau : on garde l'affichage actuel plutôt que de vider la carte
+      if (meta.error || firebaseProducts === null) {
+        console.warn('⚠️ Listener produits en erreur, données actuelles conservées');
+        setIsFirebaseConnected(false);
+        return;
+      }
+
+      console.log('🔄 Firebase real-time update received:', firebaseProducts.length, 'products');
+
+      // Une liste vide est acceptée : c'est un vrai état (tous les produits supprimés)
+      setProducts(firebaseProducts);
+      setProductsByCategory(productService.organizeProductsByCategory(firebaseProducts));
+      setIsFirebaseConnected(true);
+    });
+
+    return unsubscribe;
+  };
+
+  const migrateLocalProducts = async () => {
+    try {
+      console.log('🚀 Starting migration of local products to Firebase');
+      const result = await productService.migrateExistingProducts(localProductsData);
+
+      if (result.success) {
+        console.log(`✅ Migration completed: ${result.migratedCount} products`);
+        // Recharger depuis Firebase après migration
+        await initializeProducts();
+      }
+    } catch (error) {
+      console.error('❌ Migration failed:', error);
+    }
+  };
+
+  // Migrer une catégorie spécifique (ex: BOISSONS)
+  const migrateCategoryToFirebase = async (category) => {
+    try {
+      console.log(`🚀 Starting migration of ${category} to Firebase`);
+      const categoryProducts = localProductsData[category];
+
+      if (!categoryProducts || categoryProducts.length === 0) {
+        console.log(`⚠️ No products found for category ${category}`);
+        return { success: false, error: 'No products found' };
+      }
+
+      const result = await productService.migrateCategoryProducts(category, categoryProducts);
+
+      if (result.success) {
+        console.log(`✅ Category migration completed: ${result.migratedCount} products`);
+        // Recharger depuis Firebase après migration
+        await initializeProducts();
+        return result;
+      }
+      return result;
+    } catch (error) {
+      console.error('❌ Category migration failed:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Ajouter un produit (admin)
+  const addProduct = async (productData) => {
+    try {
+      console.log('➕ Adding new product:', productData.name);
+      const result = await productService.addProduct(productData);
+
+      if (result.success) {
+        console.log('✅ Product added successfully');
+        // Les données se mettront à jour automatiquement via le listener temps réel
+        return { success: true, id: result.id };
+      } else {
+        setError(result.error);
+        return { success: false, error: result.error };
+      }
+    } catch (error) {
+      console.error('❌ Error adding product:', error);
+      setError(error.message);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Modifier un produit (admin)
+  const updateProduct = async (productId, updates) => {
+    // Mémoriser l'état actuel pour pouvoir revenir en arrière si l'écriture échoue
+    const previousProducts = products;
+
+    try {
+      console.log('✏️ Updating product:', productId);
+
+      const { __delete = [], ...cleanUpdates } = updates;
+
+      // Affichage IMMÉDIAT côté admin, sans attendre le retour de Firebase
+      setProducts(prev => prev.map(p => {
+        if (p.id !== productId) return p;
+        const updated = { ...p, ...cleanUpdates };
+        __delete.forEach(field => { delete updated[field]; });
+        return updated;
+      }));
+
+      const result = await productService.updateProduct(productId, updates);
+
+      if (result.success) {
+        console.log('✅ Product updated successfully');
+        return { success: true };
+      }
+
+      // Écriture refusée : on restaure l'état réel pour ne pas afficher
+      // à l'admin une modification qui n'a jamais été enregistrée
+      console.warn('↩️ Update échoué, retour à l\'état précédent');
+      setProducts(previousProducts);
+      setError(result.error);
+      return { success: false, error: result.error };
+    } catch (error) {
+      console.error('❌ Error updating product:', error);
+      setProducts(previousProducts);
+      setError(error.message);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Supprimer un produit (admin)
+  const deleteProduct = async (productId) => {
+    try {
+      console.log('🗑️ Deleting product:', productId);
+      const result = await productService.deleteProduct(productId);
+
+      if (result.success) {
+        console.log('✅ Product deleted successfully');
+        return { success: true };
+      } else {
+        setError(result.error);
+        return { success: false, error: result.error };
+      }
+    } catch (error) {
+      console.error('❌ Error deleting product:', error);
+      setError(error.message);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Obtenir les produits d'une catégorie
+  const getProductsByCategory = (category) => {
+    return productsByCategory[category] || [];
+  };
+
+  // Obtenir un produit par son ID
+  const getProductById = (productId) => {
+    return products.find(product => product.id === productId) || null;
+  };
+
+  // Rechercher des produits
+  const searchProducts = (query) => {
+    if (!query || query.trim() === '') {
+      return products;
+    }
+
+    const searchTerm = query.toLowerCase().trim();
+    return products.filter(product =>
+      product.name.toLowerCase().includes(searchTerm) ||
+      product.description.toLowerCase().includes(searchTerm)
+    );
+  };
+
+  // Forcer une actualisation
+  const refreshProducts = async () => {
+    await initializeProducts();
+  };
+
+  const value = {
+    // Data
+    products,
+    productsByCategory,
+    isFirebaseConnected,
+
+    // State
+    loading,
+    error,
+
+    // Methods - Read
+    getProductsByCategory,
+    getProductById,
+    searchProducts,
+    refreshProducts,
+
+    // Methods - Write (Admin)
+    addProduct,
+    updateProduct,
+    deleteProduct,
+
+    // Utility
+    migrateLocalProducts,
+    migrateCategoryToFirebase,
+
+    // Stats
+    totalProducts: products.length,
+    categoriesCount: Object.keys(productsByCategory).length,
+  };
+
+  return (
+    <ProductsContext.Provider value={value}>
+      {children}
+    </ProductsContext.Provider>
+  );
+};

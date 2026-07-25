@@ -1,0 +1,49 @@
+# Git
+.git
+
+# Dependencies (reinstalled during build)
+node_modules
+
+# iOS native (rebuilt during build)
+ios/Pods
+ios/build
+ios/*.xcworkspace
+ios/Podfile.lock
+
+# Android native (rebuilt during build)
+android/build
+android/.gradle
+android/app/build
+
+# Cache and temp files
+.expo
+.cache
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Test files
+__tests__
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+coverage
+
+# Documentation
+*.md
+!README.md
+
+# Backup files
+*.backup
+*.bak
+*.old
+
+# Cloud Functions (déployées séparément via firebase deploy)
+functions
