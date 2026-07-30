@@ -112,7 +112,8 @@ export const LoyaltyProvider = ({ children }) => {
         .map(order => order.id)
     );
 
-    // Calculer le total dépensé avec plus de précision
+    // Total dépensé : sert uniquement à l'affichage. Les points, eux, ne sont
+    // plus déduits de cette somme (voir le solde ci-dessous).
     const totalSpent = userOrders.reduce((sum, order) => {
       const orderTotal = parseFloat(order.total || 0);
       return sum + orderTotal;
@@ -129,8 +130,14 @@ export const LoyaltyProvider = ({ children }) => {
       parseFloat(userProfile.usedLoyaltyPoints || 0) - refundedPoints
     );
 
-    // Calcul des points : 1€ = 10 points
-    const earnedPoints = totalSpent * POINTS_PER_EURO;
+    // Solde de fidélité du client.
+    //
+    // Les points étaient auparavant recalculés à chaque affichage à partir de la
+    // collection `orders` : ils ne survivaient donc pas à une purge de
+    // l'historique, et des centaines de clients ont perdu leur cumul d'un coup.
+    // Le solde est désormais un compteur persistant, crédité à chaque commande
+    // (voir OrdersContext.createOrder) et débité en cas d'annulation.
+    const earnedPoints = parseFloat(userProfile.loyaltyPointsCarriedOver || 0);
     const currentPoints = Math.max(0, earnedPoints - usedPoints);
 
     // Prochain objectif : la récompense la moins chère pas encore atteignable
@@ -146,7 +153,7 @@ export const LoyaltyProvider = ({ children }) => {
     console.log('🏆 LOYALTY DEBUG:');
     console.log('Commandes du client:', userOrders.length);
     console.log('Total dépensé:', totalSpent, '€');
-    console.log('Points gagnés (brut):', earnedPoints);
+    console.log('Points cumulés (solde persistant):', earnedPoints);
     console.log('Commandes annulées (0 point):', cancelledOrderIds.size);
     console.log('Points restitués (récompenses annulées):', refundedPoints);
     console.log('Points utilisés:', usedPoints);
@@ -200,6 +207,15 @@ export const LoyaltyProvider = ({ children }) => {
         return { success: false, error: 'Points insuffisants' };
       }
 
+      // Une même récompense ne peut pas être appliquée deux fois au même panier :
+      // les points étaient débités à chaque ajout, mais l'annulation n'en
+      // remboursait qu'un seul (voir cancelRewardUsage).
+      const alreadyActive = (userProfile.usedRewards || [])
+        .some(r => r.id === rewardId && !r.orderId);
+      if (alreadyActive) {
+        return { success: false, error: 'Cette récompense est déjà appliquée à votre commande' };
+      }
+
       let discountAmount = 0;
       let description = '';
 
@@ -251,20 +267,23 @@ export const LoyaltyProvider = ({ children }) => {
   const cancelRewardUsage = async (rewardId) => {
     try {
       const usedRewards = userProfile.usedRewards || [];
-      const rewardToCancel = usedRewards.find(r => r.id === rewardId && !r.orderId);
+      const indexToCancel = usedRewards.findIndex(r => r.id === rewardId && !r.orderId);
 
-      if (!rewardToCancel) {
+      if (indexToCancel === -1) {
         return { success: false, error: 'Récompense non trouvée ou déjà utilisée' };
       }
+
+      const rewardToCancel = usedRewards[indexToCancel];
 
       // Restaurer les points
       const currentUsedPoints = userProfile.usedLoyaltyPoints || 0;
       const newUsedPoints = currentUsedPoints - rewardToCancel.points;
 
-      // Retirer la récompense de la liste des récompenses utilisées
-      const updatedUsedRewards = usedRewards.filter(r =>
-        !(r.id === rewardId && !r.orderId)
-      );
+      // Retirer UNE occurrence, celle dont on vient de rembourser les points.
+      // Un filtre sur l'identifiant supprimait toutes les lignes correspondantes
+      // alors qu'un seul lot de points était rendu : le client perdait la
+      // différence sans aucune trace.
+      const updatedUsedRewards = usedRewards.filter((_, index) => index !== indexToCancel);
 
       await updateUserProfile({
         usedLoyaltyPoints: Math.max(0, newUsedPoints),
@@ -278,12 +297,20 @@ export const LoyaltyProvider = ({ children }) => {
     }
   };
 
-  // Confirmer l'utilisation d'une récompense avec un numéro de commande
-  const confirmRewardUsage = async (rewardId, orderId) => {
+  // Confirmer l'utilisation des récompenses avec un numéro de commande.
+  //
+  // Accepte plusieurs identifiants en une seule écriture : appelée en boucle,
+  // chaque itération repartait de `userProfile` figé au dernier rendu et
+  // annulait la confirmation précédente. La récompense restait alors marquée
+  // « en cours » et venait déduire son montant de toutes les commandes
+  // suivantes.
+  const confirmRewardUsage = async (rewardIds, orderId) => {
     try {
+      const idsToConfirm = new Set(Array.isArray(rewardIds) ? rewardIds : [rewardIds]);
       const usedRewards = userProfile.usedRewards || [];
+
       const updatedUsedRewards = usedRewards.map(reward =>
-        reward.id === rewardId && !reward.orderId
+        idsToConfirm.has(reward.id) && !reward.orderId
           ? { ...reward, orderId, confirmedAt: new Date().toISOString() }
           : reward
       );

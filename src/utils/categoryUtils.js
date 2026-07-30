@@ -60,7 +60,7 @@ export const formatMissingCustomizations = (missing = []) => {
   return missing
     .map(section => (
       section.missing > 1
-        ? `•  ${section.title} — encore ${section.missing} à choisir`
+        ? `•  ${section.title} : encore ${section.missing} à choisir`
         : `•  ${section.title}`
     ))
     .join('\n');
@@ -78,12 +78,16 @@ export const getSizeDisplayText = (product, sizeKey) => {
   if (supplement === 0) {
     return sizeData.name;
   } else {
-    return `${product.sizes[sizeKey].name} +${supplement.toFixed(2)}€`;
+    const sign = supplement > 0 ? '+' : '';
+    return `${product.sizes[sizeKey].name} ${sign}${supplement.toFixed(2)}€`;
   }
 };
 
-// Obtenir la quantité d'un produit dans le panier
-export const getProductQuantity = (orderItems = [], productId) => {
-  const item = orderItems.find(item => item.id === productId);
-  return item ? item.quantity : 0;
-};
+// Obtenir la quantité d'un produit dans le panier.
+// Un même produit peut occuper plusieurs lignes s'il a été ajouté avec des
+// personnalisations différentes : le badge affiché sur la carte doit annoncer
+// le total, pas la quantité de la première ligne rencontrée.
+export const getProductQuantity = (orderItems = [], productId) =>
+  orderItems
+    .filter(item => item.id === productId)
+    .reduce((total, item) => total + (item.quantity || 0), 0);

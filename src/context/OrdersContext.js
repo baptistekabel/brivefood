@@ -11,6 +11,7 @@ import {
   orderBy,
   serverTimestamp,
   where,
+  increment,
   getDoc,
   setDoc,
   runTransaction
@@ -21,8 +22,27 @@ import { OrderStatus, OrderMode } from '../types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import customerNotificationService from '../services/customerNotificationService';
 import printerService from '../services/PrinterService';
+import { useAuth } from './AuthContext';
+import { useAdminAuth } from './AdminAuthContext';
 
 const OrdersContext = createContext();
+
+// Commandes suivies pour un client non connecté (commande invité). Firestore
+// plafonne l'opérateur `in` à 30 valeurs.
+const GUEST_ORDERS_LIMIT = 10;
+
+// Attribution du numéro de commande : on insiste avant d'abandonner, un repli
+// prive la commande de son numéro du jour
+const COUNTER_MAX_ATTEMPTS = 3;
+const COUNTER_RETRY_DELAY_MS = 400;
+
+// Barème de fidélité : 1 € dépensé = 10 points (voir LoyaltyContext)
+const POINTS_PER_EURO = 10;
+
+// Points rapportés par une commande. Les frais de livraison en font partie,
+// comme c'était le cas avec l'ancien calcul basé sur le total.
+const getOrderPoints = (order) =>
+  Math.max(0, Math.round((parseFloat(order?.total) || 0) * POINTS_PER_EURO));
 
 export const useOrders = () => {
   const context = useContext(OrdersContext);
@@ -35,110 +55,169 @@ export const useOrders = () => {
 export const OrdersProvider = ({ children }) => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [orderPositions, setOrderPositions] = useState({}); // Mémoriser les positions
+  // Commandes passées sans compte, suivies le temps de leur préparation
+  const [guestOrderIds, setGuestOrderIds] = useState([]);
+
+  const { user } = useAuth();
+  const { userType } = useAdminAuth();
+
+  // La cuisine et les livreurs ont besoin de toutes les commandes ; un client
+  // n'a besoin que des siennes.
+  const isStaff = userType === 'admin' || userType === 'delivery';
 
   // Référence vers la collection orders dans Firestore
   const ordersCollection = collection(db, 'orders');
 
-  // Écouter les changements en temps réel depuis Firestore
+  // Une commande invité n'a pas de userId : on retient son identifiant pour
+  // continuer à suivre son avancement après un redémarrage de l'application.
   useEffect(() => {
-    console.log('=== SETTING UP FIRESTORE LISTENER ===');
+    if (user) return;
 
-    const q = query(ordersCollection, orderBy('id', 'desc'));
+    let cancelled = false;
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      console.log('🔥 Firestore snapshot received:', querySnapshot.size, 'orders');
+    AsyncStorage.getItem('@activeOrder')
+      .then(stored => {
+        if (cancelled || !stored) return;
+        const activeOrder = JSON.parse(stored);
+        if (!activeOrder?.id) return;
 
-      const firestoreOrders = [];
-      querySnapshot.forEach((doc) => {
-        const orderData = doc.data();
-        firestoreOrders.push({
-          ...orderData,
-          firestoreId: doc.id, // Garder l'ID Firestore
-          createdAt: orderData.createdAt?.toDate?.()?.toISOString() || orderData.createdAt
+        setGuestOrderIds(prev =>
+          prev.includes(activeOrder.id) ? prev : [...prev, activeOrder.id]
+        );
+      })
+      .catch(error => console.warn('⚠️ Lecture de la commande invité impossible:', error.message));
+
+    return () => { cancelled = true; };
+  }, [user]);
+
+  // Écouter les changements en temps réel depuis Firestore.
+  //
+  // L'écoute portait sur la collection entière, sans filtre ni limite, et le
+  // provider est monté pour tout le monde : chaque téléphone client téléchargeait
+  // et gardait en mémoire l'historique complet du restaurant — coordonnées des
+  // autres clients incluses — et payait une lecture par document à chaque
+  // ouverture. On restreint donc la requête au périmètre réellement utile.
+  useEffect(() => {
+    const trackedGuestIds = guestOrderIds.slice(-GUEST_ORDERS_LIMIT);
+
+    // Aucune requête ne combine `where` et `orderBy` : ce serait un index
+    // composite à déployer (firestore.indexes.json est vide). Le tri se fait
+    // donc côté application, sur un volume réduit.
+    const queries = [];
+
+    if (isStaff) {
+      // Historique complet : les archives et les statistiques en ont besoin, et
+      // il ne s'agit que des postes du restaurant, pas de chaque téléphone client
+      queries.push({
+        key: 'staff',
+        ref: query(ordersCollection, orderBy('id', 'desc')),
+      });
+    } else if (user) {
+      // Pas de `limit()` ici : sans `orderBy`, Firestore renverrait N documents
+      // arbitraires et pourrait masquer la commande en cours. Un `orderBy`
+      // combiné à ce `where` exigerait un index composite, et un client n'a de
+      // toute façon qu'une poignée de commandes.
+      queries.push({
+        key: 'own-uid',
+        ref: query(ordersCollection, where('userId', '==', user.uid)),
+      });
+      // Repli pour les commandes antérieures à l'enregistrement du userId
+      if (user.email) {
+        queries.push({
+          key: 'own-email',
+          ref: query(ordersCollection, where('customerEmail', '==', user.email)),
         });
+      }
+    } else if (trackedGuestIds.length > 0) {
+      queries.push({
+        key: 'guest',
+        ref: query(ordersCollection, where('id', 'in', trackedGuestIds)),
+      });
+    }
+
+    if (queries.length === 0) {
+      console.log('ℹ️ Aucune commande à écouter pour cette session');
+      setOrders([]);
+      setLoading(false);
+      return;
+    }
+
+    console.log('=== SETTING UP FIRESTORE LISTENER ===', queries.map(q => q.key).join(', '));
+
+    // Résultats par requête, fusionnés à chaque snapshot
+    const resultsByQuery = new Map();
+    const pending = new Set(queries.map(q => q.key));
+
+    const publish = () => {
+      const merged = new Map();
+      resultsByQuery.forEach(list => {
+        list.forEach(order => merged.set(order.firestoreId, order));
       });
 
-      // Système de positions stables
-      setOrders(prevOrders => {
-        // Si c'est le premier chargement, définir les positions initiales
-        if (prevOrders.length === 0) {
-          const initialSorted = firestoreOrders.sort((a, b) => {
-            const idA = parseInt(a.id) || 0;
-            const idB = parseInt(b.id) || 0;
-            return idB - idA;
-          });
+      // Tri décroissant sur l'identifiant : il est immuable, donc une commande
+      // ne change jamais de place — ce que l'ancien suivi de positions
+      // cherchait à garantir à la main.
+      const sorted = [...merged.values()].sort((a, b) => {
+        const idA = parseInt(a.id) || 0;
+        const idB = parseInt(b.id) || 0;
+        return idB - idA;
+      });
 
-          // Mémoriser les positions initiales
-          const positions = {};
-          initialSorted.forEach((order, index) => {
-            positions[order.id] = index;
-          });
-          setOrderPositions(positions);
+      console.log('✅ Orders from Firestore:', sorted.length);
+      setOrders(sorted);
+    };
 
-          console.log('✅ Setting initial orders from Firestore:', initialSorted.length);
-          return initialSorted;
-        }
-
-        // Pour les mises à jour, maintenir l'ordre existant
-        const updatedOrders = [...prevOrders];
-
-        // Mettre à jour les commandes existantes et ajouter les nouvelles
-        firestoreOrders.forEach(newOrder => {
-          const existingIndex = updatedOrders.findIndex(order => order.id === newOrder.id);
-
-          if (existingIndex !== -1) {
-            // Mettre à jour la commande existante à sa position actuelle
-            updatedOrders[existingIndex] = newOrder;
-          } else {
-            // Nouvelle commande - l'ajouter au début
-            updatedOrders.unshift(newOrder);
-            setOrderPositions(prev => ({
-              ...prev,
-              [newOrder.id]: 0
-            }));
-            // Décaler les positions des autres commandes
-            setOrderPositions(prev => {
-              const newPositions = { ...prev };
-              Object.keys(newPositions).forEach(orderId => {
-                if (orderId !== newOrder.id) {
-                  newPositions[orderId] = newPositions[orderId] + 1;
-                }
-              });
-              return newPositions;
+    const unsubscribes = queries.map(({ key, ref }) =>
+      onSnapshot(
+        ref,
+        (querySnapshot) => {
+          const firestoreOrders = [];
+          querySnapshot.forEach((document) => {
+            const orderData = document.data();
+            firestoreOrders.push({
+              ...orderData,
+              firestoreId: document.id, // Garder l'ID Firestore
+              createdAt: orderData.createdAt?.toDate?.()?.toISOString() || orderData.createdAt
             });
+          });
 
-            // L'impression automatique se fait uniquement côté admin (voir dashboard.tsx)
-          }
-        });
+          resultsByQuery.set(key, firestoreOrders);
+          publish();
 
-        // Supprimer les commandes qui n'existent plus dans Firestore
-        const firestoreOrderIds = new Set(firestoreOrders.map(order => order.id));
-        const filteredOrders = updatedOrders.filter(order => firestoreOrderIds.has(order.id));
-
-        console.log('✅ Updating orders from Firestore (maintaining order):', filteredOrders.length);
-        return filteredOrders;
-      });
-
-      setLoading(false);
-    }, (error) => {
-      console.error('❌ Firestore listener error:', error);
-      setLoading(false);
-    });
+          // Chargement terminé quand chaque requête a répondu au moins une fois
+          pending.delete(key);
+          if (pending.size === 0) setLoading(false);
+        },
+        (error) => {
+          console.error(`❌ Firestore listener error (${key}):`, error);
+          resultsByQuery.set(key, []);
+          publish();
+          pending.delete(key);
+          if (pending.size === 0) setLoading(false);
+        }
+      )
+    );
 
     // Cleanup function
     return () => {
-      console.log('🧹 Cleaning up Firestore listener');
-      unsubscribe();
+      console.log('🧹 Cleaning up Firestore listeners');
+      unsubscribes.forEach(unsubscribe => unsubscribe());
     };
-  }, []);
+  }, [isStaff, user?.uid, user?.email, guestOrderIds]);
 
   // Plus besoin de saveOrders - Firestore se synchronise automatiquement
 
   // Plus besoin de debugAsyncStorageOrders - utilisation directe de Firestore
 
-  // Vérifier et auto-compléter les commandes de plus d'une heure
+  // Vérifier et auto-compléter les commandes de plus d'une heure.
+  //
+  // Réservé à la cuisine : exécuté par tous les porteurs du contexte, ce balayage
+  // faisait clôturer par les téléphones des clients des commandes qui ne leur
+  // appartenaient pas. Il fait par ailleurs double emploi avec la fonction cloud
+  // `autoAdvanceOrderStatus`, qui reste la référence quand elle est déployée.
   useEffect(() => {
+    if (!isStaff) return;
+
     const autoCompleteOldOrders = async () => {
       const ONE_HOUR_MS = 60 * 60 * 1000;
       const now = Date.now();
@@ -174,7 +253,7 @@ export const OrdersProvider = ({ children }) => {
     if (orders.length > 0 && !loading) {
       autoCompleteOldOrders();
     }
-  }, [orders, loading]);
+  }, [orders, loading, isStaff]);
 
   // Plus besoin de loadOrders - le listener Firestore se charge du chargement
 
@@ -211,38 +290,57 @@ export const OrdersProvider = ({ children }) => {
   const generateOrderNumbers = async () => {
     const serviceDay = getServiceDayKey();
 
-    try {
-      await ensureCounterSeeded();
+    // Plusieurs essais avant d'abandonner : le transport long polling forcé
+    // (voir config/firebase.js) encaisse mal les réseaux instables, et un repli
+    // silencieux produit une commande sans numéro du jour — le client et la
+    // cuisine retombent alors sur le compteur global, qui ne repart jamais à 1.
+    for (let attempt = 1; attempt <= COUNTER_MAX_ATTEMPTS; attempt++) {
+      try {
+        await ensureCounterSeeded();
 
-      return await runTransaction(db, async (transaction) => {
-        const snap = await transaction.get(counterRef);
-        const data = snap.exists() ? snap.data() : {};
+        return await runTransaction(db, async (transaction) => {
+          const snap = await transaction.get(counterRef);
+          const data = snap.exists() ? snap.data() : {};
 
-        const globalNumber = (data.globalLast || 0) + 1;
-        // Nouveau service : la numérotation quotidienne repart à 1
-        const dailyNumber = data.serviceDay === serviceDay
-          ? (data.dailyLast || 0) + 1
-          : 1;
+          const globalNumber = (data.globalLast || 0) + 1;
+          // Nouveau service : la numérotation quotidienne repart à 1
+          const dailyNumber = data.serviceDay === serviceDay
+            ? (data.dailyLast || 0) + 1
+            : 1;
 
-        transaction.set(counterRef, {
-          globalLast: globalNumber,
-          dailyLast: dailyNumber,
-          serviceDay,
-          updatedAt: serverTimestamp(),
-        }, { merge: true });
+          transaction.set(counterRef, {
+            globalLast: globalNumber,
+            dailyLast: dailyNumber,
+            serviceDay,
+            updatedAt: serverTimestamp(),
+          }, { merge: true });
 
-        return {
-          id: globalNumber.toString().padStart(5, '0'),
-          orderNumber: dailyNumber.toString().padStart(3, '0'),
-          serviceDay,
-        };
-      });
-    } catch (error) {
-      console.error('❌ Erreur génération du numéro de commande:', error);
-      // Repli : identifiant unique basé sur l'horodatage, sans numéro du jour
-      const fallback = Date.now().toString().slice(-5);
-      return { id: fallback, orderNumber: null, serviceDay };
+          return {
+            id: globalNumber.toString().padStart(5, '0'),
+            orderNumber: dailyNumber.toString().padStart(3, '0'),
+            serviceDay,
+          };
+        });
+      } catch (error) {
+        console.error(
+          `❌ Numéro de commande, tentative ${attempt}/${COUNTER_MAX_ATTEMPTS} échouée:`,
+          error?.message || error
+        );
+
+        if (attempt < COUNTER_MAX_ATTEMPTS) {
+          await new Promise(resolve => setTimeout(resolve, COUNTER_RETRY_DELAY_MS * attempt));
+        }
+      }
     }
+
+    // Repli : identifiant unique basé sur l'horodatage, sans numéro du jour.
+    // Préfixé pour ne jamais entrer en collision avec un numéro du compteur et
+    // pour se repérer immédiatement dans les archives.
+    const fallback = `T${Date.now().toString().slice(-6)}`;
+    console.error(
+      `🚨 Compteur de commandes injoignable, numéro de repli attribué: ${fallback}`
+    );
+    return { id: fallback, orderNumber: null, serviceDay };
   };
 
   // Créer une nouvelle commande dans Firestore
@@ -285,32 +383,39 @@ export const OrdersProvider = ({ children }) => {
 
       // L'impression automatique se fait uniquement côté admin (voir dashboard.tsx)
 
-      // Timer de 1 heure pour marquer la commande comme terminée automatiquement
-      const ONE_HOUR_MS = 60 * 60 * 1000; // 1 heure en millisecondes
-      setTimeout(async () => {
+      // Créditer les points de fidélité tout de suite, sur le compte du client.
+      //
+      // Le solde était auparavant recalculé à la volée depuis la collection
+      // `orders` : supprimer une commande effaçait rétroactivement les points
+      // correspondants. Le compteur est désormais persistant ; `increment()`
+      // garantit l'absence de perte de mise à jour entre deux commandes
+      // simultanées.
+      const earnedPoints = getOrderPoints(newOrder);
+      if (newOrder.userId && earnedPoints > 0) {
         try {
-          // Vérifier si la commande existe toujours et n'est pas déjà terminée/annulée
-          const orderDoc = doc(db, 'orders', docRef.id);
-          const { getDoc } = await import('firebase/firestore');
-          const orderSnapshot = await getDoc(orderDoc);
-
-          if (orderSnapshot.exists()) {
-            const currentOrder = orderSnapshot.data();
-            // Ne pas modifier si déjà terminée ou annulée
-            if (currentOrder.status !== OrderStatus.DELIVERED && currentOrder.status !== OrderStatus.CANCELLED) {
-              await updateDoc(orderDoc, {
-                status: OrderStatus.DELIVERED,
-                updatedAt: serverTimestamp(),
-                autoCompletedAt: serverTimestamp(),
-                autoCompleted: true
-              });
-              console.log('✅ Commande', orderId, 'marquée comme terminée automatiquement après 1h');
-            }
-          }
-        } catch (error) {
-          console.error('❌ Erreur lors de l\'auto-complétion de la commande:', error);
+          await updateDoc(doc(db, 'users', newOrder.userId), {
+            loyaltyPointsCarriedOver: increment(earnedPoints),
+          });
+          await updateDoc(docRef, { loyaltyPoints: earnedPoints, loyaltyCredited: true });
+          console.log(`⭐ ${earnedPoints} points crédités à ${newOrder.userId}`);
+        } catch (loyaltyError) {
+          // Une commande passée ne doit jamais échouer sur les points
+          console.error('❌ Crédit des points de fidélité impossible:', loyaltyError);
         }
-      }, ONE_HOUR_MS);
+      }
+
+      // Commande sans compte : on la suit explicitement, faute de userId sur
+      // lequel filtrer, pour que son avancement remonte au client.
+      if (!user) {
+        setGuestOrderIds(prev =>
+          prev.includes(orderId) ? prev : [...prev, orderId].slice(-GUEST_ORDERS_LIMIT)
+        );
+      }
+
+      // La clôture automatique après une heure était planifiée ici par un
+      // setTimeout : sur mobile l'application est suspendue bien avant, il ne
+      // se déclenchait donc jamais. La fonction cloud `autoAdvanceOrderStatus`
+      // et le balayage côté cuisine s'en chargent.
 
       return { success: true, order: { ...newOrder, firestoreId: docRef.id } };
     } catch (error) {
@@ -348,19 +453,41 @@ export const OrdersProvider = ({ children }) => {
         }
       }
 
-      // Mettre à jour dans Firestore avec les options
+      // Mettre à jour dans Firestore avec les options.
+      //
+      // Le marquage `manual` est systématique : tous les appelants de cette
+      // fonction sont des boutons, donc des décisions humaines. Il indique à la
+      // fonction cloud `autoAdvanceOrderStatus` de ne plus repositionner cette
+      // commande sur son horaire théorique. `options.manualStatusChange` ne
+      // pilote plus que le déclenchement de la demande d'avis client.
       const orderDoc = doc(db, 'orders', orderToUpdate.firestoreId);
       await updateDoc(orderDoc, {
         status: newStatus,
         updatedAt: serverTimestamp(),
-        // Ajouter les métadonnées du changement
-        ...(options.manualStatusChange && {
-          lastStatusChangeType: 'manual',
-          manualStatusChangeAt: serverTimestamp()
-        })
+        lastStatusChangeType: 'manual',
+        manualStatusChangeAt: serverTimestamp()
       });
 
       console.log('✅ Order status updated in Firestore');
+
+      // Annulation : reprendre les points accordés à la commande.
+      // Le calcul par recomptage des commandes s'en chargeait tout seul ;
+      // avec un solde persistant, il faut débiter explicitement. Les drapeaux
+      // évitent qu'un double passage retire les points deux fois.
+      const cancelling = newStatus === OrderStatus.CANCELLED;
+      const pointsToRevoke = orderToUpdate.loyaltyPoints ?? getOrderPoints(orderToUpdate);
+
+      if (cancelling && orderToUpdate.userId && !orderToUpdate.loyaltyRevoked && pointsToRevoke > 0) {
+        try {
+          await updateDoc(doc(db, 'users', orderToUpdate.userId), {
+            loyaltyPointsCarriedOver: increment(-pointsToRevoke),
+          });
+          await updateDoc(orderDoc, { loyaltyRevoked: true });
+          console.log(`⭐ ${pointsToRevoke} points repris à ${orderToUpdate.userId} (commande annulée)`);
+        } catch (loyaltyError) {
+          console.error('❌ Reprise des points impossible:', loyaltyError);
+        }
+      }
 
       // Notifier le client si nécessaire
       try {
@@ -406,7 +533,11 @@ export const OrdersProvider = ({ children }) => {
           assignedAt: serverTimestamp(),
         },
         status: OrderStatus.IN_DELIVERY,
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
+        // Affectation décidée par un humain : la fonction cloud ne doit plus
+        // ramener la commande à l'étape prévue par l'horaire théorique
+        lastStatusChangeType: 'manual',
+        manualStatusChangeAt: serverTimestamp()
       });
 
       console.log('✅ Order assigned to delivery in Firestore');

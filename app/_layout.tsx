@@ -1,8 +1,9 @@
 import React, { useEffect } from 'react';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, Text } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import 'react-native-reanimated';
 import 'react-native-gesture-handler';
 
@@ -101,6 +102,28 @@ export default function RootLayout() {
                   presentation: 'modal',
                   headerStyle: { backgroundColor: '#000000' },
                   headerTintColor: colors.neutral.white,
+                  // Une modale n'affiche aucun bouton retour : seul le glissement
+                  // vers le bas permettait de sortir du panier, et il ne
+                  // fonctionne pas dès que le contenu défile. On ajoute une
+                  // flèche explicite.
+                  headerLeft: () => (
+                    <TouchableOpacity
+                      onPress={() => router.back()}
+                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 18,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        marginRight: 8,
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Fermer le panier"
+                    >
+                      <Ionicons name="chevron-down" size={24} color={colors.neutral.white} />
+                    </TouchableOpacity>
+                  ),
                 }}
               />
               <Stack.Screen

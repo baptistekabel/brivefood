@@ -4369,62 +4369,6 @@ const productsByCategory = {
         }
       },
     ],
-    [ProductCategory.BRUNCH]: [
-      {
-        id: 'menu-brunch',
-        name: 'Menu Brunch',
-        description: '1 boisson + 1 recette salée + 1 dessert au choix',
-        price: 16.00,
-        rating: 95,
-        reviews: 48,
-        popular: true,
-        customizable: true,
-        image: productImages.brunch,
-        customizationOptions: {
-          boisson: {
-            title: 'Choisissez votre boisson',
-            required: true,
-            multiSelect: false,
-            options: [
-              { name: 'Jus d\'orange', price: 0.00 },
-              { name: 'Jus de fraise', price: 0.00 },
-              { name: 'Jus de citron', price: 0.00 },
-              { name: 'Jus de mangue', price: 0.00 },
-              { name: 'Café allongé', price: 0.00 },
-              { name: 'Chocolat au lait', price: 0.00 }
-            ]
-          },
-          recetteSalee: {
-            title: 'Choisissez votre recette salée',
-            required: true,
-            multiSelect: false,
-            options: [
-              { name: 'Toast poulet Boursin', price: 0.00 },
-              { name: 'Toast tomates burrata pesto', price: 2.00 },
-              { name: 'Pancake salé poulet Boursin', price: 0.00 },
-              { name: 'Toast saumon', price: 2.00 }
-            ]
-          },
-          dessert: {
-            title: 'Choisissez votre dessert',
-            required: true,
-            multiSelect: false,
-            options: [
-              { name: 'Pancake topping Nutella', price: 0.00 },
-              { name: 'Pancake topping caramel', price: 0.00 },
-              { name: 'Pancake crème de speculoos', price: 0.00 },
-              { name: 'Pancake topping miel', price: 0.00 },
-              { name: 'Gaufre topping Nutella', price: 0.00 },
-              { name: 'Gaufre topping caramel', price: 0.00 },
-              { name: 'Gaufre crème de speculoos', price: 0.00 },
-              { name: 'Gaufre topping miel', price: 0.00 },
-              { name: 'En-cas fromage blanc musli + fruit', price: 0.00 },
-              { name: 'Tiramisu du moment', price: 0.00 }
-            ]
-          }
-        }
-      },
-    ],
     [ProductCategory.PETIT_FAIM_BRUSCHETTA]: [
       {
         id: 'bruschetta1',

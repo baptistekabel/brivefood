@@ -1,6 +1,12 @@
 import { ProductCategory } from '../types/index.js';
 
 const categoryInfo = {
+  [ProductCategory.PROMOS]: {
+    name: 'Promos du moment',
+    emoji: '🔥',
+    color: '#DC2626',
+    gradient: ['#DC2626', '#F97316'],
+  },
   [ProductCategory.PATES]: {
     name: 'Pâtes',
     emoji: '🍝',
@@ -90,12 +96,6 @@ const categoryInfo = {
     emoji: '🌭',
     color: '#F59E0B',
     gradient: ['#F59E0B', '#FBBF24'],
-  },
-  [ProductCategory.BRUNCH]: {
-    name: 'Brunch',
-    emoji: '🥐',
-    color: '#F97316',
-    gradient: ['#F97316', '#FB923C'],
   },
   [ProductCategory.TEX_MEX]: {
     name: 'Tex-Mex',

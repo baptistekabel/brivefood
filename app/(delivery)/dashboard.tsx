@@ -16,6 +16,7 @@ import { router, Stack } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { colors, typography, spacing, borderRadius } from '../../src/constants/theme';
 import { OrderStatus } from '../../src/types';
+import { getOrderDisplayNumber } from '../../src/utils/serviceDay';
 import { useOrders } from '../../src/context/OrdersContext';
 import { useDeliveryAuth } from '../../src/context/DeliveryAuthContext';
 import { useAuth } from '../../src/context/AuthContext';
@@ -49,7 +50,7 @@ export default function DeliveryDashboard() {
 
     Alert.alert(
       'Prendre cette course',
-      `Voulez-vous prendre la commande #${order.id} ?\n\nDestination: ${order.address}`,
+      `Voulez-vous prendre la commande #${getOrderDisplayNumber(order)} ?\n\nDestination: ${order.address}`,
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -59,7 +60,7 @@ export default function DeliveryDashboard() {
             try {
               const result = await assignOrderToDelivery(order.id, currentDeliveryUser);
               if (result.success) {
-                Alert.alert('✅ Course prise!', `Vous avez pris la commande #${order.id}`);
+                Alert.alert('✅ Course prise!', `Vous avez pris la commande #${getOrderDisplayNumber(order)}`);
                 loadOrders(); // Recharger les listes
               } else {
                 Alert.alert('Erreur', 'Impossible de prendre cette commande');
@@ -76,7 +77,7 @@ export default function DeliveryDashboard() {
   const handleCompleteDelivery = async (order) => {
     Alert.alert(
       'Terminer la livraison',
-      `Confirmez-vous que la commande #${order.id} a été livrée ?`,
+      `Confirmez-vous que la commande #${getOrderDisplayNumber(order)} a été livrée ?`,
       [
         { text: 'Non', style: 'cancel' },
         {
@@ -86,7 +87,7 @@ export default function DeliveryDashboard() {
             try {
               const result = await updateOrderStatus(order.id, OrderStatus.DELIVERED);
               if (result.success) {
-                Alert.alert('✅ Livraison terminée!', `Commande #${order.id} marquée comme livrée`);
+                Alert.alert('✅ Livraison terminée!', `Commande #${getOrderDisplayNumber(order)} marquée comme livrée`);
                 loadOrders();
               } else {
                 Alert.alert('Erreur', 'Impossible de mettre à jour le statut');

@@ -19,6 +19,7 @@ import { useOrders } from '../../src/context/OrdersContext';
 import { colors, typography, spacing, borderRadius } from '../../src/constants/theme';
 import { OrderStatus, OrderMode } from '../../src/types';
 import ProductImage from '../../src/components/common/ProductImage';
+import { getOrderDisplayNumber } from '../../src/utils/serviceDay';
 
 export default function OrdersScreen() {
   const fontsLoaded = useFonts();
@@ -193,7 +194,9 @@ export default function OrdersScreen() {
     return dateB.getTime() - dateA.getTime();
   }).map(order => ({
     ...order,
-    orderNumber: `#${order.id}`,
+    // Numéro du jour (remis à 1 à chaque service), pas le compteur global :
+    // le client voyait un numéro à 5 chiffres qui ne redescendait jamais
+    orderNumber: `#${getOrderDisplayNumber(order)}`,
     timestamp: new Date(order.createdAt || order.orderDate),
   }));
 

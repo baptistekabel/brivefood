@@ -236,7 +236,7 @@ export default function AdminOrderDetails() {
   const handleCancelOrder = () => {
     Alert.alert(
       'Annuler la commande',
-      `Annuler la commande #${order.id} ?\n\nLes points de fidélité gagnés sur cette commande seront retirés au client, et les points qu'il aurait dépensés en récompense lui seront rendus.`,
+      `Annuler la commande #${getOrderDisplayNumber(order)} ?\n\nLes points de fidélité gagnés sur cette commande seront retirés au client, et les points qu'il aurait dépensés en récompense lui seront rendus.`,
       [
         { text: 'Retour', style: 'cancel' },
         {
@@ -417,7 +417,7 @@ export default function AdminOrderDetails() {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           // Confirmation passagère : en plein service, une alerte à valider
           // bloquerait la tablette jusqu'à ce que quelqu'un appuie sur OK
-          setToast(`Ticket #${order.id} imprimé`);
+          setToast(`Ticket #${getOrderDisplayNumber(order)} imprimé`);
         } else {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           Alert.alert('❌ Erreur', printResult.error || 'Échec de l\'impression');

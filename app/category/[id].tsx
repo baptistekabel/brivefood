@@ -26,10 +26,41 @@ import { useOrder } from '../../src/context/OrderContext';
 import { useProducts } from '../../src/context/ProductsContext';
 import productImages from '../../src/data/productImages';
 import categoryInfo from '../../src/data/categories';
-import ProductImage from '../../src/components/common/ProductImage';
+import ProductImage, { hasProductImage } from '../../src/components/common/ProductImage';
 import { calculateCustomizedPrice, isCustomizationComplete, getMissingCustomizations, formatMissingCustomizations, getSizeDisplayText, getProductQuantity } from '../../src/utils/categoryUtils';
 import restaurantStatusService from '../../src/services/restaurantStatusService';
 import styles from '../../src/styles/CategoryScreen.styles';
+
+// Ordres canoniques (identiques aux listes de produits dans le menu), pour que
+// les sections de choix d'une promo (ex: "Choix Américain 5", "Choix Pizza 2")
+// affichent toujours ces options dans le même ordre plutôt que dans l'ordre
+// arbitraire (souvent alphabétique) stocké côté Firestore.
+const AMERICAIN_ORDER = [
+  'Américain Bacon',
+  'Américain Kebab',
+  'Américain Classic',
+  'Américain Spicy Kefta',
+  'Américain Poulet Boursin',
+];
+
+const PIZZA_ORDER = [
+  'Pizza Margherita',
+  'Pizza Fermière',
+  'Pizza Kebab raclette',
+  'Pizza Cannibale',
+  'Pizza Saumon',
+  'Pizza Chèvre miel',
+  'Pizza Chèvre Poulet',
+  'Pizza Curry',
+  'Pizza Kebab',
+  'Pizza Tex-Mex',
+  'Pizza Burger',
+  'Pizza 4 fromages',
+  'Pizza Chèvre Figue',
+  'Pizza Raclette',
+];
+
+const CANONICAL_ORDERS = [AMERICAIN_ORDER, PIZZA_ORDER];
 
 const restrictionStyles = StyleSheet.create({
   productBadge: {
@@ -492,11 +523,6 @@ export default function CategoryScreen() {
 
     // Réinitialiser le commentaire après l'ajout
     setProductComments(prev => ({ ...prev, [product.id]: '' }));
-
-    // Retour au menu après l'ajout
-    setTimeout(() => {
-      router.back();
-    }, 300);
   };
 
   // Alerte détaillant les sections obligatoires qu'il reste à remplir.
@@ -568,11 +594,6 @@ export default function CategoryScreen() {
       [product.id]: false
     }));
     setProductComments(prev => ({ ...prev, [product.id]: '' }));
-
-    // Retour au menu après l'ajout
-    setTimeout(() => {
-      router.back();
-    }, 300);
   };
 
 
@@ -750,11 +771,23 @@ export default function CategoryScreen() {
           <View style={styles.customizationOptions}>
             {Object.entries(product.customizationOptions)
             .filter(([, value]) => value != null)
-            .sort(([a], [b]) => {
+            .sort(([a, catA], [b, catB]) => {
               // Ordre logique des catégories de personnalisation
               const order = ['taille', 'base', 'gratine', 'steak', 'viande', 'viandes', 'crudites', 'fromage', 'fromages', 'sauce', 'gout', 'supplement', 'topping', 'supplements', 'chantilly', 'frites', 'pain', 'boisson'];
               const ia = order.indexOf(a);
               const ib = order.indexOf(b);
+              // Sections "Choix Américain N" / "Choix Pizza N" (ex: promo à choix
+              // multiples) : affichées par ordre croissant (1 avant 2 avant 3...).
+              const americainA = /^Choix Américain (\d+)/.exec(catA?.title || '');
+              const americainB = /^Choix Américain (\d+)/.exec(catB?.title || '');
+              if (americainA && americainB) {
+                return Number(americainA[1]) - Number(americainB[1]);
+              }
+              const pizzaA = /^Choix Pizza (\d+)/.exec(catA?.title || '');
+              const pizzaB = /^Choix Pizza (\d+)/.exec(catB?.title || '');
+              if (pizzaA && pizzaB) {
+                return Number(pizzaA[1]) - Number(pizzaB[1]);
+              }
               return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
             })
             .map(([categoryKey, category]) => {
@@ -830,6 +863,13 @@ export default function CategoryScreen() {
                         // Puis les options populaires
                         if (a.popular && !b.popular) return -1;
                         if (!a.popular && b.popular) return 1;
+                        // Respecter l'ordre canonique du menu quand les deux options
+                        // appartiennent à la même famille (américains, pizzas...)
+                        for (const canonicalOrder of CANONICAL_ORDERS) {
+                          const ia = canonicalOrder.indexOf(a.name);
+                          const ib = canonicalOrder.indexOf(b.name);
+                          if (ia !== -1 && ib !== -1) return ia - ib;
+                        }
                         return 0;
                       })
                       .map((option, optionIndex) => {
@@ -1349,10 +1389,6 @@ export default function CategoryScreen() {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           triggerCartAnimation(product, null);
           addItem(product);
-          // Retour au menu après l'ajout
-          setTimeout(() => {
-            router.back();
-          }, 300);
         }}
         activeOpacity={isUnavailable ? 1 : 0.8}
       >
@@ -1401,8 +1437,12 @@ export default function CategoryScreen() {
     const quantity = getProductQuantity(orderItems, productIdWithSize);
     const isInCart = quantity > 0;
 
-    // Vérification de la présence d'image (locale ou Firebase)
-    const hasValidImage = product.image || product.firebaseImageUrl;
+    // Vérification de la présence d'image (locale ou Firebase).
+    // Ce test recopiait une partie seulement de la résolution de ProductImage et
+    // ignorait `imageKey` : un produit dont la photo s'affichait parfaitement
+    // était rendu en ligne compacte, sans image. On interroge désormais la même
+    // fonction que celle qui choisit réellement l'image.
+    const hasValidImage = hasProductImage(product);
 
     // Vérifier si ce produit individuel est restreint (ex: pizza briochée dans desserts)
     const productIsRestricted = isProductRestricted(product);

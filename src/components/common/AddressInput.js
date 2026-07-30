@@ -14,12 +14,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius } from '../../constants/theme';
 import {
   DEFAULT_DELIVERY_SETTINGS,
+  DEFAULT_RESTAURANT_COORDS,
   loadDeliverySettings,
+  subscribeToDeliverySettings,
+  geocodeAddress,
   getDeliveryFee,
 } from '../../utils/deliveryPricing';
-
-const RESTAURANT_ADDRESS = "23 Bis Avenue Du Président Roosevelt, Brive-La-Gaillarde";
-const RESTAURANT_COORDS = { lat: 45.1503, lng: 1.5310 }; // Coordonnées approximatives de Brive-la-Gaillarde
 
 export default function AddressInput({ onAddressSelect, onDeliveryFeeCalculated }) {
   const [searchText, setSearchText] = useState('');
@@ -33,12 +33,47 @@ export default function AddressInput({ onAddressSelect, onDeliveryFeeCalculated 
   const [deliverySettings, setDeliverySettings] = useState(DEFAULT_DELIVERY_SETTINGS);
 
   useEffect(() => {
+    let cancelled = false;
+
     const loadSettings = async () => {
       const settings = await loadDeliverySettings();
-      setDeliverySettings(settings);
+      if (!cancelled) setDeliverySettings(settings);
     };
     loadSettings();
+
+    // L'admin ajuste un palier : les paniers déjà ouverts en tiennent compte
+    const unsubscribe = subscribeToDeliverySettings(settings => {
+      if (!cancelled) setDeliverySettings(settings);
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe && unsubscribe();
+    };
   }, []);
+
+  // Position du restaurant : issue des réglages, et non plus figée dans le code.
+  // Filet de sécurité si l'adresse a été changée sans que les coordonnées
+  // suivent — sans quoi toutes les distances resteraient calculées depuis
+  // l'ancien point.
+  const [restaurantCoords, setRestaurantCoords] = useState(DEFAULT_RESTAURANT_COORDS);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolveCoords = async () => {
+      if (deliverySettings.restaurantCoords) {
+        setRestaurantCoords(deliverySettings.restaurantCoords);
+        return;
+      }
+
+      const geocoded = await geocodeAddress(deliverySettings.restaurantAddress);
+      if (!cancelled && geocoded) setRestaurantCoords(geocoded);
+    };
+
+    resolveCoords();
+    return () => { cancelled = true; };
+  }, [deliverySettings.restaurantCoords, deliverySettings.restaurantAddress]);
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -146,8 +181,8 @@ export default function AddressInput({ onAddressSelect, onDeliveryFeeCalculated 
     // Simulation d'un délai de calcul pour l'animation
     setTimeout(() => {
       const calculatedDistance = calculateDistance(
-        RESTAURANT_COORDS.lat,
-        RESTAURANT_COORDS.lng,
+        restaurantCoords.lat,
+        restaurantCoords.lng,
         address.coordinates.lat,
         address.coordinates.lng
       );

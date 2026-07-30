@@ -6,7 +6,6 @@ import {
   FlatList,
   TouchableOpacity,
   Alert,
-  Image,
   TextInput,
   Modal,
   Keyboard,
@@ -87,7 +86,9 @@ export default function CartScreen() {
   // Créneau 1h50-2h : commandes uniquement par téléphone
   const [phoneOrderOnly, setPhoneOrderOnly] = useState(isPhoneOrderWindow());
   const [deliveryAddress, setDeliveryAddress] = useState(null);
-  const [dynamicDeliveryFee, setDynamicDeliveryFee] = useState(0);
+  // null = aucun tarif applicable (adresse hors zone, ou pas encore calculée).
+  // 0 est une valeur légitime : l'admin peut offrir la livraison de proximité.
+  const [dynamicDeliveryFee, setDynamicDeliveryFee] = useState<number | null>(null);
   const [paymentMethod, setPaymentMethod] = useState(PaymentMethod.CASH);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [itemComments, setItemComments] = useState({});
@@ -95,6 +96,11 @@ export default function CartScreen() {
     drinks: true,
     desserts: true
   });
+  // Envoi en cours : bloque un second appui pendant que la commande part.
+  // Le ref porte la garde réelle (setState n'est pas immédiat, deux appuis dans
+  // la même frame passeraient tous les deux), le state ne sert qu'à l'affichage.
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
   // Variables pour l'ancien modal (à supprimer plus tard)
   const [orderConfirmation, setOrderConfirmation] = useState(null);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
@@ -162,7 +168,9 @@ export default function CartScreen() {
     const initialComments = {};
     orderItems.forEach(item => {
       if (item.comment) {
-        initialComments[item.id] = item.comment;
+        // Indexé par ligne : deux fois le même produit avec des commentaires
+        // différents ne doivent pas se recouvrir
+        initialComments[item.cartLineId] = item.comment;
       }
     });
     setItemComments(prev => ({ ...prev, ...initialComments }));
@@ -210,14 +218,16 @@ export default function CartScreen() {
     { id: PaymentMethod.CARD, name: 'Carte bancaire', icon: 'card-outline' },
   ];
 
-  const updateQuantity = (itemId, newQuantity) => {
+  // On raisonne sur la ligne de panier (cartLineId) et non sur le produit :
+  // deux personnalisations du même produit occupent deux lignes distinctes.
+  const updateQuantity = (lineId, newQuantity) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const item = orderItems.find(item => item.id === itemId);
+    const item = orderItems.find(item => item.cartLineId === lineId);
     if (!item) return;
 
     if (newQuantity === 0) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      removeItem(itemId);
+      removeItem(lineId);
     } else if (newQuantity > item.quantity) {
       // Ajouter des articles
       for (let i = item.quantity; i < newQuantity; i++) {
@@ -226,7 +236,7 @@ export default function CartScreen() {
     } else if (newQuantity < item.quantity) {
       // Supprimer des articles
       for (let i = item.quantity; i > newQuantity; i--) {
-        removeItem(itemId);
+        removeItem(lineId);
       }
     }
   };
@@ -235,16 +245,25 @@ export default function CartScreen() {
     return orderItems.reduce((total, item) => total + (item.price * item.quantity), 0);
   };
 
+  // Montant à facturer : `null` (hors zone) vaut 0 pour les calculs, le blocage
+  // de la commande étant traité séparément par isDeliveryOutOfZone()
   const getDeliveryFee = () => {
-    return orderMode === OrderMode.DELIVERY ? dynamicDeliveryFee : 0;
+    return orderMode === OrderMode.DELIVERY ? (dynamicDeliveryFee ?? 0) : 0;
   };
+
+  // Une adresse est saisie mais aucun tarif ne s'y applique : hors zone.
+  // Une livraison à 0 € reste une livraison valide.
+  const isDeliveryOutOfZone = () =>
+    orderMode === OrderMode.DELIVERY && !!deliveryAddress && dynamicDeliveryFee === null;
 
   const handleAddressSelect = (address) => {
     setDeliveryAddress(address);
   };
 
   const handleDeliveryFeeCalculated = (fee, distance) => {
-    setDynamicDeliveryFee(fee || 0);
+    // getDeliveryFee() (utils) renvoie null hors zone : on conserve la
+    // distinction avec une livraison offerte à 0 €
+    setDynamicDeliveryFee(typeof fee === 'number' ? fee : null);
   };
 
   const getTotal = () => {
@@ -262,7 +281,7 @@ export default function CartScreen() {
       // La livraison démarre à 18h (sur place et à emporter restent toute la journée)
       if (!isEveningServiceAvailable()) return false;
       if (!deliveryAddress) return false;
-      if (dynamicDeliveryFee === 0 && deliveryAddress) return false;
+      if (isDeliveryOutOfZone()) return false;
     }
     return true;
   };
@@ -322,7 +341,7 @@ export default function CartScreen() {
         };
       }
 
-      if (dynamicDeliveryFee === 0) {
+      if (isDeliveryOutOfZone()) {
         return {
           title: 'Hors zone de livraison',
           message: 'Nous ne livrons pas à cette adresse (plus de 10 km). Vous pouvez modifier l\'adresse ou commander à emporter.',
@@ -361,7 +380,7 @@ export default function CartScreen() {
 
   const getWaitTime = () => {
     // Tant que le mode n'est pas choisi, le délai n'est pas connu
-    return getWaitTimeLabel(orderMode, rushMode.extraMinutes) || '—';
+    return getWaitTimeLabel(orderMode, rushMode.extraMinutes) || '...';
   };
 
   // Fonction pour formater les personnalisations
@@ -424,7 +443,24 @@ export default function CartScreen() {
     }
   };
 
+  // Garde anti double-envoi. performCheckout enchaîne plusieurs await (statut du
+  // restaurant, transaction du compteur de commandes) : sur un réseau lent, le
+  // bouton restait actif et deux appuis créaient deux commandes et deux tickets.
   const handleCheckout = async () => {
+    if (isSubmittingRef.current) return;
+
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+
+    try {
+      await performCheckout();
+    } finally {
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
+    }
+  };
+
+  const performCheckout = async () => {
     console.log('=== DEBUG CHECKOUT ===');
     console.log('orderItems.length:', orderItems.length);
     console.log('orderMode:', orderMode);
@@ -502,9 +538,13 @@ export default function CartScreen() {
       return;
     }
 
-    if (orderMode === OrderMode.DELIVERY && dynamicDeliveryFee === 0 && deliveryAddress) {
-      console.log('BLOCKED: Delivery fee is 0 but address exists');
+    if (isDeliveryOutOfZone()) {
+      console.log('BLOCKED: address outside the delivery area');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        'Hors zone de livraison',
+        'Nous ne livrons pas à cette adresse. Vous pouvez la modifier ou commander à emporter.'
+      );
       return;
     }
     console.log('CHECKOUT PROCEEDING...');
@@ -557,7 +597,7 @@ export default function CartScreen() {
           quantity: item.quantity,
           size: item.selectedSize || null,
           price: item.price,
-          comment: itemComments[item.id] || null,
+          comment: itemComments[item.cartLineId] || item.comment || null,
           customizations: item.customizations || null,
           customizationOptions: item.customizationOptions || null, // Pour afficher les noms lisibles
           options: formattedOptions // Options formatées pour l'impression
@@ -578,11 +618,14 @@ export default function CartScreen() {
       await markAsHasOrdered();
 
       // Confirmer l'utilisation des récompenses avec le numéro de commande
+      // Une seule écriture pour toutes les récompenses : confirmées une par une,
+      // chaque appel repartait du profil figé au rendu et annulait le précédent
       const rewardsDiscount = calculateActiveRewardsDiscount(getSubtotal(), getDeliveryFee());
       if (rewardsDiscount.hasActiveRewards) {
-        for (const reward of rewardsDiscount.rewardDiscounts) {
-          await confirmRewardUsage(reward.id, result.order.id);
-        }
+        await confirmRewardUsage(
+          rewardsDiscount.rewardDiscounts.map(reward => reward.id),
+          result.order.id
+        );
       }
 
       // Créer une commande en attente pour affichage dans le popup
@@ -780,9 +823,9 @@ export default function CartScreen() {
   };
 
   // Toggle sauce pour le petit cheese offert
-  const toggleGiftCheeseSauce = (itemId, sauceId) => {
+  const toggleGiftCheeseSauce = (lineId, sauceId) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const item = orderItems.find(i => i.id === itemId);
+    const item = orderItems.find(i => i.cartLineId === lineId);
     const currentSauces = item?.customizations?.sauce || [];
     const maxSelection = 2;
 
@@ -802,7 +845,7 @@ export default function CartScreen() {
       }
     }
 
-    updateItemCustomizations(itemId, {
+    updateItemCustomizations(lineId, {
       ...(item?.customizations || {}),
       sauce: newSauces
     });
@@ -815,17 +858,21 @@ export default function CartScreen() {
     const selectedGiftSauces = isGiftCheese ? (item.customizations?.sauce || []) : [];
 
     return (
-      <View style={styles.cartItem}>
+      // Deux personnalisations du même produit partagent le même `id` : c'est
+      // la clé de ligne qui les distingue dans la liste.
+      <View key={item.cartLineId} style={styles.cartItem}>
         {/* Section principale avec image, infos et boutons */}
         <View style={styles.mainItemSection}>
-          {/* Image du produit */}
-          {item.image && (
-            <Image
-              source={item.image}
-              style={styles.itemImage}
-              resizeMode="cover"
-            />
-          )}
+          {/* Image du produit : ProductImage applique la même résolution que le
+              reste de l'application (photo admin, puis asset local via imageKey,
+              puis logo de repli). Le panier affichait `item.image` brut, seul
+              écran à court-circuiter cette chaîne — d'où des visuels qui ne
+              correspondaient pas au produit. */}
+          <ProductImage
+            product={item}
+            style={styles.itemImage}
+            resizeMode="cover"
+          />
 
           <View style={styles.itemInfo}>
             <Text style={styles.itemName}>{item.name}</Text>
@@ -836,14 +883,14 @@ export default function CartScreen() {
           <View style={styles.quantityControls}>
             <TouchableOpacity
               style={styles.quantityButton}
-              onPress={() => updateQuantity(item.id, item.quantity - 1)}
+              onPress={() => updateQuantity(item.cartLineId, item.quantity - 1)}
             >
               <Ionicons name="remove" size={16} color="#000000" />
             </TouchableOpacity>
             <Text style={styles.quantity}>{item.quantity}</Text>
             <TouchableOpacity
               style={styles.quantityButton}
-              onPress={() => updateQuantity(item.id, item.quantity + 1)}
+              onPress={() => updateQuantity(item.cartLineId, item.quantity + 1)}
             >
               <Ionicons name="add" size={16} color="#000000" />
             </TouchableOpacity>
@@ -866,7 +913,7 @@ export default function CartScreen() {
                       styles.giftSauceChip,
                       isSelected && styles.giftSauceChipSelected
                     ]}
-                    onPress={() => toggleGiftCheeseSauce(item.id, sauce.id)}
+                    onPress={() => toggleGiftCheeseSauce(item.cartLineId, sauce.id)}
                   >
                     <Text style={[
                       styles.giftSauceChipText,
@@ -1311,8 +1358,13 @@ export default function CartScreen() {
             {/* Checkout Button */}
             <View style={styles.checkoutSection}>
               <TouchableOpacity
-                style={[styles.checkoutButton, !canProceedToCheckout() && styles.checkoutButtonDisabled]}
+                style={[
+                  styles.checkoutButton,
+                  (!canProceedToCheckout() || isSubmitting) && styles.checkoutButtonDisabled
+                ]}
+                disabled={isSubmitting}
                 onPress={() => {
+                  if (isSubmitting) return;
                   if (!canProceedToCheckout()) {
                     explainCheckoutBlocker();
                     return;
@@ -1321,11 +1373,16 @@ export default function CartScreen() {
                 }}
               >
                 <LinearGradient
-                  colors={canProceedToCheckout() ? ['#000000', '#000000', '#000000'] : ['#999', '#777', '#666']}
+                  colors={canProceedToCheckout() && !isSubmitting ? ['#000000', '#000000', '#000000'] : ['#999', '#777', '#666']}
                   style={styles.checkoutGradient}
                 >
-                  <Text style={[styles.checkoutText, !canProceedToCheckout() && styles.checkoutTextDisabled]}>
-                    Commander • {getTotal().toFixed(2)} €
+                  <Text style={[
+                    styles.checkoutText,
+                    (!canProceedToCheckout() || isSubmitting) && styles.checkoutTextDisabled
+                  ]}>
+                    {isSubmitting
+                      ? 'Envoi de la commande…'
+                      : `Commander • ${getTotal().toFixed(2)} €`}
                   </Text>
                 </LinearGradient>
               </TouchableOpacity>

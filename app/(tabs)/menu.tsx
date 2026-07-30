@@ -30,6 +30,11 @@ const categoryImages = {
     require('../../assets/images/nouveauxProduits/pizza4fromages.png'),
     require('../../assets/images/nouveauxProduits/pizzaFermiere.png')
   ],
+  [ProductCategory.PROMOS]: [
+    require('../../assets/images/formuleTrio.png'),
+    require('../../assets/images/nouveauxProduits/AmericainSimple.png'),
+    require('../../assets/images/nouveauxProduits/FrenchyBurger.png')
+  ],
   [ProductCategory.BURGER]: [
     require('../../assets/images/nouveauxProduits/FrenchyBurger.png'),
     require('../../assets/images/nouveauxProduits/DoubleCheese.png'),
@@ -97,9 +102,6 @@ const categoryImages = {
   ],
   [ProductCategory.MENU_KIDS]: [
     require('../../assets/images/nouveauxProduits/MenuKidss.png')
-  ],
-  [ProductCategory.BRUNCH]: [
-    require('../../assets/images/nouveauxProduits/brunch.png')
   ],
   [ProductCategory.BOWLS]: [
     require('../../assets/images/nouveauxProduits/bowls.png')
@@ -377,9 +379,6 @@ export default function MenuScreen() {
       { id: 'petitfaim5', name: 'Ptit Cheese' },
       { id: 'petitfaim6', name: 'Croq chèvre miel' },
     ],
-    [ProductCategory.BRUNCH]: [
-      { id: 'menu-brunch', name: 'Menu Brunch' },
-    ],
     [ProductCategory.TEX_MEX]: [
       { id: 'texmex1', name: 'Sticks Mozza x 3' },
       { id: 'texmex2', name: 'Tenders x 3' },
@@ -497,6 +496,17 @@ export default function MenuScreen() {
   // Données des catégories ordonnées par importance (toutes uniform pour 2 par ligne)
   const categories = [
     // Catégories les plus importantes - formules et plats principaux
+    // Promos du moment : placées en tête pour être vues en premier
+    {
+      id: ProductCategory.PROMOS,
+      name: 'Promos du moment',
+      subtitle: 'Nos offres à partager',
+      emoji: '🔥',
+      color: '#DC2626',
+      gradient: ['#DC2626', '#F97316'],
+      items: getRealItemCount(ProductCategory.PROMOS),
+      hideItemCount: true
+    },
     {
       id: ProductCategory.FORMULES_PIZZA_DUO,
       name: 'Formules Duo',
@@ -641,15 +651,9 @@ export default function MenuScreen() {
       gradient: ['#F59E0B', '#FBBF24'],
       items: getRealItemCount(ProductCategory.FRITES_GARNIES)
     },
-    {
-      id: ProductCategory.BRUNCH,
-      name: 'Brunch',
-      subtitle: 'Spécialités brunch',
-      emoji: '🥐',
-      color: '#F97316',
-      gradient: ['#F97316', '#FB923C'],
-      items: getRealItemCount(ProductCategory.BRUNCH)
-    },
+    // Brunch retiré de la carte à la demande du restaurant : la catégorie
+    // n'est plus proposée et ses produits sont supprimés côté Firebase
+    // (migration removeBrunchProducts).
     // Catégories spécialisées
     {
       id: ProductCategory.MENU_KIDS,
@@ -763,9 +767,11 @@ export default function MenuScreen() {
             <View style={styles.cardContent}>
               {/* Header avec badge de comptage */}
               <View style={styles.cardHeader}>
-                <View style={styles.itemCountBadge}>
-                  <Text style={styles.itemCountText}>{category.items}</Text>
-                </View>
+                {!category.hideItemCount && (
+                  <View style={styles.itemCountBadge}>
+                    <Text style={styles.itemCountText}>{category.items}</Text>
+                  </View>
+                )}
                 {/* Badge populaire pour formules duo */}
                 {category.popular && (
                   <View style={styles.popularBadge}>
@@ -807,9 +813,11 @@ export default function MenuScreen() {
             <View style={styles.cardContent}>
             {/* Header avec badge de comptage */}
             <View style={styles.cardHeader}>
-              <View style={styles.itemCountBadge}>
-                <Text style={styles.itemCountText}>{category.items}</Text>
-              </View>
+              {!category.hideItemCount && (
+                <View style={styles.itemCountBadge}>
+                  <Text style={styles.itemCountText}>{category.items}</Text>
+                </View>
+              )}
               {/* Badge populaire pour formules duo */}
               {category.popular && (
                 <View style={styles.popularBadge}>

@@ -3956,6 +3956,7 @@ class ProductService {
       return { success: false, error: error.message };
     }
   }
+
 }
 
 export default new ProductService();

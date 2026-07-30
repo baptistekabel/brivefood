@@ -314,8 +314,28 @@ class RestaurantStatusService {
     }
   }
 
-  // Gestion des horaires
+  // Gestion des horaires.
+  //
+  // Les horaires ne vivaient que dans l'AsyncStorage de la tablette admin. Les
+  // repli du client (`schedule-fallback` / `offline-fallback`) calculaient donc
+  // l'ouverture sur les horaires par défaut du code, et non sur ceux du
+  // restaurant. Ils sont désormais publiés avec le reste des réglages.
   async getSchedule() {
+    // Côté client, les horaires publiés par le restaurant font foi
+    if (this.isClientMode) {
+      try {
+        const snapshot = await getDoc(doc(db, 'settings', 'restaurant_schedule'));
+        const published = snapshot.exists() ? snapshot.data()?.schedule : null;
+
+        if (published) {
+          await AsyncStorage.setItem(this.scheduleKey, JSON.stringify(published));
+          return published;
+        }
+      } catch (error) {
+        console.warn('⚠️ Horaires Firestore indisponibles, repli local:', error.message);
+      }
+    }
+
     try {
       const scheduleJson = await AsyncStorage.getItem(this.scheduleKey);
       return scheduleJson ? JSON.parse(scheduleJson) : this.defaultSchedule;
@@ -328,6 +348,22 @@ class RestaurantStatusService {
   async setSchedule(schedule) {
     try {
       await AsyncStorage.setItem(this.scheduleKey, JSON.stringify(schedule));
+
+      // Publication pour les clients. Jamais depuis un appareil en mode client,
+      // qui est en lecture seule.
+      if (!this.isClientMode) {
+        try {
+          await setDoc(
+            doc(db, 'settings', 'restaurant_schedule'),
+            { schedule, updatedAt: serverTimestamp() },
+            { merge: true }
+          );
+          console.log('☁️ Horaires publiés pour les clients');
+        } catch (firestoreError) {
+          console.error('❌ Publication des horaires impossible:', firestoreError.message);
+        }
+      }
+
       await this.updateStatus(); // Recalculer le statut
       return { success: true };
     } catch (error) {

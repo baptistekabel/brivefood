@@ -81,6 +81,16 @@ const STATUS_SCHEDULE = {
 // Statuts terminaux : une fois atteints, la commande n'évolue plus
 const FINAL_STATUSES = ['delivered', 'cancelled'];
 
+// Fenêtre de travail du balayage. Le calendrier le plus long s'achève à 45 min
+// (plus l'affluence) : au-delà de quelques heures, une commande a forcément
+// atteint son état final et n'a plus rien à faire dans la requête.
+//
+// Ce filtre remplace un `where('status', 'not-in', FINAL_STATUSES)` qui, en plus
+// de relire tout l'historique non clos, écartait silencieusement les documents
+// dépourvus de champ `status` — Firestore ne renvoie jamais un document dont le
+// champ filtré est absent. Ces commandes-là n'avançaient donc jamais.
+const AUTO_ADVANCE_WINDOW_MS = 6 * 60 * 60 * 1000;
+
 // `extraMinutes` : affluence signalée par le restaurant. Elle ne s'applique
 // qu'aux livraisons, comme le délai annoncé au client. Le passage en
 // préparation reste immédiat : la cuisine s'y met tout de suite, c'est la
@@ -120,30 +130,45 @@ const getRushExtraMinutes = async (db) => {
  * Fait avancer les commandes selon le temps écoulé depuis leur création.
  *
  * Exécuté côté serveur pour que le cycle se déroule même si aucune tablette
- * admin n'est allumée. Le calendrier fait autorité : une commande repositionnée
- * à la main est ramenée sur son étape théorique au passage suivant, conformément
- * au comportement demandé.
+ * admin n'est allumée.
+ *
+ * Le calendrier ne fait autorité que tant que personne n'est intervenu. Dès
+ * qu'un statut a été posé à la main — bouton de la cuisine, affectation d'un
+ * livreur — la commande sort du pilotage automatique et n'est plus repositionnée.
+ * Sans cette règle, une commande marquée « prête » à 12 minutes revenait « en
+ * préparation » au passage suivant (seuil : 15 minutes), et une commande confiée
+ * à un livreur repassait de « en livraison » à « prête ».
  *
  * Les commandes livrées ou annulées ne sont jamais touchées.
  */
 exports.autoAdvanceOrderStatus = onSchedule('every 1 minutes', async () => {
   const db = admin.firestore();
+  const now = Date.now();
 
   const snapshot = await db
     .collection('orders')
-    .where('status', 'not-in', FINAL_STATUSES)
+    .where(
+      'createdAt',
+      '>=',
+      admin.firestore.Timestamp.fromMillis(now - AUTO_ADVANCE_WINDOW_MS)
+    )
     .get();
 
   if (snapshot.empty) return;
 
   const rushExtraMinutes = await getRushExtraMinutes(db);
-  const now = Date.now();
   let batch = db.batch();
   let pendingWrites = 0;
   let updated = 0;
 
   for (const document of snapshot.docs) {
     const order = document.data();
+
+    // Statut final : plus rien à faire
+    if (FINAL_STATUSES.includes(order.status)) continue;
+
+    // Quelqu'un a pris la main sur cette commande : on la laisse tranquille
+    if (order.lastStatusChangeType === 'manual') continue;
 
     // Sans date de création, impossible de situer la commande dans le calendrier
     const createdAt = order.createdAt?.toDate?.();

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Brive Food",
     "slug": "brivefood",
-    "version": "1.0.21",
+    "version": "1.0.22",
     "orientation": "default",
     "icon": "./assets/images/logoBrivefood.png",
     "scheme": "brivefoodapp",

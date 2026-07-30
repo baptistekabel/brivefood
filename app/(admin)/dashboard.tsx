@@ -34,11 +34,16 @@ import ProductImage from '../../src/components/common/ProductImage';
 import PrintTicketPreview from '../../src/components/admin/PrintTicketPreview';
 import Toast from '../../src/components/common/Toast';
 import * as Device from 'expo-device';
-import { getOrderDisplayNumber } from '../../src/utils/serviceDay';
+import { getOrderDisplayNumber, getServiceDayKey } from '../../src/utils/serviceDay';
 
 // Sur simulateur/émulateur il n'y a pas d'imprimante physique :
 // le ticket s'affiche à l'écran à la place
 const IS_SIMULATOR = !Device.isDevice;
+
+// Réessais d'impression : laisse le temps de remettre du papier ou de
+// reconnecter le Bluetooth, sans solliciter l'imprimante à chaque snapshot
+const PRINT_RETRY_DELAY_MS = 30 * 1000;
+const MAX_PRINT_ATTEMPTS = 3;
 
 export default function AdminDashboard() {
   const { orders, loading, refreshOrders, updateOrderStatus, deleteOrder } = useOrders();
@@ -48,10 +53,12 @@ export default function AdminDashboard() {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [printerConnected, setPrinterConnected] = useState(false);
-  // Aperçu du ticket (simulateur ou consultation manuelle)
-  const [ticketPreviewOrder, setTicketPreviewOrder] = useState(null);
-  const [ticketWasAutoPrinted, setTicketWasAutoPrinted] = useState(false);
-  const [toast, setToast] = useState(null);
+  // Aperçus de tickets en attente d'être vus (simulateur, consultation manuelle,
+  // ou repli quand l'imprimante n'a pas pu sortir le ticket). File d'attente et
+  // non variable unique : plusieurs commandes peuvent arriver ensemble.
+  const [ticketPreviewQueue, setTicketPreviewQueue] = useState<{ order: any; autoPrinted: boolean }[]>([]);
+  const currentTicketPreview = ticketPreviewQueue[0] || null;
+  const [toast, setToast] = useState<string | null>(null);
   const previousOrdersCount = useRef(0);
   // Horloge partagée : une seule pour tous les compteurs de temps écoulé
   const [now, setNow] = useState(Date.now());
@@ -211,6 +218,8 @@ export default function AdminDashboard() {
   // Référence pour tracker les commandes déjà imprimées (persiste pendant la session)
   const printedOrdersRef = useRef<Set<string>>(new Set());
   const isPrintingRef = useRef(false);
+  // Tentatives d'impression en échec, pour réessayer sans saturer l'imprimante
+  const printAttemptsRef = useRef<Map<string, { attempts: number; at: number }>>(new Map());
 
   // Charger les commandes déjà imprimées au démarrage
   useEffect(() => {
@@ -219,9 +228,10 @@ export default function AdminDashboard() {
         const stored = await AsyncStorage.getItem('@printed_orders_today');
         if (stored) {
           const data = JSON.parse(stored);
-          // Vérifier si c'est le même jour
-          const today = new Date().toDateString();
-          if (data.date === today && data.orders) {
+          // Rattaché à la journée de service (9h) et non au jour calendaire :
+          // le service court jusqu'à 01h50, une remise à zéro à minuit faisait
+          // réimprimer les tickets des commandes de fin de soirée.
+          if (data.serviceDay === getServiceDayKey() && data.orders) {
             printedOrdersRef.current = new Set(data.orders);
             console.log('📋 [AUTO-PRINT] Commandes déjà imprimées chargées:', data.orders.length);
           }
@@ -238,13 +248,47 @@ export default function AdminDashboard() {
     printedOrdersRef.current.add(orderId);
     try {
       const data = {
-        date: new Date().toDateString(),
+        serviceDay: getServiceDayKey(),
         orders: Array.from(printedOrdersRef.current)
       };
       await AsyncStorage.setItem('@printed_orders_today', JSON.stringify(data));
     } catch (error) {
       console.error('Erreur sauvegarde commande imprimée:', error);
     }
+  };
+
+  // Empile un ticket à montrer à l'écran. Une simple variable d'état ne gardait
+  // que le dernier : sur plusieurs commandes reçues en même temps, les tickets
+  // précédents disparaissaient sans que personne ne les voie.
+  const queueTicketPreview = (order: any, autoPrinted: boolean) => {
+    setTicketPreviewQueue(prev => {
+      if (prev.some(entry => entry.order?.id === order?.id)) return prev;
+      return [...prev, { order, autoPrinted }];
+    });
+  };
+
+  // L'impression a échoué : le ticket ne doit pas disparaître pour autant.
+  // On réessaie quelques fois, puis on bascule sur l'affichage à l'écran pour
+  // que la cuisine puisse le recopier — jamais de commande perdue en silence.
+  const handlePrintFailure = async (order: any, orderForPrint: any, reason?: string) => {
+    const previous = printAttemptsRef.current.get(order.id);
+    const attempts = (previous?.attempts || 0) + 1;
+    printAttemptsRef.current.set(order.id, { attempts, at: Date.now() });
+
+    if (attempts < MAX_PRINT_ATTEMPTS) {
+      console.warn(
+        `🔁 [AUTO-PRINT] Tentative ${attempts}/${MAX_PRINT_ATTEMPTS} échouée pour #${order.id} (${reason || 'raison inconnue'}), nouvel essai dans ${PRINT_RETRY_DELAY_MS / 1000}s`
+      );
+      return;
+    }
+
+    console.error(`🧾 [AUTO-PRINT] Impression impossible pour #${order.id}, affichage à l'écran`);
+    queueTicketPreview(orderForPrint, false);
+    setToast(`Impression impossible pour la commande #${order.id} : ticket affiché à l'écran`);
+
+    // Pris en charge à l'écran : on arrête d'essayer, sans quoi la boucle
+    // repartirait à chaque snapshot
+    await savePrintedOrder(order.id);
   };
 
   // Met une commande Firestore au format attendu par l'imprimante
@@ -300,68 +344,86 @@ export default function AdminDashboard() {
       // Bloquer les impressions multiples
       isPrintingRef.current = true;
 
-      for (const order of newOrdersToPrint) {
-        // Double vérification
-        if (printedOrdersRef.current.has(order.id)) {
-          continue;
-        }
-
-        console.log(`🆕 [AUTO-PRINT] Impression commande #${order.id}`);
-
-        // Marquer immédiatement comme imprimée
-        await savePrintedOrder(order.id);
-
-        // Ajouter aux commandes en attente de clic (pour le son)
-        pendingNewOrdersRef.current.add(order.id);
-
-        // Jouer le son de notification (4 fois en boucle)
-        playNotificationSound();
-
-        // Vibration
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-        try {
-          const orderForPrint = buildOrderForPrint(order);
-
-          console.log(`📞 [AUTO-PRINT] Téléphone client: "${orderForPrint.phone}" (order.phone="${order.phone}", order.phoneNumber="${order.phoneNumber}")`);
-
-          const printerStatus = epsonBluetoothService.getStatus();
-
-          const hasPhysicalPrinter =
-            printerStatus.autoPrintEnabled &&
-            (printerStatus.isConnected || printerStatus.savedConfig);
-
-          if (hasPhysicalPrinter) {
-            const printResult = await epsonBluetoothService.printOrder(orderForPrint);
-
-            if (printResult.success) {
-              console.log(`✅ [AUTO-PRINT] Ticket imprimé pour #${order.id}`);
-              setPrinterConnected(true);
-            } else {
-              console.warn(`⚠️ [AUTO-PRINT] Échec: ${printResult.error}`);
-              setPrinterConnected(false);
-              // L'imprimante a refusé : on montre quand même le ticket
-              setTicketWasAutoPrinted(false);
-              setTicketPreviewOrder(orderForPrint);
-            }
-          } else if (IS_SIMULATOR) {
-            // Pas d'imprimante sur simulateur : le ticket sort à l'écran
-            console.log(`🧾 [AUTO-PRINT] Simulateur — aperçu du ticket #${order.id}`);
-            setTicketWasAutoPrinted(true);
-            setTicketPreviewOrder(orderForPrint);
-          } else {
-            console.warn('⚠️ [AUTO-PRINT] Imprimante non configurée');
+      try {
+        for (const order of newOrdersToPrint) {
+          // Double vérification
+          if (printedOrdersRef.current.has(order.id)) {
+            continue;
           }
 
-        } catch (printError) {
-          console.error(`❌ [AUTO-PRINT] Erreur pour #${order.id}:`, printError);
+          // Une tentative vient d'échouer : on laisse le temps à l'imprimante
+          // de revenir (papier, Bluetooth) plutôt que de la solliciter à chaque
+          // snapshot Firestore
+          const lastAttempt = printAttemptsRef.current.get(order.id);
+          if (lastAttempt && Date.now() - lastAttempt.at < PRINT_RETRY_DELAY_MS) {
+            continue;
+          }
+
+          console.log(`🆕 [AUTO-PRINT] Impression commande #${order.id}`);
+
+          try {
+            // Ajouter aux commandes en attente de clic (pour le son)
+            pendingNewOrdersRef.current.add(order.id);
+
+            // Jouer le son de notification (4 fois en boucle)
+            playNotificationSound();
+
+            // Vibration
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          } catch (alertError) {
+            // Le son ou le retour haptique ne doivent jamais empêcher l'impression
+            console.warn('⚠️ [AUTO-PRINT] Alerte sonore indisponible:', alertError);
+          }
+
+          try {
+            const orderForPrint = buildOrderForPrint(order);
+
+            console.log(`📞 [AUTO-PRINT] Téléphone client: "${orderForPrint.phone}" (order.phone="${order.phone}", order.phoneNumber="${order.phoneNumber}")`);
+
+            const printerStatus = epsonBluetoothService.getStatus();
+
+            const hasPhysicalPrinter =
+              printerStatus.autoPrintEnabled &&
+              (printerStatus.isConnected || printerStatus.savedConfig);
+
+            if (hasPhysicalPrinter) {
+              const printResult = await epsonBluetoothService.printOrder(orderForPrint);
+
+              if (printResult.success) {
+                console.log(`✅ [AUTO-PRINT] Ticket imprimé pour #${order.id}`);
+                setPrinterConnected(true);
+                // Marqué imprimée SEULEMENT maintenant : posé avant l'impression,
+                // ce drapeau condamnait le ticket dès que l'imprimante refusait
+                await savePrintedOrder(order.id);
+                printAttemptsRef.current.delete(order.id);
+              } else {
+                console.warn(`⚠️ [AUTO-PRINT] Échec: ${printResult.error}`);
+                setPrinterConnected(false);
+                await handlePrintFailure(order, orderForPrint, printResult.error);
+              }
+            } else if (IS_SIMULATOR) {
+              // Pas d'imprimante sur simulateur : le ticket sort à l'écran
+              console.log(`🧾 [AUTO-PRINT] Simulateur — aperçu du ticket #${order.id}`);
+              queueTicketPreview(orderForPrint, true);
+              await savePrintedOrder(order.id);
+            } else {
+              console.warn('⚠️ [AUTO-PRINT] Imprimante non configurée');
+              await handlePrintFailure(order, orderForPrint, 'imprimante non configurée');
+            }
+
+          } catch (printError) {
+            console.error(`❌ [AUTO-PRINT] Erreur pour #${order.id}:`, printError);
+            await handlePrintFailure(order, buildOrderForPrint(order), (printError as any)?.message);
+          }
+
+          // Petit délai entre les impressions
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
-
-        // Petit délai entre les impressions
-        await new Promise(resolve => setTimeout(resolve, 500));
+      } finally {
+        // Sans ce finally, une exception laissait le verrou posé et
+        // l'impression automatique restait morte jusqu'au redémarrage
+        isPrintingRef.current = false;
       }
-
-      isPrintingRef.current = false;
     };
 
     printNewOrders();
@@ -892,8 +954,7 @@ export default function AdminDashboard() {
       console.error('❌ Erreur impression manuelle:', error);
     }
 
-    setTicketWasAutoPrinted(false);
-    setTicketPreviewOrder(orderForPrint);
+    queueTicketPreview(orderForPrint, false);
   };
 
   // Temps écoulé depuis la prise de commande, façon « 6min 12 »
@@ -1416,8 +1477,7 @@ export default function AdminDashboard() {
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       setShowStatusMenu(false);
-                      setTicketWasAutoPrinted(false);
-                      setTicketPreviewOrder(buildOrderForPrint(selectedOrder));
+                      queueTicketPreview(buildOrderForPrint(selectedOrder), false);
                     }}
                   >
                     <Ionicons name="receipt-outline" size={18} color="#FFFFFF" />
@@ -1741,8 +1801,7 @@ export default function AdminDashboard() {
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       setShowStatusMenu(false);
-                      setTicketWasAutoPrinted(false);
-                      setTicketPreviewOrder(buildOrderForPrint(selectedOrder));
+                      queueTicketPreview(buildOrderForPrint(selectedOrder), false);
                     }}
                   >
                     <Ionicons name="receipt-outline" size={18} color="#FFFFFF" />
@@ -1875,10 +1934,11 @@ export default function AdminDashboard() {
 
         {/* Ticket de caisse affiché à l'écran (simulateur ou consultation) */}
         <PrintTicketPreview
-          visible={!!ticketPreviewOrder}
-          order={ticketPreviewOrder}
-          autoPrinted={ticketWasAutoPrinted}
-          onClose={() => setTicketPreviewOrder(null)}
+          visible={!!currentTicketPreview}
+          order={currentTicketPreview?.order || null}
+          autoPrinted={currentTicketPreview?.autoPrinted || false}
+          // Défile la file : le ticket suivant s'affiche aussitôt
+          onClose={() => setTicketPreviewQueue(prev => prev.slice(1))}
         />
 
         <Toast

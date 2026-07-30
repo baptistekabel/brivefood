@@ -458,7 +458,7 @@ class TabletPrinterService {
           }
           return `
           <div class="item-box">
-            <div class="bold">${item.quantity}x ${item.name} — ${(item.price || 0).toFixed(2)}€</div>
+            <div class="bold">${item.quantity}x ${item.name} - ${(item.price || 0).toFixed(2)}€</div>
             ${item.size ? `<div>📏 Taille: ${item.size}</div>` : ''}
             ${customHTML}
             ${item.comment ? `<div><strong>📝 NOTE: ${item.comment}</strong></div>` : ''}
@@ -554,7 +554,7 @@ class TabletPrinterService {
       order.items.forEach((item, index) => {
         cmd += '\n';
         cmd += ESC + 'E' + '\x01'; // Gras ON
-        cmd += `${item.quantity}x ${item.name} — ${(item.price || 0).toFixed(2)}€\n`;
+        cmd += `${item.quantity}x ${item.name} - ${(item.price || 0).toFixed(2)}€\n`;
         cmd += ESC + 'E' + '\x00'; // Gras OFF
 
         if (item.size) {

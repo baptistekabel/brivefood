@@ -21,6 +21,7 @@ import {
   DEFAULT_DELIVERY_SETTINGS,
   loadDeliverySettings,
   saveDeliverySettings,
+  ensureDeliverySettingsPublished,
   normalizeTierPrices,
   getTierLabel,
 } from '../../src/utils/deliveryPricing';
@@ -40,6 +41,9 @@ export default function DeliveryPriceManagement() {
 
   useEffect(() => {
     const init = async () => {
+      // Publie la grille locale si elle n'a jamais été mise en ligne : sans ça,
+      // les clients continueraient d'appliquer les tarifs par défaut
+      await ensureDeliverySettingsPublished();
       const settings = await loadDeliverySettings();
       setDeliverySettings(settings);
     };

@@ -400,8 +400,18 @@ class NotificationService {
 
   // ===== MÉTHODES POUR L'INTÉGRATION AVEC LE BACKEND =====
 
-  // Envoyer une notification push réelle via l'API Expo
-  async sendPushNotification(to, title, body, data = {}) {
+  // Envoyer une notification push réelle via l'API Expo.
+  //
+  // Point d'entrée UNIQUE : cette méthode était définie deux fois dans la
+  // classe, avec deux signatures différentes. La seconde définition écrasait
+  // silencieusement la première sur le prototype, si bien que tous les
+  // appelants — qui passent (token, titre, corps, données) — voyaient leur
+  // titre interprété comme un objet de configuration : les push partaient avec
+  // un titre et un corps vides.
+  //
+  // `options` couvre ce que l'ancienne seconde définition apportait en plus
+  // (badge iOS, canal Android dédié).
+  async sendPushNotification(to, title, body, data = {}, options = {}) {
     const message = {
       to,
       sound: 'default',
@@ -409,7 +419,11 @@ class NotificationService {
       body,
       data,
       priority: 'high',
-      channelId: 'new-orders',
+      // Seuls 'new-orders' et 'order-updates' sont créés au démarrage
+      // (registerForPushNotificationsAsync) : un canal inconnu ferait retomber
+      // la notification Android sur le canal par défaut, sans son ni vibration.
+      channelId: options.channelId || 'new-orders',
+      ...(options.badge != null && { badge: options.badge }),
       // Configuration pour l'arrière-plan
       _displayInForeground: true,
     };
@@ -426,7 +440,20 @@ class NotificationService {
       });
 
       const result = await response.json();
-      console.log('✅ Push notification sent:', result);
+
+      // Envoyé un message à la fois, l'API répond { data: { status } } — un
+      // objet, pas un tableau. Les erreurs de requête arrivent dans `errors`.
+      const receipt = Array.isArray(result?.data) ? result.data[0] : result?.data;
+
+      if (receipt?.status !== 'ok') {
+        const reason = receipt?.message
+          || result?.errors?.[0]?.message
+          || 'réponse inattendue de l\'API Expo';
+        console.warn(`⚠️ Push refusée par Expo (${to}): ${reason}`);
+        return null;
+      }
+
+      console.log('✅ Push notification sent:', receipt.id || '');
       return result;
     } catch (error) {
       console.error('❌ Error sending push notification:', error);
@@ -528,7 +555,18 @@ class NotificationService {
       // 3. Envoyer à tous les admins
       const sendPromises = adminTokens.map(async (tokenData) => {
         try {
-          await this.sendPushNotification(tokenData.token, notification);
+          const result = await this.sendPushNotification(
+            tokenData.token,
+            notification.title,
+            notification.body,
+            notification.data,
+            { badge: notification.badge, channelId: 'new-orders' }
+          );
+
+          if (!result) {
+            return { success: false, token: tokenData.token, error: 'push refusée' };
+          }
+
           console.log(`✅ Notification envoyée à admin:`, tokenData.deviceType);
           return { success: true, token: tokenData.token };
         } catch (error) {
@@ -604,46 +642,6 @@ class NotificationService {
     } catch (error) {
       console.error('❌ [NotificationService] Erreur récupération tokens admin:', error);
       return [];
-    }
-  }
-
-  // Envoyer une notification push via API
-  async sendPushNotification(token, notification) {
-    try {
-      // Utiliser l'API Expo Push Notifications
-      const message = {
-        to: token,
-        sound: 'default',
-        title: notification.title,
-        body: notification.body,
-        data: notification.data,
-        badge: notification.badge || 1,
-        priority: 'high',
-        channelId: 'admin-alerts'
-      };
-
-      const response = await fetch('https://exp.host/--/api/v2/push/send', {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Accept-encoding': 'gzip, deflate',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(message),
-      });
-
-      const result = await response.json();
-
-      if (result.data && result.data[0] && result.data[0].status === 'ok') {
-        console.log('✅ Notification push envoyée avec succès');
-        return { success: true };
-      } else {
-        throw new Error(result.data[0]?.message || 'Échec envoi push');
-      }
-
-    } catch (error) {
-      console.error('❌ Erreur envoi notification push:', error);
-      throw error;
     }
   }
 

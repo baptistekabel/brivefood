@@ -349,14 +349,20 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // On n'écrit QUE les champs modifiés : `merge: true` s'occupe de préserver le
+  // reste. Réécrire `{ ...userProfile, ...updates }` renvoyait tout le profil
+  // tel qu'il était au dernier rendu — deux mises à jour enchaînées dans la même
+  // frame (confirmation de plusieurs récompenses de fidélité) et la seconde
+  // écrasait la première avec des données périmées.
   const updateUserProfile = async (updates) => {
     try {
-      if (user) {
-        const updatedProfile = { ...userProfile, ...updates };
-        await setDoc(doc(db, 'users', user.uid), updatedProfile, { merge: true });
-        setUserProfile(updatedProfile);
-        return { success: true };
+      if (!user) {
+        return { success: false, error: 'Aucun utilisateur connecté' };
       }
+
+      await setDoc(doc(db, 'users', user.uid), updates, { merge: true });
+      setUserProfile(prev => ({ ...(prev || {}), ...updates }));
+      return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
     }

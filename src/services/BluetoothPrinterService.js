@@ -867,7 +867,7 @@ class BluetoothPrinterService {
 
     if (order.items && order.items.length > 0) {
       order.items.forEach(item => {
-        commands += `\n${item.quantity}x ${item.name} — ${(item.price || 0).toFixed(2)}€\n`;
+        commands += `\n${item.quantity}x ${item.name} - ${(item.price || 0).toFixed(2)}€\n`;
 
         if (item.size) {
           commands += `   Taille: ${item.size}\n`;

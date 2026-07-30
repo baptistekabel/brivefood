@@ -10,6 +10,108 @@ import productImages from '../../data/productImages';
 // Image par défaut : logo BriveFood
 const defaultImage = require('../../../assets/images/logoBrivefood.png');
 
+// Résolution de l'image locale d'un produit, hors composant pour que les écrans
+// puissent savoir si un produit a une image AVANT de choisir sa mise en page.
+// Cette logique était recopiée à l'identique ailleurs, en oubliant `imageKey` :
+// des produits dont l'image se résolvait très bien étaient affichés sans photo.
+export const resolveLocalProductImage = (product) => {
+  const productId = product?.id || product?.productId;
+
+  // Essayer avec l'ID du produit
+  if (productId && productImages[productId]) {
+    return productImages[productId];
+  }
+
+  // Essayer avec imageKey
+  if (product?.imageKey && productImages[product.imageKey]) {
+    return productImages[product.imageKey];
+  }
+
+  // Image embarquée directement sur le produit (données locales : require(...)).
+  // Placée avant la recherche par nom, qui reste approximative.
+  if (product?.image) {
+    // require() renvoie un nombre ; une source distante est un objet { uri }
+    if (typeof product.image === 'number') {
+      return product.image;
+    }
+    if (typeof product.image === 'object' && product.image.uri) {
+      return product.image;
+    }
+    if (typeof product.image === 'string' && product.image.startsWith('http')) {
+      return { uri: product.image };
+    }
+  }
+
+  // Fonction pour normaliser les accents
+  const normalizeText = (text) => {
+    if (!text) return '';
+    return text
+      .toLowerCase()
+      .replace(/[àáâäã]/g, 'a')
+      .replace(/[èéêë]/g, 'e')
+      .replace(/[ìíîï]/g, 'i')
+      .replace(/[òóôöõ]/g, 'o')
+      .replace(/[ùúûü]/g, 'u')
+      .replace(/[ç]/g, 'c')
+      .replace(/[ñ]/g, 'n')
+      .replace(/[^a-z0-9]/g, '');
+  };
+
+  // Essayer avec le nom normalisé
+  const normalizedName = normalizeText(product?.name);
+  if (normalizedName && productImages[normalizedName]) {
+    return productImages[normalizedName];
+  }
+
+  // Essayer variations
+  if (product?.name) {
+    const variations = [
+      product.name.toLowerCase().replace(/[^a-zA-Z0-9]/g, ''),
+      product.name.replace(/\s+/g, '').toLowerCase(),
+      product.name.split(' ')[0]?.toLowerCase(),
+    ];
+
+    for (const variation of variations) {
+      if (variation && productImages[variation]) {
+        return productImages[variation];
+      }
+    }
+
+    // Correspondance partielle
+    const productKeys = Object.keys(productImages);
+    for (const key of productKeys) {
+      const keyLower = key.toLowerCase();
+      if (normalizedName && (keyLower.includes(normalizedName) || normalizedName.includes(keyLower))) {
+        return productImages[key];
+      }
+    }
+
+    // Dernier recours : les articles de commande portent le suffixe de taille dans
+    // leur nom (« Tacos (L (2 viandes)) »), ce qui fait échouer toutes les
+    // correspondances ci-dessus. On retente sur le nom de base. Placé en dernier
+    // pour ne jamais supplanter une correspondance plus précise.
+    const baseName = normalizeText(product.name.split('(')[0]);
+    if (baseName && baseName !== normalizedName) {
+      if (productImages[baseName]) {
+        return productImages[baseName];
+      }
+
+      for (const key of productKeys) {
+        if (key.toLowerCase().includes(baseName)) {
+          return productImages[key];
+        }
+      }
+    }
+  }
+
+  return null;
+};
+
+// Le produit a-t-il une photo affichable ? Sert aux écrans qui basculent entre
+// une carte illustrée et une ligne compacte.
+export const hasProductImage = (product) =>
+  !!(product?.firebaseImageUrl || resolveLocalProductImage(product));
+
 export default function ProductImage({
   product,
   style = {},
@@ -40,99 +142,8 @@ export default function ProductImage({
     return Date.now();
   }, [product?.updatedAt]);
 
-  // Obtenir l'image locale depuis les assets
-  const getLocalImage = () => {
-    const productId = product?.id || product?.productId;
-
-    // Essayer avec l'ID du produit
-    if (productId && productImages[productId]) {
-      return productImages[productId];
-    }
-
-    // Essayer avec imageKey
-    if (product?.imageKey && productImages[product.imageKey]) {
-      return productImages[product.imageKey];
-    }
-
-    // Image embarquée directement sur le produit (données locales : require(...)).
-    // Placée avant la recherche par nom, qui reste approximative.
-    if (product?.image) {
-      // require() renvoie un nombre ; une source distante est un objet { uri }
-      if (typeof product.image === 'number') {
-        return product.image;
-      }
-      if (typeof product.image === 'object' && product.image.uri) {
-        return product.image;
-      }
-      if (typeof product.image === 'string' && product.image.startsWith('http')) {
-        return { uri: product.image };
-      }
-    }
-
-    // Fonction pour normaliser les accents
-    const normalizeText = (text) => {
-      if (!text) return '';
-      return text
-        .toLowerCase()
-        .replace(/[àáâäã]/g, 'a')
-        .replace(/[èéêë]/g, 'e')
-        .replace(/[ìíîï]/g, 'i')
-        .replace(/[òóôöõ]/g, 'o')
-        .replace(/[ùúûü]/g, 'u')
-        .replace(/[ç]/g, 'c')
-        .replace(/[ñ]/g, 'n')
-        .replace(/[^a-z0-9]/g, '');
-    };
-
-    // Essayer avec le nom normalisé
-    const normalizedName = normalizeText(product?.name);
-    if (normalizedName && productImages[normalizedName]) {
-      return productImages[normalizedName];
-    }
-
-    // Essayer variations
-    if (product?.name) {
-      const variations = [
-        product.name.toLowerCase().replace(/[^a-zA-Z0-9]/g, ''),
-        product.name.replace(/\s+/g, '').toLowerCase(),
-        product.name.split(' ')[0]?.toLowerCase(),
-      ];
-
-      for (const variation of variations) {
-        if (variation && productImages[variation]) {
-          return productImages[variation];
-        }
-      }
-
-      // Correspondance partielle
-      const productKeys = Object.keys(productImages);
-      for (const key of productKeys) {
-        const keyLower = key.toLowerCase();
-        if (normalizedName && (keyLower.includes(normalizedName) || normalizedName.includes(keyLower))) {
-          return productImages[key];
-        }
-      }
-
-      // Dernier recours : les articles de commande portent le suffixe de taille dans
-      // leur nom (« Tacos (L (2 viandes)) »), ce qui fait échouer toutes les
-      // correspondances ci-dessus. On retente sur le nom de base. Placé en dernier
-      // pour ne jamais supplanter une correspondance plus précise.
-      const baseName = normalizeText(product.name.split('(')[0]);
-      if (baseName && baseName !== normalizedName) {
-        if (productImages[baseName]) {
-          return productImages[baseName];
-        }
-
-        for (const key of productKeys) {
-          if (key.toLowerCase().includes(baseName)) {
-            return productImages[key];
-          }
-        }
-      }
-    }
-
-    return null;
-  };
+  // Résolution partagée avec les écrans (voir resolveLocalProductImage)
+  const getLocalImage = () => resolveLocalProductImage(product);
 
   // Déterminer la source de l'image
   const imageSource = useMemo(() => {

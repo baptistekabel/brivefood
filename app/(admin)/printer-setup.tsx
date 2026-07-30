@@ -72,7 +72,6 @@ export default function PrinterSetup() {
   const [isLoading, setIsLoading] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
-  const [isTestingBlank, setIsTestingBlank] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const [printerStatus, setPrinterStatus] = useState<PrinterStatus | null>(null);
@@ -175,36 +174,16 @@ export default function PrinterSetup() {
     );
   };
 
-  // Test d'impression
+  // Test d'impression : ticket vierge, juste de quoi vérifier que l'imprimante
+  // répond et coupe le papier. Volontairement sans texte ni fausse commande —
+  // un ticket long gaspille du papier et peut être pris pour une vraie commande
+  // à préparer.
   const testPrint = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsTesting(true);
 
     try {
-      console.log('🧪 Lancement test impression...');
-      const result = await getPrinterService().printTest();
-
-      if (result.success) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert('Succès !', 'Ticket test imprimé !');
-      } else {
-        Alert.alert('Échec', result.error || 'Impossible d\'imprimer');
-      }
-
-    } catch (error: any) {
-      console.error('Erreur test impression:', error);
-      Alert.alert('Erreur', error.message);
-    } finally {
-      setIsTesting(false);
-    }
-  };
-
-  // Test à blanc : vérifie que l'imprimante répond, sans rien écrire dessus
-  const testBlankPrint = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setIsTestingBlank(true);
-
-    try {
+      console.log('🧪 Lancement test impression (ticket vierge)...');
       const result = await getPrinterService().printBlankTest();
 
       if (result.success) {
@@ -218,10 +197,10 @@ export default function PrinterSetup() {
         Alert.alert('Aucune réponse', result.error || 'L\'imprimante n\'a pas répondu');
       }
     } catch (error: any) {
-      console.error('Erreur test à blanc:', error);
+      console.error('Erreur test impression:', error);
       Alert.alert('Erreur', error.message);
     } finally {
-      setIsTestingBlank(false);
+      setIsTesting(false);
     }
   };
 
@@ -447,30 +426,6 @@ export default function PrinterSetup() {
             )}
           </View>
         </View>
-
-        {/* Test à blanc : disponible dès qu'une imprimante est configurée,
-            même si la connexion n'est pas encore établie */}
-        {(isConnected || device) && (
-          <TouchableOpacity
-            style={styles.blankTestButton}
-            onPress={testBlankPrint}
-            disabled={isTestingBlank}
-          >
-            {isTestingBlank ? (
-              <ActivityIndicator size="small" color="#2563EB" />
-            ) : (
-              <>
-                <Ionicons name="pulse-outline" size={18} color="#2563EB" />
-                <View style={styles.blankTestContent}>
-                  <Text style={styles.blankTestTitle}>Tester l'imprimante</Text>
-                  <Text style={styles.blankTestSubtitle}>
-                    Ticket vierge, sans rien d'imprimé dessus
-                  </Text>
-                </View>
-              </>
-            )}
-          </TouchableOpacity>
-        )}
 
         {isConnected && (
           <View style={styles.statusActions}>
@@ -948,34 +903,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginTop: spacing.md,
     gap: spacing.sm,
-  },
-  blankTestButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.lg,
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    minHeight: 56,
-    justifyContent: 'center',
-  },
-  blankTestContent: {
-    flex: 1,
-  },
-  blankTestTitle: {
-    fontSize: typography.fontSizes.base,
-    fontFamily: typography.fontFamily.bold,
-    color: '#2563EB',
-  },
-  blankTestSubtitle: {
-    fontSize: typography.fontSizes.xs,
-    fontFamily: typography.fontFamily.medium,
-    color: '#3B82F6',
-    marginTop: 1,
   },
   actionButton: {
     flex: 1,

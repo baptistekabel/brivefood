@@ -38,6 +38,7 @@ export const PaymentStatus = {
 
 // Types pour les produits
 export const ProductCategory = {
+  PROMOS: 'promos',
   FORMULES_PIZZA_DUO: 'formules_pizza_duo',
   FORMULES_PIZZA_TRIO: 'formules_pizza_trio',
   PIZZA: 'pizza',

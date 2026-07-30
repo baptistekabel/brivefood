@@ -13,6 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { colors, typography, spacing, borderRadius } from '../../constants/theme';
+import { getOrderDisplayNumber } from '../../utils/serviceDay';
 
 const { width, height } = Dimensions.get('window');
 
@@ -266,7 +267,12 @@ export default function OrderRatingModal({
           <View style={styles.body}>
             {/* Order Info */}
             <View style={styles.orderInfo}>
-              <Text style={styles.orderNumber}>Commande #{orderData?.orderId || orderData?.id}</Text>
+              {/* Numéro du jour, cohérent avec le ticket et le suivi de commande */}
+              <Text style={styles.orderNumber}>
+                Commande #{orderData?.orderNumber
+                  || getOrderDisplayNumber(orderData)
+                  || orderData?.orderId}
+              </Text>
               <Text style={styles.orderDate}>
                 {orderData?.orderDate} • {orderData?.total?.toFixed(2)}€
               </Text>

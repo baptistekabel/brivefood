@@ -426,7 +426,7 @@ export default function DeliveryManagement() {
   const handleCompleteOrder = (order) => {
     Alert.alert(
       'Marquer comme livré',
-      `Marquer la commande #${order.id} comme livrée ?`,
+      `Marquer la commande #${getOrderDisplayNumber(order)} comme livrée ?`,
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -437,7 +437,7 @@ export default function DeliveryManagement() {
               if (result.success) {
                 console.log(`✅ Commande #${order.id} marquée comme livrée`);
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                Alert.alert('✅ Livraison terminée', `Commande #${order.id} marquée comme livrée`);
+                Alert.alert('✅ Livraison terminée', `Commande #${getOrderDisplayNumber(order)} marquée comme livrée`);
               } else {
                 Alert.alert('❌ Erreur', result.error || 'Impossible de marquer la commande comme livrée');
               }
@@ -532,7 +532,7 @@ export default function DeliveryManagement() {
 
     Alert.alert(
       'Assigner la commande',
-      `Choisir un livreur pour la commande #${order.id} :`,
+      `Choisir un livreur pour la commande #${getOrderDisplayNumber(order)} :`,
       [
         ...deliveryOptions,
         { text: 'Annuler', style: 'cancel' }
@@ -550,7 +550,7 @@ export default function DeliveryManagement() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert(
           '✅ Commande assignée',
-          `La commande #${order.id} a été assignée à ${deliveryUser.name} et est maintenant en cours de livraison.`,
+          `La commande #${getOrderDisplayNumber(order)} a été assignée à ${deliveryUser.name} et est maintenant en cours de livraison.`,
           [{ text: 'OK' }]
         );
 

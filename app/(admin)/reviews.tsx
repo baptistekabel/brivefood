@@ -312,7 +312,7 @@ export default function AdminReviews() {
               <View style={styles.statsContent}>
                 <View style={styles.averageSection}>
                   <Text style={styles.averageRating}>
-                    {ratingStats.averageRating > 0 ? ratingStats.averageRating.toFixed(1) : '—'}
+                    {ratingStats.averageRating > 0 ? ratingStats.averageRating.toFixed(1) : '...'}
                   </Text>
                   <View style={styles.starsRow}>
                     {[1, 2, 3, 4, 5].map(star => (
