@@ -46,7 +46,7 @@ const PRINT_RETRY_DELAY_MS = 30 * 1000;
 const MAX_PRINT_ATTEMPTS = 3;
 
 export default function AdminDashboard() {
-  const { orders, loading, refreshOrders, updateOrderStatus, deleteOrder } = useOrders();
+  const { orders, loading, refreshOrders, updateOrderStatus, deleteOrder, getActiveAlertForOrder } = useOrders();
   const [refreshing, setRefreshing] = useState(false);
   const [acceptingOrders, setAcceptingOrders] = useState(true);
   const [selectedFilter, setSelectedFilter] = useState('all');
@@ -442,20 +442,34 @@ export default function AdminDashboard() {
   };
 
 
+  // Commandes de la journée de service en cours uniquement : celles de la
+  // veille (déjà closes par l'auto-complétion à 1h) doivent se retrouver dans
+  // les archives, pas s'accumuler ici avec celles du jour.
+  const getTodayServiceDayOrders = () => {
+    const currentServiceDay = getServiceDayKey();
+    return orders.filter((order: any) => {
+      const orderServiceDay = order.serviceDay
+        || getServiceDayKey(order.createdAt ? new Date(order.createdAt) : new Date());
+      return orderServiceDay === currentServiceDay;
+    });
+  };
+
   // Filtrer les commandes selon le statut sélectionné
   const getFilteredOrders = () => {
+    const todayOrders = getTodayServiceDayOrders();
     if (selectedFilter === 'all') {
-      return orders;
+      return todayOrders;
     }
-    return orders.filter((order: any) => order.status === selectedFilter);
+    return todayOrders.filter((order: any) => order.status === selectedFilter);
   };
 
   const filteredOrders = getFilteredOrders();
 
   // Obtenir le nombre de commandes par statut pour les badges
   const getStatusCount = (status: string) => {
-    if (status === 'all') return orders.length;
-    return orders.filter((order: any) => order.status === status).length;
+    const todayOrders = getTodayServiceDayOrders();
+    if (status === 'all') return todayOrders.length;
+    return todayOrders.filter((order: any) => order.status === status).length;
   };
 
   // Fonction pour ouvrir le menu de changement de statut
@@ -767,8 +781,16 @@ export default function AdminDashboard() {
       return (
         <View style={styles.emptyStateContainer}>
           <Ionicons name="filter-outline" size={48} color={colors.neutral.gray300} />
-          <Text style={styles.emptyStateTitle}>Aucune commande {getStatusLabel(selectedFilter, null)}</Text>
-          <Text style={styles.emptyStateSubtitle}>Aucune commande ne correspond au filtre sélectionné</Text>
+          <Text style={styles.emptyStateTitle}>
+            {selectedFilter === 'all'
+              ? "Aucune commande aujourd'hui"
+              : `Aucune commande ${getStatusLabel(selectedFilter, null)}`}
+          </Text>
+          <Text style={styles.emptyStateSubtitle}>
+            {selectedFilter === 'all'
+              ? 'Les commandes des jours précédents sont dans les archives'
+              : 'Aucune commande ne correspond au filtre sélectionné'}
+          </Text>
         </View>
       );
     }
@@ -976,6 +998,12 @@ export default function AdminDashboard() {
     return `${Math.floor(minutes / 60)}h ${(minutes % 60).toString().padStart(2, '0')}min`;
   };
 
+  const getAlertReasonLabel = (reason: string) => {
+    if (reason === 'no_show') return "N'est pas venu chercher sa dernière commande";
+    if (reason === 'no_answer') return "N'a pas répondu à sa dernière commande";
+    return 'Client signalé';
+  };
+
   // Nombre de commandes déjà passées par ce client, identifié par son téléphone
   const getCustomerOrderCount = (order: any) => {
     const phone = (order?.phone || order?.phoneNumber || '').replace(/\s/g, '');
@@ -1032,6 +1060,7 @@ export default function AdminDashboard() {
   const renderOrderCardContent = (order: any) => {
     const itemCount = order.items?.length || 0;
     const repeatCount = getCustomerOrderCount(order);
+    const customerAlert = getActiveAlertForOrder(order);
 
     return (
       <TouchableOpacity
@@ -1078,6 +1107,15 @@ export default function AdminDashboard() {
             </Text>
           </View>
         </View>
+
+        {!!customerAlert && (
+          <View style={styles.customerAlertRow}>
+            <Ionicons name="warning" size={14} color="#DC2626" />
+            <Text style={styles.customerAlertRowText} numberOfLines={1}>
+              {getAlertReasonLabel(customerAlert.reason)}
+            </Text>
+          </View>
+        )}
 
         <View style={styles.cardDivider} />
 
@@ -2188,6 +2226,22 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.neutral.gray100,
     marginVertical: spacing.md,
+  },
+  customerAlertRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.md,
+    backgroundColor: '#FEF2F2',
+  },
+  customerAlertRowText: {
+    flex: 1,
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.semibold,
+    color: '#991B1B',
   },
   cardMetaBlock: {
     gap: spacing.sm,

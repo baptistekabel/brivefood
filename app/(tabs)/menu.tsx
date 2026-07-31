@@ -30,11 +30,7 @@ const categoryImages = {
     require('../../assets/images/nouveauxProduits/pizza4fromages.png'),
     require('../../assets/images/nouveauxProduits/pizzaFermiere.png')
   ],
-  [ProductCategory.PROMOS]: [
-    require('../../assets/images/formuleTrio.png'),
-    require('../../assets/images/nouveauxProduits/AmericainSimple.png'),
-    require('../../assets/images/nouveauxProduits/FrenchyBurger.png')
-  ],
+  // Promos du moment : pas de photo produit, on garde le dégradé flashy rose/jaune de la carte
   [ProductCategory.BURGER]: [
     require('../../assets/images/nouveauxProduits/FrenchyBurger.png'),
     require('../../assets/images/nouveauxProduits/DoubleCheese.png'),
@@ -500,10 +496,9 @@ export default function MenuScreen() {
     {
       id: ProductCategory.PROMOS,
       name: 'Promos du moment',
-      subtitle: 'Nos offres à partager',
       emoji: '🔥',
-      color: '#DC2626',
-      gradient: ['#DC2626', '#F97316'],
+      color: '#FF00A8',
+      gradient: ['#FF00A8', '#FF4FD8', '#FFE600'],
       items: getRealItemCount(ProductCategory.PROMOS),
       hideItemCount: true
     },
@@ -785,9 +780,11 @@ export default function MenuScreen() {
                 <Text style={styles.categoryName}>
                   {category.name.toUpperCase()}
                 </Text>
-                <Text style={styles.categorySubtitle}>
-                  {category.subtitle}
-                </Text>
+                {!!category.subtitle && (
+                  <Text style={styles.categorySubtitle}>
+                    {category.subtitle}
+                  </Text>
+                )}
               </View>
 
               {/* Flèche */}
@@ -831,9 +828,11 @@ export default function MenuScreen() {
               <Text style={styles.categoryName}>
                 {category.name.toUpperCase()}
               </Text>
-              <Text style={styles.categorySubtitle}>
-                {category.subtitle}
-              </Text>
+              {!!category.subtitle && (
+                <Text style={styles.categorySubtitle}>
+                  {category.subtitle}
+                </Text>
+              )}
             </View>
 
               {/* Flèche */}

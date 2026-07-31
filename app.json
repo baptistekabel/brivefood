@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Brive Food",
-    "slug": "brivefood",
+    "slug": "brivefood-app",
     "version": "1.0.22",
     "orientation": "default",
     "icon": "./assets/images/logoBrivefood.png",
@@ -12,7 +12,7 @@
       "supportsTablet": true,
       "requireFullScreen": false,
       "bundleIdentifier": "com.brivefood.app",
-      "buildNumber": "47",
+      "buildNumber": "48",
       "splash": {
         "image": "./assets/images/logoBrivefood.png",
         "resizeMode": "cover",
@@ -47,7 +47,7 @@
       }
     },
     "android": {
-      "versionCode": 47,
+      "versionCode": 48,
       "package": "com.brivefood.app",
       "icon": "./assets/images/logoBrivefood.png",
       "adaptiveIcon": {
@@ -108,10 +108,10 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "6210b974-01ea-4015-9d23-ec6bb0cd3c90"
+        "projectId": "8fd04f98-e494-4ab6-a320-b353199c6e43"
       },
       "router": {}
     },
-    "owner": "baptistekabel"
+    "owner": "thecheatcode"
   }
 }

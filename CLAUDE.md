@@ -107,6 +107,19 @@ npx expo start --port 8085 --clear
 
 ---
 
+## 🐛 Bug Fixing Rules
+
+### After Fixing Any Bug — ALWAYS Check for Collateral Damage:
+1. **Identify all call sites**: search (grep) for every place that uses the function/component/logic you just changed
+2. **List similar scenarios**: think through other cases, screens, or user flows that go through the same code path (e.g. same component used for customer AND restaurant views, same function called with different params)
+3. **Check edge cases around the fix**: empty states, loading states, error states, and boundary values (0, null, undefined, empty array/list)
+4. **Verify you didn't just move the bug**: if the fix changes behavior for one case, confirm it doesn't break the other cases that previously worked
+5. **Re-test the original bug AND at least one adjacent scenario** before considering the fix done
+
+👉 **Never consider a bug "fixed" after testing only the exact scenario reported. A fix that breaks another flow is not a fix.**
+
+---
+
 ## 🎯 Code Quality Standards
 
 ### Always Follow:

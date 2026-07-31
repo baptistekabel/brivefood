@@ -48,21 +48,44 @@ export const OrderProvider = ({ children }) => {
   const accountHasOrdered = userProfile?.hasOrdered === true;
   const isFirstOrder = deviceHasOrdered === false && !accountHasOrdered;
 
+  useEffect(() => {
+    if (deviceHasOrdered === null) return; // lecture AsyncStorage pas encore résolue
+    console.log('🎁 Eligibilité cadeau —', {
+      deviceHasOrdered,
+      accountHasOrdered,
+      firestoreHasOrderedField: userProfile?.hasOrdered,
+      userId: user?.uid || null,
+      isFirstOrder,
+    });
+  }, [deviceHasOrdered, accountHasOrdered, user?.uid]);
+
   // Marquer que l'utilisateur a commandé
   const markAsHasOrdered = async () => {
     try {
       await AsyncStorage.setItem(FIRST_ORDER_KEY, 'true');
       setDeviceHasOrdered(true);
+      console.log('🎁 markAsHasOrdered: flag appareil posé');
     } catch (error) {
-      console.error('Erreur marquage première commande:', error);
+      console.error('🎁 Erreur marquage première commande (appareil):', error);
     }
 
-    // Rattaché au compte : suit le client d'un appareil à l'autre
+    // Rattaché au compte : suit le client d'un appareil à l'autre. Une seule
+    // écriture ratée (réseau, etc.) rendait le cadeau éternel sur ce compte
+    // sur un nouvel appareil, sans le moindre signal visible : on réessaie
+    // une fois avant d'abandonner, et on logue le résultat dans tous les cas.
     if (user) {
-      const result = await updateUserProfile({ hasOrdered: true });
+      let result = await updateUserProfile({ hasOrdered: true });
       if (!result?.success) {
-        console.error('Erreur marquage première commande sur le compte:', result?.error);
+        console.error('🎁 Erreur marquage première commande (compte), nouvelle tentative:', result?.error);
+        result = await updateUserProfile({ hasOrdered: true });
       }
+      if (!result?.success) {
+        console.error('🎁 Echec définitif du marquage première commande (compte):', result?.error);
+      } else {
+        console.log('🎁 markAsHasOrdered: hasOrdered=true écrit sur le compte', user.uid);
+      }
+    } else {
+      console.log('🎁 markAsHasOrdered: pas de compte connecté, seul le flag appareil est posé');
     }
   };
 

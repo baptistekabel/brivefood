@@ -523,6 +523,12 @@ export default function CategoryScreen() {
 
     // Réinitialiser le commentaire après l'ajout
     setProductComments(prev => ({ ...prev, [product.id]: '' }));
+
+    // Boissons et desserts s'ajoutent en un tap : on renvoie directement au
+    // menu plutôt que de laisser le client sur la fiche catégorie.
+    if (id === ProductCategory.BOISSONS || id === ProductCategory.DESSERTS) {
+      router.push('/(tabs)/menu');
+    }
   };
 
   // Alerte détaillant les sections obligatoires qu'il reste à remplir.
@@ -594,6 +600,13 @@ export default function CategoryScreen() {
       [product.id]: false
     }));
     setProductComments(prev => ({ ...prev, [product.id]: '' }));
+
+    // Boissons et desserts s'ajoutent en un tap : on renvoie directement au
+    // menu plutôt que de laisser le client sur la fiche catégorie. Les bowls
+    // et tacos, qui partagent cette fonction, ne sont pas concernés.
+    if (id === ProductCategory.BOISSONS || id === ProductCategory.DESSERTS) {
+      router.push('/(tabs)/menu');
+    }
   };
 
 
@@ -1389,6 +1402,7 @@ export default function CategoryScreen() {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           triggerCartAnimation(product, null);
           addItem(product);
+          router.push('/(tabs)/menu');
         }}
         activeOpacity={isUnavailable ? 1 : 0.8}
       >

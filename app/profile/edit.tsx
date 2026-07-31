@@ -18,10 +18,23 @@ import * as Haptics from 'expo-haptics';
 import { useAuth } from '../../src/context/AuthContext';
 import { colors, typography, spacing, borderRadius } from '../../src/constants/theme';
 
+// Repli pour les comptes créés avant l'ajout de firstName/lastName, ou via
+// une connexion sociale : on retrouve un prénom/nom exploitables dans le nom
+// complet existant plutôt que de repartir de champs vides
+const splitFullName = (fullName = '') => {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  return {
+    firstName: parts[0] || '',
+    lastName: parts.slice(1).join(' ') || '',
+  };
+};
+
 export default function EditProfileScreen() {
   const { user, userProfile, updateUserProfile } = useAuth();
+  const fallbackName = splitFullName(userProfile?.name || user?.displayName || '');
   const [formData, setFormData] = useState({
-    name: userProfile?.name || user?.displayName || '',
+    firstName: userProfile?.firstName || fallbackName.firstName,
+    lastName: userProfile?.lastName || fallbackName.lastName,
     email: user?.email || '',
     phoneNumber: userProfile?.phone || userProfile?.phoneNumber || '',
   });
@@ -64,10 +77,20 @@ export default function EditProfileScreen() {
 
   const handleSave = async () => {
     try {
+      const firstName = formData.firstName.trim();
+      const lastName = formData.lastName.trim();
+
+      if (!firstName) {
+        Alert.alert('Prénom requis', 'Merci de renseigner votre prénom.');
+        return;
+      }
+
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
       const result = await updateUserProfile({
-        name: formData.name,
+        firstName,
+        lastName,
+        name: `${firstName} ${lastName}`.trim(),
         phone: formData.phoneNumber,
       });
 
@@ -189,17 +212,32 @@ export default function EditProfileScreen() {
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.form}>
-          {/* Nom */}
+          {/* Prénom */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Nom complet</Text>
+            <Text style={styles.inputLabel}>Prénom</Text>
             <View style={styles.inputContainer}>
               <Ionicons name="person-outline" size={20} color={colors.neutral.gray400} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Votre nom complet"
+                placeholder="Votre prénom"
                 placeholderTextColor={colors.neutral.gray400}
-                value={formData.name}
-                onChangeText={(text) => setFormData({ ...formData, name: text })}
+                value={formData.firstName}
+                onChangeText={(text) => setFormData({ ...formData, firstName: text })}
+              />
+            </View>
+          </View>
+
+          {/* Nom */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Nom</Text>
+            <View style={styles.inputContainer}>
+              <Ionicons name="person-outline" size={20} color={colors.neutral.gray400} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Votre nom"
+                placeholderTextColor={colors.neutral.gray400}
+                value={formData.lastName}
+                onChangeText={(text) => setFormData({ ...formData, lastName: text })}
               />
             </View>
           </View>

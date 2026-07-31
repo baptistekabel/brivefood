@@ -57,6 +57,9 @@ export const OrdersProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   // Commandes passées sans compte, suivies le temps de leur préparation
   const [guestOrderIds, setGuestOrderIds] = useState([]);
+  // Alertes client actives (n'a pas répondu / n'est pas venu chercher sa
+  // commande), affichées dès que ce numéro repasse commande
+  const [customerAlerts, setCustomerAlerts] = useState([]);
 
   const { user } = useAuth();
   const { userType } = useAdminAuth();
@@ -67,6 +70,98 @@ export const OrdersProvider = ({ children }) => {
 
   // Référence vers la collection orders dans Firestore
   const ordersCollection = collection(db, 'orders');
+  const customerAlertsCollection = collection(db, 'customerAlerts');
+
+  // Écoute des alertes client actives : réservé au staff, comme pour les
+  // commandes, pour ne pas faire télécharger cet historique à chaque client.
+  useEffect(() => {
+    if (!isStaff) {
+      setCustomerAlerts([]);
+      return;
+    }
+
+    const unsubscribe = onSnapshot(
+      query(customerAlertsCollection, where('resolved', '==', false)),
+      (snapshot) => {
+        setCustomerAlerts(snapshot.docs.map(d => ({ firestoreId: d.id, ...d.data() })));
+      },
+      (error) => console.error('❌ Erreur écoute alertes clients:', error)
+    );
+
+    return unsubscribe;
+  }, [isStaff]);
+
+  // Même normalisation que getCustomerOrderCount (dashboard) : on ne fait que
+  // retirer les espaces, pour matcher exactement la façon dont les numéros
+  // sont déjà comparés ailleurs dans l'app.
+  const normalizePhone = (phone) => String(phone || '').replace(/\s/g, '');
+  const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
+
+  // Alerte active la plus récente pour le client d'une commande, s'il y en a une.
+  // Le mail est l'identifiant principal (stable, lié au compte) — un même
+  // client peut se tromper ou changer de numéro de téléphone d'une commande à
+  // l'autre. Le téléphone reste un repli pour les commandes invité sans compte.
+  const getActiveAlertForOrder = (order) => {
+    const email = normalizeEmail(order?.customerEmail);
+    const phone = normalizePhone(order?.phone || order?.phoneNumber);
+    if (!email && !phone) return null;
+
+    const matches = customerAlerts.filter(a => {
+      if (email && normalizeEmail(a.email) === email) return true;
+      if (phone && normalizePhone(a.phone) === phone) return true;
+      return false;
+    });
+    if (matches.length === 0) return null;
+
+    return matches.sort(
+      (a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0)
+    )[0];
+  };
+
+  // Signale un client sur une commande : n'a pas répondu, ou n'est pas venu
+  // chercher sa commande. Réapparaît dès sa prochaine commande (même mail, ou
+  // à défaut même téléphone pour un client sans compte).
+  const flagCustomerAlert = async (order, reason, note = '') => {
+    const email = normalizeEmail(order?.customerEmail);
+    const phone = normalizePhone(order?.phone || order?.phoneNumber);
+    if (!email && !phone) {
+      return { success: false, error: 'Commande sans email ni numéro de téléphone' };
+    }
+
+    try {
+      await addDoc(customerAlertsCollection, {
+        email: email || null,
+        phone: phone || null,
+        customerName: order.customerName || 'Client',
+        userId: order.userId || null,
+        reason, // 'no_answer' | 'no_show' | 'other'
+        note: note || '',
+        orderId: order.id,
+        orderNumber: order.orderNumber || null,
+        resolved: false,
+        createdAt: serverTimestamp(),
+      });
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Erreur création alerte client:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Marque l'alerte comme traitée : elle ne réapparaîtra plus sur les
+  // prochaines commandes de ce client.
+  const resolveCustomerAlert = async (alertFirestoreId) => {
+    try {
+      await updateDoc(doc(db, 'customerAlerts', alertFirestoreId), {
+        resolved: true,
+        resolvedAt: serverTimestamp(),
+      });
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Erreur résolution alerte client:', error);
+      return { success: false, error: error.message };
+    }
+  };
 
   // Une commande invité n'a pas de userId : on retient son identifiant pour
   // continuer à suivre son avancement après un redémarrage de l'application.
@@ -727,6 +822,10 @@ export const OrdersProvider = ({ children }) => {
     getAvailableDeliveryOrders,
     getOrdersForDelivery,
     getActiveDeliveryOrders,
+    customerAlerts,
+    getActiveAlertForOrder,
+    flagCustomerAlert,
+    resolveCustomerAlert,
   };
 
   return (

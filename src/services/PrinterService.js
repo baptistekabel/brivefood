@@ -6,6 +6,8 @@ import {
   stripOptionPrice,
   getTicketItemTitle,
   getTicketItemOptions,
+  expandTicketItems,
+  formatTicketPhone,
   getTicketItemNote,
   getPaymentLabel,
   TICKET_SEPARATOR,
@@ -40,8 +42,8 @@ class PrinterService {
         .center { text-align: center; }
         .bold { font-weight: bold; }
         .big { font-size: 20px; font-weight: bold; }
-        .item { font-size: 16px; font-weight: bold; margin-top: 4px; }
-        .option { padding-left: 6px; }
+        .item { font-size: 14px; font-weight: bold; margin-top: 4px; }
+        .option { padding-left: 6px; font-size: 18px; font-weight: bold; }
         .note { font-weight: bold; }
         .sep { text-align: center; margin: 4px 0; }
       </style>
@@ -49,7 +51,7 @@ class PrinterService {
 
     const separator = `<div class="sep">${TICKET_SEPARATOR}</div>`;
 
-    const itemsHtml = (order.items || []).map(item => {
+    const itemsHtml = expandTicketItems(order.items).map(item => {
       const options = getTicketItemOptions(item)
         .map(option => `<div class="option">${option}</div>`)
         .join('');
@@ -69,7 +71,7 @@ class PrinterService {
         <div class="center bold">${order.customerName || 'Client'}</div>
         <div class="center big">${this.getModeText(order.mode).toUpperCase()}</div>
         ${order.mode === 'DELIVERY' && order.address ? `<div class="center bold">${order.address}</div>` : ''}
-        ${order.phone ? `<div class="center bold">TEL: ${order.phone}</div>` : ''}
+        ${order.phone ? `<div class="center bold">TEL: ${formatTicketPhone(order.phone)}</div>` : ''}
         ${separator}
         <div class="center bold">PRODUITS</div>
         ${separator}
@@ -346,7 +348,7 @@ class PrinterService {
       commands.push({ type: 'text', data: `${order.address}\n` });
     }
     if (order.phone) {
-      commands.push({ type: 'text', data: `TEL: ${order.phone}\n` });
+      commands.push({ type: 'text', data: `TEL: ${formatTicketPhone(order.phone)}\n` });
     }
 
     sep();
@@ -354,16 +356,17 @@ class PrinterService {
     sep();
 
     commands.push({ type: 'align', position: 'left' });
-    (order.items || []).forEach(item => {
+    expandTicketItems(order.items).forEach(item => {
       commands.push(
-        { type: 'style', bold: true, size: 'double' },
-        { type: 'text', data: `${getTicketItemTitle(item)}\n` },
-        { type: 'style', bold: true, size: 'normal' }
+        { type: 'style', bold: true, size: 'normal' },
+        { type: 'text', data: `${getTicketItemTitle(item)}\n` }
       );
 
+      commands.push({ type: 'style', bold: true, size: 'double' });
       getTicketItemOptions(item).forEach(option => {
         commands.push({ type: 'text', data: ` ${option}\n` });
       });
+      commands.push({ type: 'style', bold: true, size: 'normal' });
 
       const note = getTicketItemNote(item);
       if (note) commands.push({ type: 'text', data: `NOTE: ${note}\n` });
@@ -432,7 +435,7 @@ class PrinterService {
       data += `${order.address}\n`;
     }
     if (order.phone) {
-      data += `TEL: ${order.phone}\n`;
+      data += `TEL: ${formatTicketPhone(order.phone)}\n`;
     }
 
     data += SEP;
@@ -441,15 +444,16 @@ class PrinterService {
 
     // Articles
     data += LEFT;
-    if (order.items && order.items.length > 0) {
-      order.items.forEach(item => {
-        data += BIG_ON;
+    const receiptItems = expandTicketItems(order.items);
+    if (receiptItems.length > 0) {
+      receiptItems.forEach(item => {
         data += `${getTicketItemTitle(item)}\n`;
-        data += BIG_OFF;
 
+        data += BIG_ON;
         getTicketItemOptions(item).forEach(option => {
           data += ` ${option}\n`;
         });
+        data += BIG_OFF;
 
         const note = getTicketItemNote(item);
         if (note) data += `NOTE: ${note}\n`;

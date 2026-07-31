@@ -2,6 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   getTicketItemTitle,
   getTicketItemOptions,
+  expandTicketItems,
+  formatTicketPhone,
   getTicketItemNote,
   getPaymentLabel,
   TICKET_SEPARATOR,
@@ -568,12 +570,12 @@ class EpsonBluetoothService {
       lines.push(customerName);
       lines.push(mode.toUpperCase());
       if (order.address) lines.push(order.address);
-      if (order.phone) lines.push(`TEL: ${order.phone}`);
+      if (order.phone) lines.push(`TEL: ${formatTicketPhone(order.phone)}`);
       lines.push(TICKET_SEPARATOR);
       lines.push('PRODUITS');
       lines.push(TICKET_SEPARATOR);
 
-      (order.items || []).forEach(item => {
+      expandTicketItems(order.items).forEach(item => {
         lines.push(getTicketItemTitle(item));
         getTicketItemOptions(item).forEach(option => lines.push(` ${option}`));
         const note = getTicketItemNote(item);
@@ -692,7 +694,7 @@ class EpsonBluetoothService {
       if (customerPhone) {
                 await printer.addTextSize({ width: 1, height: 2 });
         await printer.addTextAlign(PC.ALIGN_CENTER);
-        await printer.addText(`TEL: ${customerPhone}\n`);
+        await printer.addText(`TEL: ${formatTicketPhone(customerPhone)}\n`);
         await printer.addTextSize({ width: 1, height: 1 });
       }
 
@@ -709,25 +711,23 @@ class EpsonBluetoothService {
       // puis frites et boissons en fin de liste (voir utils/ticketFormat).
       await printer.addTextAlign(PC.ALIGN_LEFT);
 
-      if (order.items && order.items.length > 0) {
-        for (const item of order.items) {
-          // Nom de l'article en double largeur
-          await printer.addTextSize({ width: 2, height: 2 });
-          await printer.addTextStyle({ em: PC.TRUE });
-          await printer.addText(`${getTicketItemTitle(item)}\n`);
-          await printer.addTextStyle({ em: PC.FALSE });
-
-          // Options plus grandes qu'avant, mais moins que le titre
+      const kitchenItems = expandTicketItems(order.items);
+      if (kitchenItems.length > 0) {
+        for (const item of kitchenItems) {
+          // Titre de l'article : un peu plus petit que les options. Tout le
+          // ticket reste en gras (voir le em:TRUE global en tête de fonction).
           await printer.addTextSize({ width: 1, height: 2 });
+          await printer.addText(`${getTicketItemTitle(item)}\n`);
+
+          // Options agrandies : c'est ce que la cuisine lit en premier
+          await printer.addTextSize({ width: 2, height: 2 });
           for (const option of getTicketItemOptions(item)) {
             await printer.addText(` ${option}\n`);
           }
 
           const note = getTicketItemNote(item);
           if (note) {
-            await printer.addTextStyle({ em: PC.TRUE });
             await printer.addText(`NOTE: ${note}\n`);
-            await printer.addTextStyle({ em: PC.FALSE });
           }
 
           await printer.addTextSize({ width: 1, height: 1 });
@@ -742,9 +742,7 @@ class EpsonBluetoothService {
 
       // Total puis mode de reglement
       await printer.addTextSize({ width: 2, height: 2 });
-      await printer.addTextStyle({ em: PC.TRUE });
       await printer.addText(`${(Number(order.total) || 0).toFixed(2)} EUR\n`);
-      await printer.addTextStyle({ em: PC.FALSE });
 
       await printer.addTextSize({ width: 1, height: 2 });
       await printer.addText(`${getPaymentLabel(order)}\n`);

@@ -8,6 +8,9 @@ import {
   Alert,
   Modal,
   ActivityIndicator,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -27,13 +30,17 @@ import { getOrderDisplayNumber } from '../../src/utils/serviceDay';
 
 export default function AdminOrderDetails() {
   const { orderId } = useLocalSearchParams();
-  const { orders, loading, updateOrderStatus } = useOrders();
+  const { orders, loading, updateOrderStatus, getActiveAlertForOrder, flagCustomerAlert, resolveCustomerAlert } = useOrders();
   const [order, setOrder] = useState(null);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printingStatus, setPrintingStatus] = useState('');
   const [toast, setToast] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [showFlagModal, setShowFlagModal] = useState(false);
+  const [flagReason, setFlagReason] = useState(null);
+  const [flagNote, setFlagNote] = useState('');
+  const [isFlagging, setIsFlagging] = useState(false);
 
   // Détection de l'appareil et orientation
   const isTabletDevice = isTablet();
@@ -41,21 +48,29 @@ export default function AdminOrderDetails() {
 
   useEffect(() => {
     console.log('🔍 [ORDER-DETAILS] Looking for order:', orderId);
-    console.log('📋 [ORDER-DETAILS] Available orders:', orders.length);
+    console.log('📋 [ORDER-DETAILS] Available orders:', orders.length, 'loading:', loading);
 
-    if (orders.length > 0) {
-      const foundOrder = orders.find(o => o.id === orderId);
-      console.log('🎯 [ORDER-DETAILS] Found order:', foundOrder ? 'YES' : 'NO');
+    // Tant que le premier instantané Firestore n'est pas arrivé, `orders` peut
+    // être vide ou incomplet sans que la commande soit réellement introuvable.
+    if (loading) return;
 
-      if (foundOrder) {
-        setOrder(foundOrder);
-      } else {
-        console.error('❌ [ORDER-DETAILS] Order not found with ID:', orderId);
-        Alert.alert('Erreur', 'Commande non trouvée');
-        router.back();
-      }
+    const foundOrder = orders.find(o => o.id === orderId);
+    console.log('🎯 [ORDER-DETAILS] Found order:', foundOrder ? 'YES' : 'NO');
+
+    if (foundOrder) {
+      setOrder(foundOrder);
+      return;
     }
-  }, [orderId, orders]);
+
+    // Une commande déjà affichée une fois ne doit pas disparaître sur un
+    // instantané passager (reconnexion, erreur réseau ponctuelle du listener) :
+    // on ne déclare « non trouvée » que si on ne l'a encore jamais vue.
+    if (order) return;
+
+    console.error('❌ [ORDER-DETAILS] Order not found with ID:', orderId);
+    Alert.alert('Erreur', 'Commande non trouvée');
+    router.back();
+  }, [orderId, orders, loading]);
 
   // Si pas de commande trouvée, retourner immediatement (le useEffect redirigera)
   if (!order || !order.items) {
@@ -142,6 +157,12 @@ export default function AdminOrderDetails() {
       default:
         return mode;
     }
+  };
+
+  const getAlertReasonLabel = (reason) => {
+    if (reason === 'no_show') return "N'est pas venu chercher sa dernière commande";
+    if (reason === 'no_answer') return "N'a pas répondu à sa dernière commande";
+    return 'Client signalé';
   };
 
   const getNextStatus = (currentStatus) => {
@@ -243,6 +264,60 @@ export default function AdminOrderDetails() {
           text: 'Annuler la commande',
           style: 'destructive',
           onPress: () => handleStatusUpdate(OrderStatus.CANCELLED),
+        },
+      ]
+    );
+  };
+
+  // Alerte active pour le client de cette commande (n'a pas répondu / n'est
+  // pas venu chercher sa commande), posée sur une commande précédente et
+  // toujours non résolue.
+  const customerAlert = getActiveAlertForOrder(order);
+
+  const handleFlagCustomer = () => {
+    setFlagReason(null);
+    setFlagNote('');
+    setShowFlagModal(true);
+  };
+
+  const handleCloseFlagModal = () => {
+    if (isFlagging) return;
+    setShowFlagModal(false);
+  };
+
+  const handleSubmitFlagCustomer = async () => {
+    if (!flagReason && !flagNote.trim()) {
+      Alert.alert('Précisez le motif', 'Choisissez un motif ou décrivez la situation en texte libre.');
+      return;
+    }
+
+    setIsFlagging(true);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    const result = await flagCustomerAlert(order, flagReason || 'other', flagNote.trim());
+    setIsFlagging(false);
+
+    if (!result.success) {
+      Alert.alert('Erreur', result.error || "Impossible d'enregistrer l'alerte");
+      return;
+    }
+
+    setShowFlagModal(false);
+  };
+
+  const handleResolveAlert = () => {
+    if (!customerAlert) return;
+    Alert.alert(
+      'Marquer comme résolu',
+      "Cette alerte ne s'affichera plus sur les prochaines commandes de ce client.",
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Résolu',
+          onPress: async () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            const result = await resolveCustomerAlert(customerAlert.firestoreId);
+            if (!result.success) Alert.alert('Erreur', result.error || "Impossible de résoudre l'alerte");
+          },
         },
       ]
     );
@@ -734,8 +809,33 @@ export default function AdminOrderDetails() {
                   📍 {order.address || 'Adresse non renseignée'}
                 </Text>
               )}
+
+              <TouchableOpacity style={styles.flagCustomerButton} onPress={handleFlagCustomer}>
+                <Ionicons name="flag-outline" size={14} color={colors.neutral.gray600} />
+                <Text style={styles.flagCustomerButtonText}>Signaler ce client</Text>
+              </TouchableOpacity>
             </View>
           </View>
+
+          {!!customerAlert && (
+            <View style={styles.customerAlertBanner}>
+              <Ionicons name="warning" size={20} color="#DC2626" />
+              <View style={styles.customerAlertBody}>
+                <Text style={styles.customerAlertTitle}>
+                  {getAlertReasonLabel(customerAlert.reason)}
+                </Text>
+                <Text style={styles.customerAlertMeta}>
+                  Commande #{customerAlert.orderNumber || customerAlert.orderId}
+                </Text>
+                {!!customerAlert.note && (
+                  <Text style={styles.customerAlertNote}>{customerAlert.note}</Text>
+                )}
+              </View>
+              <TouchableOpacity style={styles.customerAlertResolveButton} onPress={handleResolveAlert}>
+                <Text style={styles.customerAlertResolveText}>Résolu</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* Items List */}
           <View style={[
@@ -1110,6 +1210,82 @@ export default function AdminOrderDetails() {
           </View>
         </Modal>
 
+        {/* Modal de signalement client */}
+        <Modal
+          visible={showFlagModal}
+          transparent
+          animationType="fade"
+          onRequestClose={handleCloseFlagModal}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.flagModalOverlay}
+          >
+            <TouchableOpacity
+              style={styles.flagModalBackground}
+              activeOpacity={1}
+              onPress={handleCloseFlagModal}
+            />
+            <View style={styles.flagModalContainer}>
+              <Text style={styles.flagModalTitle}>Signaler ce client</Text>
+              <Text style={styles.flagModalSubtitle}>
+                L'alerte s'affichera à sa prochaine commande (même numéro de téléphone).
+              </Text>
+
+              <View style={styles.flagReasonRow}>
+                <TouchableOpacity
+                  style={[styles.flagReasonChip, flagReason === 'no_answer' && styles.flagReasonChipActive]}
+                  onPress={() => setFlagReason(flagReason === 'no_answer' ? null : 'no_answer')}
+                >
+                  <Text style={[styles.flagReasonChipText, flagReason === 'no_answer' && styles.flagReasonChipTextActive]}>
+                    N'a pas répondu
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.flagReasonChip, flagReason === 'no_show' && styles.flagReasonChipActive]}
+                  onPress={() => setFlagReason(flagReason === 'no_show' ? null : 'no_show')}
+                >
+                  <Text style={[styles.flagReasonChipText, flagReason === 'no_show' && styles.flagReasonChipTextActive]}>
+                    N'est pas venu chercher
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <TextInput
+                style={styles.flagNoteInput}
+                placeholder="Décrivez la situation, en texte libre…"
+                placeholderTextColor={colors.neutral.gray400}
+                value={flagNote}
+                onChangeText={setFlagNote}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+
+              <View style={styles.flagModalActions}>
+                <TouchableOpacity
+                  style={styles.flagModalCancelButton}
+                  onPress={handleCloseFlagModal}
+                  disabled={isFlagging}
+                >
+                  <Text style={styles.flagModalCancelText}>Annuler</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.flagModalSubmitButton, isFlagging && styles.flagModalSubmitButtonDisabled]}
+                  onPress={handleSubmitFlagCustomer}
+                  disabled={isFlagging}
+                >
+                  {isFlagging ? (
+                    <ActivityIndicator size="small" color={colors.neutral.white} />
+                  ) : (
+                    <Text style={styles.flagModalSubmitText}>Signaler</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+
         <Toast
           visible={!!toast}
           message={toast}
@@ -1282,6 +1458,160 @@ const styles = StyleSheet.create({
   },
   customerAddressTablet: {
     fontSize: typography.fontSizes.lg,
+  },
+  flagCustomerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.neutral.gray100,
+  },
+  flagCustomerButtonText: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray600,
+  },
+  customerAlertBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  customerAlertBody: {
+    flex: 1,
+  },
+  customerAlertTitle: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.semibold,
+    color: '#991B1B',
+  },
+  customerAlertMeta: {
+    fontSize: typography.fontSizes.sm,
+    color: '#B91C1C',
+    marginTop: 2,
+  },
+  customerAlertNote: {
+    fontSize: typography.fontSizes.sm,
+    color: '#991B1B',
+    marginTop: spacing.xs,
+    fontStyle: 'italic',
+  },
+  customerAlertResolveButton: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.full,
+    backgroundColor: '#DC2626',
+  },
+  customerAlertResolveText: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.semibold,
+    color: colors.neutral.white,
+  },
+
+  // Modal signalement client
+  flagModalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  flagModalBackground: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  flagModalContainer: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: colors.neutral.white,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+  },
+  flagModalTitle: {
+    fontSize: typography.fontSizes.lg,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.gray800,
+  },
+  flagModalSubtitle: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.neutral.gray600,
+    marginTop: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  flagReasonRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  flagReasonChip: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: colors.neutral.gray300,
+    backgroundColor: colors.neutral.white,
+  },
+  flagReasonChipActive: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#DC2626',
+  },
+  flagReasonChipText: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray600,
+  },
+  flagReasonChipTextActive: {
+    color: '#DC2626',
+  },
+  flagNoteInput: {
+    minHeight: 100,
+    borderWidth: 1,
+    borderColor: colors.neutral.gray300,
+    borderRadius: borderRadius.md,
+    padding: spacing.sm,
+    fontSize: typography.fontSizes.base,
+    color: colors.neutral.gray800,
+  },
+  flagModalActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+  },
+  flagModalCancelButton: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    backgroundColor: colors.neutral.gray100,
+  },
+  flagModalCancelText: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray700,
+  },
+  flagModalSubmitButton: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    backgroundColor: '#DC2626',
+  },
+  flagModalSubmitButtonDisabled: {
+    opacity: 0.6,
+  },
+  flagModalSubmitText: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.semibold,
+    color: colors.neutral.white,
   },
 
   // Items Section

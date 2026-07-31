@@ -124,6 +124,27 @@ export const getTicketItemOptions = (item) => {
     .map(entry => entry.label);
 };
 
+// Éclate les articles groupés (ex: "4x Tacos") en autant de lignes que
+// d'exemplaires, chacune avec son détail complet, plutôt qu'une seule ligne
+// "4x" partageant une customisation commune.
+export const expandTicketItems = (items) => {
+  const expanded = [];
+  (items || []).forEach(item => {
+    const quantity = Number(item.quantity) || 1;
+    for (let i = 0; i < quantity; i += 1) {
+      expanded.push({ ...item, quantity: 1 });
+    }
+  });
+  return expanded;
+};
+
+// Espace chaque chiffre du téléphone : « 07 69 01 29 55 » lisible à la
+// volée en cuisine plutôt qu'un bloc de dix chiffres collés.
+export const formatTicketPhone = (phone) => {
+  if (!phone) return '';
+  return String(phone).replace(/(\d)(?=\d)/g, '$1 ');
+};
+
 export const getTicketItemNote = (item) => item.comment || item.comments || null;
 
 // Mode de règlement. Il n'est renseigné qu'en livraison : ne pas annoncer
@@ -140,6 +161,8 @@ export default {
   stripOptionCategory,
   getTicketItemTitle,
   getTicketItemOptions,
+  expandTicketItems,
+  formatTicketPhone,
   getTicketItemNote,
   getPaymentLabel,
   TICKET_SEPARATOR,

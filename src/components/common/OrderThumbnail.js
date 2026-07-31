@@ -12,7 +12,7 @@ import * as Haptics from 'expo-haptics';
 import { colors, typography, spacing } from '../../constants/theme';
 import { useOrder } from '../../context/OrderContext';
 
-const BUTTON_SIZE = 60;
+const BUTTON_SIZE = 76;
 
 export default function OrderThumbnail() {
   const { orderItems, getItemCount, getCurrentOrderType, clearOrder } = useOrder();
@@ -42,7 +42,7 @@ export default function OrderThumbnail() {
         }}
         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
       >
-        <Ionicons name="close" size={13} color={colors.neutral.white} />
+        <Ionicons name="close" size={15} color={colors.neutral.white} />
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -52,7 +52,7 @@ export default function OrderThumbnail() {
       >
         <Ionicons
           name={orderType ? orderType.icon : 'bag'}
-          size={24}
+          size={30}
           color={colors.neutral.white}
         />
       </TouchableOpacity>
@@ -111,11 +111,11 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: 'absolute',
-    top: -5,
-    left: -5,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    top: -2,
+    left: -2,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     backgroundColor: 'rgba(220, 38, 38, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
