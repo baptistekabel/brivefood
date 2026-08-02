@@ -82,20 +82,31 @@ export const getTicketItemTitle = (item) => {
 // Toutes les personnalisations de l'article, sans doublon et sans prix.
 // On ne perd jamais une option : si les définitions manquent, la valeur brute
 // est imprimée plutôt que rien.
+//
+// Une même option (ex: 2x Kebab) peut désormais être sélectionnée plusieurs
+// fois : on compte les occurrences séparément dans chaque source (`item.options`
+// et `item.customizations`) et on garde le maximum des deux plutôt que la somme,
+// pour ne pas doubler le compte quand les deux sources décrivent la même
+// sélection avec des suffixes de prix différents.
 export const getTicketItemOptions = (item) => {
-  const entries = [];
-  const seen = new Set();
+  const countsBySource = [new Map(), new Map()]; // 0: item.options, 1: item.customizations
+  const metaByLabel = new Map();
+  let insertIndex = 0;
 
-  const push = (label, category) => {
+  const record = (sourceIndex, label, category) => {
     const clean = cleanOption(label);
-    if (!clean || seen.has(clean)) return;
-    seen.add(clean);
-    entries.push({ label: clean, rank: getCategoryRank(category) });
+    if (!clean) return;
+    const counts = countsBySource[sourceIndex];
+    counts.set(clean, (counts.get(clean) || 0) + 1);
+    if (!metaByLabel.has(clean)) {
+      metaByLabel.set(clean, { rank: getCategoryRank(category), index: insertIndex });
+      insertIndex += 1;
+    }
   };
 
   if (item.options) {
     String(item.options).split(' | ').forEach(part => {
-      push(part, extractCategory(stripOptionPrice(part)));
+      record(0, part, extractCategory(stripOptionPrice(part)));
     });
   }
 
@@ -107,19 +118,22 @@ export const getTicketItemOptions = (item) => {
       const values = Array.isArray(selected) ? selected : [selected];
       values.forEach(optionId => {
         const option = category.options?.find(o => o.id === optionId);
-        push(option ? option.name : optionId, categoryName);
+        record(1, option ? option.name : optionId, categoryName);
       });
     });
   } else if (item.customizations) {
     Object.entries(item.customizations).forEach(([catKey, selected]) => {
       const values = Array.isArray(selected) ? selected : [selected];
-      values.forEach(value => push(value, catKey));
+      values.forEach(value => record(1, value, catKey));
     });
   }
 
   // Tri stable : viande, sauces, suppléments, puis frites et boissons en fin
-  return entries
-    .map((entry, index) => ({ ...entry, index }))
+  return Array.from(metaByLabel.entries())
+    .map(([label, meta]) => {
+      const count = Math.max(countsBySource[0].get(label) || 0, countsBySource[1].get(label) || 0);
+      return { ...meta, label: count > 1 ? `${label} x${count}` : label };
+    })
     .sort((a, b) => (a.rank - b.rank) || (a.index - b.index))
     .map(entry => entry.label);
 };

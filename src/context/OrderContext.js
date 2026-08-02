@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useProducts } from './ProductsContext';
 import { useAuth } from './AuthContext';
 import { ProductCategory } from '../types';
-import { getCartLineId, resolveCartLineId } from '../utils/cartItemKey';
+import { getCartLineId } from '../utils/cartItemKey';
 
 const OrderContext = createContext();
 const FIRST_ORDER_KEY = '@brivefood_has_ordered';
@@ -218,10 +218,6 @@ export const OrderProvider = ({ children }) => {
     // Bloquer si le produit est marqué indisponible
     if (item.available === false) return;
 
-    // Deux personnalisations différentes du même produit sont deux lignes
-    // distinctes : elles n'ont ni le même prix ni la même recette en cuisine.
-    const cartLineId = resolveCartLineId(item);
-
     // Décidé AVANT la mise à jour : un updateur d'état doit rester pur, or il
     // portait ici deux effets de bord (le ref et setFirstOrderCheeseAdded).
     // React 19 réexécute les updateurs en mode strict, ce qui les rejouait.
@@ -232,18 +228,11 @@ export const OrderProvider = ({ children }) => {
     }
 
     setOrderItems(prevItems => {
-      const existingItem = prevItems.find(i => i.cartLineId === cartLineId);
-
-      let newItems;
-      if (existingItem) {
-        newItems = prevItems.map(i =>
-          i.cartLineId === cartLineId
-            ? { ...i, quantity: i.quantity + 1 }
-            : i
-        );
-      } else {
-        newItems = [...prevItems, { ...item, cartLineId, quantity: 1 }];
-      }
+      // Chaque ajout crée sa propre ligne, même si un produit identique
+      // (même personnalisation) est déjà dans le panier : le client et la
+      // cuisine doivent voir chaque article séparément, jamais un compteur
+      // partagé qui masque le détail par article.
+      let newItems = [...prevItems, { ...item, cartLineId: getCartLineId(item), quantity: 1 }];
 
       // Si c'est la première commande et qu'on n'a pas encore ajouté le cheese offert
       if (shouldAddGift && !prevItems.some(i => i.id === FIRST_ORDER_GIFT_ID)) {
@@ -256,18 +245,7 @@ export const OrderProvider = ({ children }) => {
   };
 
   const removeItem = (lineId) => {
-    setOrderItems(prevItems => {
-      const item = prevItems.find(i => i.cartLineId === lineId);
-      if (item && item.quantity > 1) {
-        return prevItems.map(i =>
-          i.cartLineId === lineId
-            ? { ...i, quantity: i.quantity - 1 }
-            : i
-        );
-      } else {
-        return prevItems.filter(i => i.cartLineId !== lineId);
-      }
-    });
+    setOrderItems(prevItems => prevItems.filter(i => i.cartLineId !== lineId));
   };
 
   const clearOrder = () => {
@@ -280,27 +258,19 @@ export const OrderProvider = ({ children }) => {
     return orderItems.reduce((total, item) => total + item.quantity, 0);
   };
 
-  // Le commentaire et les personnalisations font partie de l'identité de la
-  // ligne : on recalcule la clé après modification, sinon la ligne éditée ne
-  // serait plus retrouvée par les boutons + / − et par la suppression.
+  // L'identifiant de ligne est désormais un id unique indépendant du contenu
+  // (voir cartItemKey.js) : éditer le commentaire ou les personnalisations
+  // n'a plus besoin de le recalculer.
   const updateItemComment = (lineId, comment) => {
     setOrderItems(prevItems =>
-      prevItems.map(item => {
-        if (item.cartLineId !== lineId) return item;
-        const updated = { ...item, comment };
-        return { ...updated, cartLineId: getCartLineId(updated) };
-      })
+      prevItems.map(item => (item.cartLineId === lineId ? { ...item, comment } : item))
     );
   };
 
   // Mettre à jour les personnalisations d'un item dans le panier
   const updateItemCustomizations = (lineId, customizations) => {
     setOrderItems(prevItems =>
-      prevItems.map(item => {
-        if (item.cartLineId !== lineId) return item;
-        const updated = { ...item, customizations };
-        return { ...updated, cartLineId: getCartLineId(updated) };
-      })
+      prevItems.map(item => (item.cartLineId === lineId ? { ...item, customizations } : item))
     );
   };
 

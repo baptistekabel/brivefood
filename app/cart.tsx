@@ -40,6 +40,7 @@ import restaurantStatusService from '../src/services/restaurantStatusService';
 import rushModeService from '../src/services/rushModeService';
 import { isEveningServiceAvailable, EVENING_START_HOUR } from '../src/utils/eveningRestriction';
 import { getWaitTimeLabel, isRushApplicable } from '../src/utils/waitTime';
+import { sortCustomizationEntries } from '../src/utils/categoryUtils';
 import {
   isPhoneOrderWindow,
   PHONE_ORDER_TITLE,
@@ -218,29 +219,6 @@ export default function CartScreen() {
     { id: PaymentMethod.CARD, name: 'Carte bancaire', icon: 'card-outline' },
   ];
 
-  // On raisonne sur la ligne de panier (cartLineId) et non sur le produit :
-  // deux personnalisations du même produit occupent deux lignes distinctes.
-  const updateQuantity = (lineId, newQuantity) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const item = orderItems.find(item => item.cartLineId === lineId);
-    if (!item) return;
-
-    if (newQuantity === 0) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      removeItem(lineId);
-    } else if (newQuantity > item.quantity) {
-      // Ajouter des articles
-      for (let i = item.quantity; i < newQuantity; i++) {
-        addItem(item);
-      }
-    } else if (newQuantity < item.quantity) {
-      // Supprimer des articles
-      for (let i = item.quantity; i > newQuantity; i--) {
-        removeItem(lineId);
-      }
-    }
-  };
-
   const getSubtotal = () => {
     return orderItems.reduce((total, item) => total + (item.price * item.quantity), 0);
   };
@@ -389,12 +367,22 @@ export default function CartScreen() {
 
     const formattedCustomizations = [];
 
-    Object.entries(customizations).forEach(([categoryKey, selectedOptions]) => {
-      const category = customizationOptions[categoryKey];
+    sortCustomizationEntries(Object.entries(customizationOptions)).forEach(([categoryKey, category]) => {
+      const selectedOptions = customizations[categoryKey] || [];
       if (category && selectedOptions.length > 0) {
-        const selectedItems = selectedOptions.map(optionId => {
+        // Compter les occurrences pour afficher "x2" quand la même option
+        // (ex: une viande) est sélectionnée plusieurs fois
+        const counts = new Map();
+        selectedOptions.forEach(optionId => {
+          counts.set(optionId, (counts.get(optionId) || 0) + 1);
+        });
+
+        const selectedItems = Array.from(counts.entries()).map(([optionId, count]) => {
           const option = category.options.find(opt => opt.id === optionId);
-          return option ? `${option.name}${option.price > 0 ? ` (+${option.price.toFixed(2)}€)` : ''}` : '';
+          if (!option) return '';
+          const namePart = count > 1 ? `${option.name} x${count}` : option.name;
+          const totalPrice = option.price * count;
+          return `${namePart}${totalPrice > 0 ? ` (+${totalPrice.toFixed(2)}€)` : ''}`;
         }).filter(Boolean);
 
         if (selectedItems.length > 0) {
@@ -566,8 +554,8 @@ export default function CartScreen() {
         let formattedOptions = null;
         if (item.customizations && item.customizationOptions) {
           const optionsList = [];
-          Object.entries(item.customizations).forEach(([categoryKey, selectedOptions]) => {
-            const category = item.customizationOptions[categoryKey];
+          sortCustomizationEntries(Object.entries(item.customizationOptions)).forEach(([categoryKey, category]) => {
+            const selectedOptions = item.customizations[categoryKey];
             if (category && selectedOptions && selectedOptions.length > 0) {
               const categoryTitle = category.title || categoryKey;
               selectedOptions.forEach(optionId => {
@@ -858,8 +846,6 @@ export default function CartScreen() {
     const selectedGiftSauces = isGiftCheese ? (item.customizations?.sauce || []) : [];
 
     return (
-      // Deux personnalisations du même produit partagent le même `id` : c'est
-      // la clé de ligne qui les distingue dans la liste.
       <View key={item.cartLineId} style={styles.cartItem}>
         {/* Section principale avec image, infos et boutons */}
         <View style={styles.mainItemSection}>
@@ -880,21 +866,18 @@ export default function CartScreen() {
             <Text style={styles.itemPrice}>{item.price.toFixed(2)} €</Text>
           </View>
 
-          <View style={styles.quantityControls}>
-            <TouchableOpacity
-              style={styles.quantityButton}
-              onPress={() => updateQuantity(item.cartLineId, item.quantity - 1)}
-            >
-              <Ionicons name="remove" size={16} color="#000000" />
-            </TouchableOpacity>
-            <Text style={styles.quantity}>{item.quantity}</Text>
-            <TouchableOpacity
-              style={styles.quantityButton}
-              onPress={() => updateQuantity(item.cartLineId, item.quantity + 1)}
-            >
-              <Ionicons name="add" size={16} color="#000000" />
-            </TouchableOpacity>
-          </View>
+          {/* Chaque ligne est un article distinct (jamais un compteur "x2") :
+              un seul geste pour la retirer. Pour en ajouter un autre, il faut
+              repasser par la fiche produit. */}
+          <TouchableOpacity
+            style={styles.removeItemButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              removeItem(item.cartLineId);
+            }}
+          >
+            <Ionicons name="trash-outline" size={18} color={colors.status.error} />
+          </TouchableOpacity>
         </View>
 
         {/* Sélecteur de sauce pour le petit cheese offert */}
@@ -1814,26 +1797,13 @@ const styles = StyleSheet.create({
     color: colors.primary.main,
     fontFamily: typography.fontFamily.semibold,
   },
-  quantityControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: 80,
-  },
-  quantityButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.neutral.gray100,
+  removeItemButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  quantity: {
-    fontSize: typography.fontSizes.sm,
-    fontFamily: typography.fontFamily.medium,
-    color: colors.neutral.gray800,
-    marginHorizontal: spacing.xs,
-    minWidth: 20,
-    textAlign: 'center',
   },
   summarySection: {
     backgroundColor: 'rgba(255, 255, 255, 0.95)',

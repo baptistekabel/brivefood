@@ -28,6 +28,7 @@ import useFonts from '../src/hooks/useFonts';
 import LoadingScreen from '../src/components/common/LoadingScreen';
 import ProductImage from '../src/components/common/ProductImage';
 import { getOrderDisplayNumber } from '../src/utils/serviceDay';
+import { sortCustomizationEntries } from '../src/utils/categoryUtils';
 
 export default function OrderDetailsScreen() {
   const fontsLoaded = useFonts();
@@ -190,16 +191,26 @@ export default function OrderDetailsScreen() {
 
     const formattedCustomizations = [];
 
-    Object.entries(customizations).forEach(([categoryKey, selectedOptions]) => {
-      const category = customizationOptions[categoryKey];
+    sortCustomizationEntries(Object.entries(customizationOptions)).forEach(([categoryKey, category]) => {
+      const selectedOptions = customizations[categoryKey];
       if (category && selectedOptions && selectedOptions.length > 0) {
-        const selectedItems = selectedOptions.map(optionId => {
+        // Compter les occurrences pour afficher "x2" quand la même option
+        // (ex: une viande) est sélectionnée plusieurs fois
+        const counts = new Map();
+        selectedOptions.forEach(optionId => {
+          counts.set(optionId, (counts.get(optionId) || 0) + 1);
+        });
+
+        const selectedItems = Array.from(counts.entries()).map(([optionId, count]) => {
           const option = category.options?.find(opt => opt.id === optionId);
           if (option) {
-            return option.price > 0 ? `${option.name} (+${option.price.toFixed(2)}€)` : option.name;
+            const namePart = count > 1 ? `${option.name} x${count}` : option.name;
+            const totalPrice = option.price * count;
+            return totalPrice > 0 ? `${namePart} (+${totalPrice.toFixed(2)}€)` : namePart;
           }
           // Fallback si l'option n'est pas trouvée (afficher l'ID formaté)
-          return optionId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+          const fallbackName = optionId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+          return count > 1 ? `${fallbackName} x${count}` : fallbackName;
         }).filter(Boolean);
 
         if (selectedItems.length > 0) {
@@ -270,7 +281,7 @@ export default function OrderDetailsScreen() {
             {/* Compléter avec customizations si des options ne sont pas dans item.options */}
             {formattedCustomizations && formattedCustomizations.length > 0 && formattedCustomizations.map((category, index) => {
               const alreadyShown = item.options || '';
-              const filteredItems = category.items.filter(itemName => !alreadyShown.includes(itemName.split(' (+')[0]));
+              const filteredItems = category.items.filter(itemName => !alreadyShown.includes(itemName.split(' (+')[0].replace(/ x\d+$/, '')));
               if (filteredItems.length === 0) return null;
               return (
                 <View key={`custom-${index}`} style={styles.customizationCategory}>

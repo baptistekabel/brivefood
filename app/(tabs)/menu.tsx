@@ -72,7 +72,7 @@ const categoryImages = {
     require('../../assets/images/nouveauxProduits/frites.png')
   ],
   [ProductCategory.BOISSONS]: [
-    require('../../assets/images/nouveauxProduits/bissap.png'),
+    require('../../assets/images/boissons/cocacola1,5l.png'),
     require('../../assets/images/boissons/fantaStrawberry.png'),
     require('../../assets/images/boissons/sprite.png')
   ],
@@ -1141,6 +1141,10 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: '100%',
     height: '100%',
+    // Fond blanc derrière les photos produit détourées (transparentes),
+    // comme la bouteille de Coca : sans ça, la carte transparente laisse
+    // voir le fond quasi-noir de la carte en dessous.
+    backgroundColor: colors.neutral.white,
   },
   cardContainer: {
     flex: 1,

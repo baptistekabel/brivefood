@@ -27,7 +27,7 @@ import { useProducts } from '../../src/context/ProductsContext';
 import productImages from '../../src/data/productImages';
 import categoryInfo from '../../src/data/categories';
 import ProductImage, { hasProductImage } from '../../src/components/common/ProductImage';
-import { calculateCustomizedPrice, isCustomizationComplete, getMissingCustomizations, formatMissingCustomizations, getSizeDisplayText, getProductQuantity } from '../../src/utils/categoryUtils';
+import { calculateCustomizedPrice, isCustomizationComplete, getMissingCustomizations, formatMissingCustomizations, getSizeDisplayText, getProductQuantity, sortCustomizationEntries } from '../../src/utils/categoryUtils';
 import restaurantStatusService from '../../src/services/restaurantStatusService';
 import styles from '../../src/styles/CategoryScreen.styles';
 
@@ -523,12 +523,6 @@ export default function CategoryScreen() {
 
     // Réinitialiser le commentaire après l'ajout
     setProductComments(prev => ({ ...prev, [product.id]: '' }));
-
-    // Boissons et desserts s'ajoutent en un tap : on renvoie directement au
-    // menu plutôt que de laisser le client sur la fiche catégorie.
-    if (id === ProductCategory.BOISSONS || id === ProductCategory.DESSERTS) {
-      router.push('/(tabs)/menu');
-    }
   };
 
   // Alerte détaillant les sections obligatoires qu'il reste à remplir.
@@ -600,15 +594,19 @@ export default function CategoryScreen() {
       [product.id]: false
     }));
     setProductComments(prev => ({ ...prev, [product.id]: '' }));
-
-    // Boissons et desserts s'ajoutent en un tap : on renvoie directement au
-    // menu plutôt que de laisser le client sur la fiche catégorie. Les bowls
-    // et tacos, qui partagent cette fonction, ne sont pas concernés.
-    if (id === ProductCategory.BOISSONS || id === ProductCategory.DESSERTS) {
-      router.push('/(tabs)/menu');
-    }
   };
 
+
+  // Nombre max de viandes autorisées selon la taille du tacos/pizza/bowl
+  const getViandesLimitForSize = (sizeKey, fallback = 4) => {
+    switch (sizeKey) {
+      case 'M': return 1;
+      case 'L': return 2;
+      case 'XL': return 3;
+      case 'XXL': return 4;
+      default: return fallback;
+    }
+  };
 
   // Gérer la sélection des tailles
   const handleSizeSelection = (productId, sizeKey) => {
@@ -626,13 +624,7 @@ export default function CategoryScreen() {
         const viandesSelections = currentCustomizations.viandes || [];
 
         // Déterminer le nombre max de viandes pour la nouvelle taille
-        let maxViandes = 4;
-        switch (sizeKey) {
-          case 'M': maxViandes = 1; break;
-          case 'L': maxViandes = 2; break;
-          case 'XL': maxViandes = 3; break;
-          case 'XXL': maxViandes = 4; break;
-        }
+        const maxViandes = getViandesLimitForSize(sizeKey);
 
         // Si on a trop de viandes sélectionnées, garder seulement les premières
         const adjustedViandes = viandesSelections.slice(0, maxViandes);
@@ -692,14 +684,7 @@ export default function CategoryScreen() {
           // Vérifier les limites spéciales pour les viandes dans les tacos
           if (categoryKey === 'viandes' && product?.sizes) {
             const selectedSize = selectedSizes[productId];
-            let maxViandes = 4; // Valeur par défaut
-
-            switch (selectedSize) {
-              case 'M': maxViandes = 1; break;
-              case 'L': maxViandes = 2; break;
-              case 'XL': maxViandes = 3; break;
-              case 'XXL': maxViandes = 4; break;
-            }
+            const maxViandes = getViandesLimitForSize(selectedSize);
 
             // Si on a déjà atteint la limite, ne pas ajouter
             if (categorySelections.length >= maxViandes) {
@@ -735,6 +720,52 @@ export default function CategoryScreen() {
           };
         }
       }
+    });
+  };
+
+  // Gérer la quantité d'une viande (catégories viande/viandes en sélection
+  // multiple) : permet de choisir plusieurs fois la même viande via un stepper.
+  const handleMeatQuantityChange = (productId, categoryKey, optionId, delta) => {
+    setCustomizations(prev => {
+      const productCustomizations = prev[productId] || {};
+      const categorySelections = productCustomizations[categoryKey] || [];
+
+      if (delta > 0) {
+        const product = getProductById(productId);
+        const category = product?.customizationOptions?.[categoryKey];
+        const maxSelect = category?.maxSelections || category?.maxSelection;
+        const effectiveLimit = (categoryKey === 'viandes' && product?.sizes)
+          ? getViandesLimitForSize(selectedSizes[productId], maxSelect || 4)
+          : maxSelect;
+
+        if (effectiveLimit && categorySelections.length >= effectiveLimit) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          return prev;
+        }
+
+        return {
+          ...prev,
+          [productId]: {
+            ...productCustomizations,
+            [categoryKey]: [...categorySelections, optionId]
+          }
+        };
+      }
+
+      // Retirer une seule occurrence de la viande (pas toutes)
+      const index = categorySelections.lastIndexOf(optionId);
+      if (index === -1) {
+        return prev;
+      }
+      const updatedSelections = [...categorySelections];
+      updatedSelections.splice(index, 1);
+      return {
+        ...prev,
+        [productId]: {
+          ...productCustomizations,
+          [categoryKey]: updatedSelections
+        }
+      };
     });
   };
 
@@ -782,27 +813,9 @@ export default function CategoryScreen() {
 
         {(isExpanded || alwaysExpanded) && (
           <View style={styles.customizationOptions}>
-            {Object.entries(product.customizationOptions)
-            .filter(([, value]) => value != null)
-            .sort(([a, catA], [b, catB]) => {
-              // Ordre logique des catégories de personnalisation
-              const order = ['taille', 'base', 'gratine', 'steak', 'viande', 'viandes', 'crudites', 'fromage', 'fromages', 'sauce', 'gout', 'supplement', 'topping', 'supplements', 'chantilly', 'frites', 'pain', 'boisson'];
-              const ia = order.indexOf(a);
-              const ib = order.indexOf(b);
-              // Sections "Choix Américain N" / "Choix Pizza N" (ex: promo à choix
-              // multiples) : affichées par ordre croissant (1 avant 2 avant 3...).
-              const americainA = /^Choix Américain (\d+)/.exec(catA?.title || '');
-              const americainB = /^Choix Américain (\d+)/.exec(catB?.title || '');
-              if (americainA && americainB) {
-                return Number(americainA[1]) - Number(americainB[1]);
-              }
-              const pizzaA = /^Choix Pizza (\d+)/.exec(catA?.title || '');
-              const pizzaB = /^Choix Pizza (\d+)/.exec(catB?.title || '');
-              if (pizzaA && pizzaB) {
-                return Number(pizzaA[1]) - Number(pizzaB[1]);
-              }
-              return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
-            })
+            {sortCustomizationEntries(
+              Object.entries(product.customizationOptions).filter(([, value]) => value != null)
+            )
             .map(([categoryKey, category]) => {
               const selectedOptions = productCustomizations[categoryKey] || [];
 
@@ -815,13 +828,7 @@ export default function CategoryScreen() {
                       {categoryKey === 'viandes' && product.sizes && (() => {
                         const selectedSize = selectedSizes[product.id];
                         const selectedCount = selectedOptions.length;
-                        let maxViandes = 4;
-                        switch (selectedSize) {
-                          case 'M': maxViandes = 1; break;
-                          case 'L': maxViandes = 2; break;
-                          case 'XL': maxViandes = 3; break;
-                          case 'XXL': maxViandes = 4; break;
-                        }
+                        const maxViandes = getViandesLimitForSize(selectedSize);
                         return (
                           <Text style={styles.selectionCounter}>
                             {' '}({selectedCount}/{maxViandes})
@@ -849,13 +856,7 @@ export default function CategoryScreen() {
                   {categoryKey === 'viandes' && product.sizes && (() => {
                     const selectedSize = selectedSizes[product.id];
                     if (selectedSize) {
-                      let maxViandes = 4;
-                      switch (selectedSize) {
-                        case 'M': maxViandes = 1; break;
-                        case 'L': maxViandes = 2; break;
-                        case 'XL': maxViandes = 3; break;
-                        case 'XXL': maxViandes = 4; break;
-                      }
+                      const maxViandes = getViandesLimitForSize(selectedSize);
                       return (
                         <Text style={styles.customizationHelperText}>
                           Max {maxViandes} viande{maxViandes > 1 ? 's' : ''} pour la taille {selectedSize}
@@ -894,15 +895,92 @@ export default function CategoryScreen() {
                       const isSingleSelect = maxSelectLimit === 1 || category?.multiSelect === false;
 
                       // Calculer la limite effective pour les viandes dans les tacos
-                      let effectiveLimit = maxSelectLimit;
-                      if (categoryKey === 'viandes' && product.sizes) {
-                        const selectedSize = selectedSizes[product.id];
-                        switch (selectedSize) {
-                          case 'M': effectiveLimit = 1; break;
-                          case 'L': effectiveLimit = 2; break;
-                          case 'XL': effectiveLimit = 3; break;
-                          default: effectiveLimit = maxSelectLimit || 4; break;
-                        }
+                      const effectiveLimit = (categoryKey === 'viandes' && product.sizes)
+                        ? getViandesLimitForSize(selectedSizes[product.id], maxSelectLimit || 4)
+                        : maxSelectLimit;
+
+                      // Catégories viande/viandes en sélection multiple : autoriser
+                      // plusieurs fois la même viande via un stepper +/- au lieu
+                      // d'une simple case à cocher.
+                      const isMeatQuantityCategory = (categoryKey === 'viande' || categoryKey === 'viandes') && !isSingleSelect;
+
+                      if (isMeatQuantityCategory) {
+                        const quantity = selectedOptions ? selectedOptions.filter(id => id === optionId).length : 0;
+                        const totalSelected = selectedOptions ? selectedOptions.length : 0;
+                        const canIncrement = !effectiveLimit || totalSelected < effectiveLimit;
+                        const canDecrement = quantity > 0;
+
+                        return (
+                          <View
+                            key={optionId}
+                            style={[
+                              styles.customizationOption,
+                              quantity > 0 && styles.customizationOptionSelected
+                            ]}
+                          >
+                            <View style={styles.customizationOptionContent}>
+                              <View style={styles.customizationOptionInfo}>
+                                <Text style={[
+                                  styles.customizationOptionName,
+                                  quantity > 0 && styles.customizationOptionNameSelected
+                                ]}>
+                                  {option.name}
+                                </Text>
+                                {option.popular && (
+                                  <Text style={styles.popularLabel}>Populaire</Text>
+                                )}
+                              </View>
+                              <View style={styles.customizationOptionRight}>
+                                {option.price > 0 && (
+                                  <Text style={styles.customizationOptionPrice}>
+                                    +{option.price.toFixed(2)}€
+                                  </Text>
+                                )}
+                                <View style={styles.quantityStepper}>
+                                  <TouchableOpacity
+                                    style={[
+                                      styles.quantityStepperButton,
+                                      !canDecrement && styles.quantityStepperButtonDisabled
+                                    ]}
+                                    onPress={() => {
+                                      if (canDecrement) {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        handleMeatQuantityChange(product.id, categoryKey, optionId, -1);
+                                      }
+                                    }}
+                                    disabled={!canDecrement}
+                                  >
+                                    <Ionicons
+                                      name="remove"
+                                      size={16}
+                                      color={canDecrement ? colors.primary.main : colors.neutral.gray300}
+                                    />
+                                  </TouchableOpacity>
+                                  <Text style={styles.quantityStepperValue}>{quantity}</Text>
+                                  <TouchableOpacity
+                                    style={[
+                                      styles.quantityStepperButton,
+                                      !canIncrement && styles.quantityStepperButtonDisabled
+                                    ]}
+                                    onPress={() => {
+                                      if (canIncrement) {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        handleMeatQuantityChange(product.id, categoryKey, optionId, 1);
+                                      }
+                                    }}
+                                    disabled={!canIncrement}
+                                  >
+                                    <Ionicons
+                                      name="add"
+                                      size={16}
+                                      color={canIncrement ? colors.primary.main : colors.neutral.gray300}
+                                    />
+                                  </TouchableOpacity>
+                                </View>
+                              </View>
+                            </View>
+                          </View>
+                        );
                       }
 
                       // Pour les sélections uniques, toujours permettre de cliquer
@@ -1402,7 +1480,6 @@ export default function CategoryScreen() {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           triggerCartAnimation(product, null);
           addItem(product);
-          router.push('/(tabs)/menu');
         }}
         activeOpacity={isUnavailable ? 1 : 0.8}
       >
@@ -1434,6 +1511,52 @@ export default function CategoryScreen() {
             <Text style={styles.boissonPrice}>{product.price.toFixed(2)}€</Text>
             <View style={styles.boissonAddButton}>
               <Text style={styles.boissonAddButtonText}>{isUnavailable ? 'Indisponible' : 'Ajouter'}</Text>
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  // Rendu d'un produit en carte compacte (grille 2 par rang) - Frites Garnies, Tex-Mex
+  const renderCompactCard = (product) => {
+    const quantity = getProductQuantity(orderItems, product.id);
+    const isInCart = quantity > 0;
+    const restricted = isProductRestricted(product);
+
+    return (
+      <TouchableOpacity
+        key={product.id}
+        style={[styles.compactCard, restricted && { opacity: 0.5 }]}
+        onPress={(event) => handleAddToCart(product, 'M', event)}
+        activeOpacity={restricted ? 1 : 0.85}
+      >
+        {restricted && (
+          <View style={restrictionStyles.productBadge}>
+            <Ionicons name={getRestrictionIcon(product)} size={14} color="#FFFFFF" />
+            <Text style={restrictionStyles.productBadgeText}>{getRestrictionLabel(product)}</Text>
+          </View>
+        )}
+        {isInCart && !restricted && (
+          <View style={styles.compactQuantityBadge}>
+            <Text style={styles.compactQuantityText}>{quantity}</Text>
+          </View>
+        )}
+        <View style={styles.compactImageContainer}>
+          <ProductImage
+            product={product}
+            style={styles.compactImage}
+            resizeMode="cover"
+          />
+        </View>
+        <View style={styles.compactInfo}>
+          <Text style={styles.compactName} numberOfLines={2}>{product.name}</Text>
+          <View style={styles.compactBottomRow}>
+            <Text style={styles.compactPrice}>{product.price.toFixed(2)} €</Text>
+            <View style={styles.compactAddButton}>
+              <Text style={styles.compactAddButtonText}>
+                {restricted ? getRestrictionLabel(product) : 'Ajouter'}
+              </Text>
             </View>
           </View>
         </View>
@@ -1640,6 +1763,11 @@ export default function CategoryScreen() {
               // Pour les boissons, afficher en grille 3 colonnes
               <View style={styles.boissonsGrid}>
                 {products.map(renderBoissonCard)}
+              </View>
+            ) : (id === ProductCategory.FRITES_GARNIES || id === ProductCategory.TEX_MEX) ? (
+              // Pour les frites garnies et le tex-mex, afficher en grille compacte 2 colonnes
+              <View style={styles.compactGrid}>
+                {products.map(renderCompactCard)}
               </View>
             ) : (
               // Pour les autres catégories, afficher tous les produits

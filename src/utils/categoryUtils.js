@@ -1,3 +1,32 @@
+// Ordre logique d'affichage des catégories de personnalisation, partagé par
+// la fiche produit, le panier et le récapitulatif de commande. Sans un ordre
+// commun, deux lignes identiques peuvent s'afficher dans un ordre différent
+// selon la séquence dans laquelle le client a cliqué les options.
+const CUSTOMIZATION_CATEGORY_ORDER = ['taille', 'base', 'gratine', 'steak', 'viande', 'viandes', 'crudites', 'fromage', 'fromages', 'sauce', 'gout', 'supplement', 'topping', 'supplements', 'chantilly', 'frites', 'pain', 'boisson'];
+
+// Trie des paires [categoryKey, category] (ex: issues de
+// `Object.entries(product.customizationOptions)`) selon l'ordre logique de
+// montage du produit. Les sections "Choix Américain N" / "Choix Pizza N"
+// (promos à choix multiples) restent triées par ordre croissant entre elles.
+export const sortCustomizationEntries = (entries) => {
+  return [...entries].sort(([a, catA], [b, catB]) => {
+    const ia = CUSTOMIZATION_CATEGORY_ORDER.indexOf(a);
+    const ib = CUSTOMIZATION_CATEGORY_ORDER.indexOf(b);
+
+    const americainA = /^Choix Américain (\d+)/.exec(catA?.title || '');
+    const americainB = /^Choix Américain (\d+)/.exec(catB?.title || '');
+    if (americainA && americainB) {
+      return Number(americainA[1]) - Number(americainB[1]);
+    }
+    const pizzaA = /^Choix Pizza (\d+)/.exec(catA?.title || '');
+    const pizzaB = /^Choix Pizza (\d+)/.exec(catB?.title || '');
+    if (pizzaA && pizzaB) {
+      return Number(pizzaA[1]) - Number(pizzaB[1]);
+    }
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+  });
+};
+
 // Calculer le prix total avec personnalisations
 export const calculateCustomizedPrice = (product, selectedSizes = {}, customizations = {}) => {
   // Utiliser le prix de la taille sélectionnée si applicable

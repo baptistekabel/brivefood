@@ -6430,17 +6430,6 @@ const productsByCategory = {
         popular: false,
         image: productImages.capriSun,
       },
-      // === BOISSONS MAISON ===
-      {
-        id: 'bissap',
-        name: 'Bissap',
-        description: '33 cl.',
-        price: 2.00,
-        rating: null,
-        reviews: 0,
-        popular: true,
-        image: productImages.bissap,
-      },
       // === EAU ===
       {
         id: 'cristalline',
