@@ -8,6 +8,7 @@ import {
   Alert,
   TextInput,
   Modal,
+  ScrollView,
   Keyboard,
   Linking,
   Platform,
@@ -42,6 +43,13 @@ import { isEveningServiceAvailable, EVENING_START_HOUR } from '../src/utils/even
 import { getWaitTimeLabel, isRushApplicable } from '../src/utils/waitTime';
 import { sortCustomizationEntries } from '../src/utils/categoryUtils';
 import {
+  buildRewardCartItem,
+  getRewardProductValue,
+  getMissingRewardOptions,
+  getGroupMin,
+  toggleOptionSelection,
+} from '../src/utils/loyaltyRewardItem';
+import {
   isPhoneOrderWindow,
   PHONE_ORDER_TITLE,
   PHONE_ORDER_MESSAGE,
@@ -49,12 +57,35 @@ import {
   RESTAURANT_PHONE_URI,
 } from '../src/utils/phoneOrderWindow';
 
+// Produits volontairement absents du bloc « Envie de compléter votre commande ? ».
+// Ils restent en vente : commandables depuis la carte et proposés en option
+// « Boisson » des autres produits — seule la suggestion automatique les ignore.
+const RECOMMENDATION_EXCLUDED_IDS = new Set(['bissap']);
+
+// Six suggestions au maximum, les produits populaires d'abord quand ils sont
+// assez nombreux pour remplir la rangée
+const pickRecommendations = (products = []) => {
+  const eligible = products.filter(product => !RECOMMENDATION_EXCLUDED_IDS.has(product.id));
+  const popular = eligible.filter(product => product.popular);
+  return (popular.length >= 4 ? popular : eligible).slice(0, 6);
+};
+
 export default function CartScreen() {
   const fontsLoaded = useFonts();
-  const { orderItems, removeItem, addItem, clearOrder, markAsHasOrdered, updateItemCustomizations, sauceOptions } = useOrder();
+  const {
+    orderItems,
+    removeItem,
+    addItem,
+    clearOrder,
+    markAsHasOrdered,
+    updateItemCustomizations,
+    sauceOptions,
+    addRewardItem,
+    removeRewardItem,
+  } = useOrder();
   const { createOrder } = useOrders();
   const { user, userProfile, isAuthenticated } = useAuth();
-  const { getProductsByCategory } = useProducts();
+  const { getProductsByCategory, getProductById, products } = useProducts();
   const {
     pendingOrder,
     showConfirmationPopup,
@@ -75,7 +106,8 @@ export default function CartScreen() {
     calculateActiveRewardsDiscount,
     userLoyaltyData,
     rewards,
-    POINTS_PER_EURO
+    POINTS_PER_EURO,
+    MIN_ORDER_FOR_REWARDS
   } = useLoyalty();
 
   // Aucun mode présélectionné : le client doit choisir explicitement
@@ -105,6 +137,11 @@ export default function CartScreen() {
   // Variables pour l'ancien modal (à supprimer plus tard)
   const [orderConfirmation, setOrderConfirmation] = useState(null);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  // Récompense en cours de configuration : { reward, draft }. Tant qu'elle est
+  // ouverte, aucun point n'est débité et rien n'entre dans le panier.
+  const [rewardBeingConfigured, setRewardBeingConfigured] = useState(null);
+  const [rewardConfig, setRewardConfig] = useState({});
+  const [isApplyingReward, setIsApplyingReward] = useState(false);
 
   // Références pour renvoyer l'utilisateur vers la section qui bloque la commande
   const cartListRef = useRef(null);
@@ -114,20 +151,20 @@ export default function CartScreen() {
   const scrollToOrderSection = () => {
     cartListRef.current?.scrollToEnd({ animated: true });
   };
+  // Remonte sur la liste des articles, où se règlent les choix obligatoires
+  const scrollToCartTop = () => {
+    cartListRef.current?.scrollToOffset({ offset: 0, animated: true });
+  };
   // Recommandations de boissons et desserts — récupérées directement depuis Firebase
-  const recommendedDrinks = useMemo(() => {
-    const allDrinks = getProductsByCategory(ProductCategory.BOISSONS);
-    // Prendre les populaires en priorité, sinon les 6 premières
-    const popular = allDrinks.filter(d => d.popular);
-    return (popular.length >= 4 ? popular : allDrinks).slice(0, 6);
-  }, [getProductsByCategory]);
+  const recommendedDrinks = useMemo(
+    () => pickRecommendations(getProductsByCategory(ProductCategory.BOISSONS)),
+    [getProductsByCategory]
+  );
 
-  const recommendedDesserts = useMemo(() => {
-    const allDesserts = getProductsByCategory(ProductCategory.DESSERTS);
-    // Prendre les populaires en priorité, sinon les 6 premiers
-    const popular = allDesserts.filter(d => d.popular);
-    return (popular.length >= 4 ? popular : allDesserts).slice(0, 6);
-  }, [getProductsByCategory]);
+  const recommendedDesserts = useMemo(
+    () => pickRecommendations(getProductsByCategory(ProductCategory.DESSERTS)),
+    [getProductsByCategory]
+  );
 
   // Affluence signalée par le restaurant, en temps réel
   useEffect(() => {
@@ -204,6 +241,27 @@ export default function CartScreen() {
     });
   }, []); // Ne se déclenche qu'au montage initial
 
+  // Le panier vit en mémoire alors que la récompense utilisée est enregistrée
+  // sur le profil : après un redémarrage de l'application, le client avait
+  // dépensé ses points sans retrouver l'article offert. On reconstruit la ligne
+  // manquante dès que le catalogue est disponible.
+  useEffect(() => {
+    const activeRewards = (userProfile?.usedRewards || []).filter(used => !used.orderId);
+    if (activeRewards.length === 0) return;
+
+    activeRewards.forEach(used => {
+      const reward = (rewards || []).find(r => r.id === used.id);
+      if (!reward || reward.type !== 'product') return;
+
+      // Reconstruite avec les choix enregistrés au moment de l'utilisation :
+      // le client retrouve exactement la bruschetta et la sauce qu'il avait
+      // sélectionnées, sans avoir à les redonner.
+      // addRewardItem ignore les doublons : inutile de relire le panier ici
+      const rewardItem = buildRewardCartItem(reward, getProductById, used.customizations || {});
+      if (rewardItem) addRewardItem(rewardItem);
+    });
+  }, [userProfile?.usedRewards, products]);
+
   if (!fontsLoaded) {
     return <LoadingScreen />;
   }
@@ -251,18 +309,10 @@ export default function CartScreen() {
     return Math.max(0, subtotal + deliveryFee - rewardsDiscount.totalDiscount);
   };
 
-  const canProceedToCheckout = () => {
-    if (orderItems.length === 0) return false;
-    if (!orderMode) return false;
-    if (!phoneNumber.trim()) return false;
-    if (orderMode === OrderMode.DELIVERY) {
-      // La livraison démarre à 18h (sur place et à emporter restent toute la journée)
-      if (!isEveningServiceAvailable()) return false;
-      if (!deliveryAddress) return false;
-      if (isDeliveryOutOfZone()) return false;
-    }
-    return true;
-  };
+  // Une seule source de vérité : le bouton est actif exactement quand aucun
+  // blocage n'est identifié, sinon l'état du bouton et le message d'explication
+  // finissent par diverger.
+  const canProceedToCheckout = () => getCheckoutBlocker() === null;
 
   // Identifie ce qui empêche de commander, avec le message et l'action de correction
   // associés pour renvoyer le client vers la bonne section du panier
@@ -273,6 +323,43 @@ export default function CartScreen() {
         message: 'Ajoutez au moins un produit avant de commander.',
         actionLabel: 'Voir le menu',
         action: () => router.push('/(tabs)/menu'),
+      };
+    }
+
+    // Un article offert accompagne une commande, il n'en constitue pas une
+    if (!orderItems.some(item => (item.price || 0) > 0)) {
+      return {
+        title: 'Ajoutez un produit',
+        message: 'Les articles offerts accompagnent une commande. Ajoutez au moins un produit avant de valider.',
+        actionLabel: 'Voir le menu',
+        action: () => router.push('/(tabs)/menu'),
+      };
+    }
+
+    // Récompense appliquée au-dessus du minimum, puis articles retirés pour
+    // repasser dessous : le panier doit toujours atteindre le minimum au moment
+    // de valider, sinon la règle se contourne en trois gestes.
+    const activeRewards = calculateActiveRewardsDiscount(getSubtotal(), getDeliveryFee());
+    if (activeRewards.hasActiveRewards && getSubtotal() < MIN_ORDER_FOR_REWARDS) {
+      return {
+        title: `Minimum ${MIN_ORDER_FOR_REWARDS} € avec une récompense`,
+        message: `Vos points sont utilisables à partir de ${MIN_ORDER_FOR_REWARDS} € de commande. Ajoutez ${(MIN_ORDER_FOR_REWARDS - getSubtotal()).toFixed(2)} € au panier, ou retirez la récompense pour récupérer vos points.`,
+        actionLabel: 'Voir le menu',
+        action: () => router.push('/(tabs)/menu'),
+      };
+    }
+
+    // La cuisine ne peut pas préparer un tacos sans viande ni un cheese sans
+    // sauce. Les choix se font désormais avant l'ajout au panier : ce filet ne
+    // se déclenche que sur une récompense appliquée par une version antérieure,
+    // d'où la consigne de la reprendre plutôt que de la compléter sur place.
+    const missingRewardOptions = orderItems.flatMap(item => getMissingRewardOptions(item));
+    if (missingRewardOptions.length > 0) {
+      return {
+        title: 'Récompense à reprendre',
+        message: `Il manque un choix sur votre article offert : ${missingRewardOptions.join(', ')}. Retirez la récompense avec la corbeille, puis reprenez-la pour refaire votre choix — vos points vous sont rendus entre-temps.`,
+        actionLabel: 'Voir mon panier',
+        action: scrollToCartTop,
       };
     }
 
@@ -397,19 +484,65 @@ export default function CartScreen() {
     return formattedCustomizations.length > 0 ? formattedCustomizations : null;
   };
 
-  // Gérer l'utilisation d'une récompense
-  const handleUseReward = async (reward) => {
-    try {
-      const subtotal = getSubtotal();
-      const deliveryFee = getDeliveryFee();
-
-      const result = await useReward(reward.id, subtotal, deliveryFee);
-      if (result.success) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } else {
+  // Applique une récompense : débite les points puis, pour une récompense
+  // « produit », pose l'article configuré dans le panier à 0 €.
+  //
+  // L'article est construit AVANT le débit : un produit introuvable (catalogue
+  // pas encore chargé) ne doit pas consommer la récompense sans rien ajouter.
+  const applyReward = async (reward, customizations = {}) => {
+    let rewardItem = null;
+    if (reward.type === 'product') {
+      rewardItem = buildRewardCartItem(reward, getProductById, customizations);
+      if (!rewardItem) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert('Erreur', result.error);
+        Alert.alert(
+          'Récompense indisponible',
+          'Ce produit n\'est pas disponible pour le moment. Réessayez dans quelques instants.'
+        );
+        return false;
       }
+    }
+
+    const result = await useReward(reward.id, getSubtotal(), getDeliveryFee(), customizations);
+    if (!result.success) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Erreur', result.error);
+      return false;
+    }
+
+    if (rewardItem) addRewardItem(rewardItem);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    return true;
+  };
+
+  // Taper « Utiliser » ouvre l'écran de choix. Rien n'entre au panier et aucun
+  // point n'est débité tant que le client n'a pas validé.
+  const handleUseReward = (reward) => {
+    try {
+      const draft = reward.type === 'product'
+        ? buildRewardCartItem(reward, getProductById)
+        : null;
+
+      if (reward.type === 'product' && !draft) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert(
+          'Récompense indisponible',
+          'Ce produit n\'est pas disponible pour le moment. Réessayez dans quelques instants.'
+        );
+        return;
+      }
+
+      // Rien à choisir (livraison offerte, ou produit sans option) :
+      // l'écran de choix n'aurait rien à afficher
+      const groups = draft ? Object.keys(draft.customizationOptions || {}) : [];
+      if (groups.length === 0) {
+        applyReward(reward);
+        return;
+      }
+
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setRewardConfig({});
+      setRewardBeingConfigured({ reward, draft });
     } catch (error) {
       console.error('Error using reward:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -417,11 +550,61 @@ export default function CartScreen() {
     }
   };
 
-  // Annuler l'utilisation d'une récompense
+  const closeRewardConfiguration = () => {
+    setRewardBeingConfigured(null);
+    setRewardConfig({});
+  };
+
+  const toggleRewardConfigOption = (groupKey, group, optionId) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setRewardConfig(prev => ({
+      ...prev,
+      [groupKey]: toggleOptionSelection(prev[groupKey], optionId, group)
+    }));
+  };
+
+  const confirmRewardConfiguration = async () => {
+    if (!rewardBeingConfigured || isApplyingReward) return;
+
+    const { reward, draft } = rewardBeingConfigured;
+    const missing = getMissingRewardOptions({ ...draft, customizations: rewardConfig });
+    if (missing.length > 0) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert('Choix incomplet', `Il reste à choisir : ${missing.join(', ')}.`);
+      return;
+    }
+
+    setIsApplyingReward(true);
+    try {
+      const applied = await applyReward(reward, rewardConfig);
+      if (applied) closeRewardConfiguration();
+    } catch (error) {
+      console.error('Error using reward:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Erreur', 'Impossible d\'utiliser cette récompense');
+    } finally {
+      setIsApplyingReward(false);
+    }
+  };
+
+  // Groupes à présenter dans l'écran de choix, dans l'ordre de lecture en cuisine
+  const rewardConfigGroups = rewardBeingConfigured
+    ? sortCustomizationEntries(Object.entries(rewardBeingConfigured.draft?.customizationOptions || {}))
+    : [];
+
+  const isRewardConfigComplete = !!rewardBeingConfigured
+    && getMissingRewardOptions({
+      ...rewardBeingConfigured.draft,
+      customizations: rewardConfig
+    }).length === 0;
+
+  // Annuler l'utilisation d'une récompense : les points sont rendus et
+  // l'article offert quitte le panier
   const handleCancelReward = async (rewardId) => {
     try {
       const result = await cancelRewardUsage(rewardId);
       if (result.success) {
+        removeRewardItem(rewardId);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       } else {
         Alert.alert('Erreur', result.error);
@@ -436,6 +619,9 @@ export default function CartScreen() {
   // bouton restait actif et deux appuis créaient deux commandes et deux tickets.
   const handleCheckout = async () => {
     if (isSubmittingRef.current) return;
+    // Une commande vient d'être envoyée et attend sa confirmation à l'écran :
+    // tout nouvel appui ne peut être qu'un doublon.
+    if (showConfirmationPopup) return;
 
     isSubmittingRef.current = true;
     setIsSubmitting(true);
@@ -588,7 +774,13 @@ export default function CartScreen() {
           comment: itemComments[item.cartLineId] || item.comment || null,
           customizations: item.customizations || null,
           customizationOptions: item.customizationOptions || null, // Pour afficher les noms lisibles
-          options: formattedOptions // Options formatées pour l'impression
+          options: formattedOptions, // Options formatées pour l'impression
+          // Articles offerts : le restaurant doit pouvoir distinguer une ligne
+          // à 0 € gagnée avec des points d'une erreur de saisie, et la fonction
+          // « recommander » doit savoir ne pas les remettre au panier
+          isLoyaltyReward: item.isLoyaltyReward === true,
+          isFirstOrderGift: item.isFirstOrderGift === true,
+          originalPrice: item.originalPrice ?? null
         };
       }),
       total: getTotal(),
@@ -608,8 +800,11 @@ export default function CartScreen() {
       // Confirmer l'utilisation des récompenses avec le numéro de commande
       // Une seule écriture pour toutes les récompenses : confirmées une par une,
       // chaque appel repartait du profil figé au rendu et annulait le précédent
+      // `result.duplicate` : la commande existait déjà (double envoi rattrapé
+      // par OrdersContext). Ses récompenses ont été confirmées au premier envoi,
+      // les reconfirmer les consommerait une seconde fois.
       const rewardsDiscount = calculateActiveRewardsDiscount(getSubtotal(), getDeliveryFee());
-      if (rewardsDiscount.hasActiveRewards) {
+      if (rewardsDiscount.hasActiveRewards && !result.duplicate) {
         await confirmRewardUsage(
           rewardsDiscount.rewardDiscounts.map(reward => reward.id),
           result.order.id
@@ -617,8 +812,17 @@ export default function CartScreen() {
       }
 
       // Créer une commande en attente pour affichage dans le popup
-      // NE PAS vider le panier maintenant - attendre la confirmation
       createPendingOrder(result.order);
+
+      // Vider le panier dès que la commande est enregistrée.
+      //
+      // Le panier n'était vidé qu'au bouton « Suivre ma commande » du popup.
+      // Entre les deux, le panier restait complet et le bouton « Commander »
+      // à nouveau actif : en fermant le popup (retour Android) ou pendant les
+      // appels réseau de confirmPendingOrder, le client revoyait son panier
+      // intact, croyait à un échec et renvoyait la même commande.
+      clearOrder();
+      setItemComments({});
 
       // Demander les permissions de notifications après la première commande
       // si pas encore accordées
@@ -810,40 +1014,61 @@ export default function CartScreen() {
     );
   };
 
-  // Toggle sauce pour le petit cheese offert
-  const toggleGiftCheeseSauce = (lineId, sauceId) => {
+  // Choix d'une option directement depuis le panier, réservé au cadeau de
+  // bienvenue : les produits payants se personnalisent depuis leur fiche, et
+  // les récompenses de fidélité depuis leur écran de choix.
+  // Même règle de sélection que cet écran (voir toggleOptionSelection).
+  const toggleItemOption = (lineId, groupKey, group, optionId) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const item = orderItems.find(i => i.cartLineId === lineId);
-    const currentSauces = item?.customizations?.sauce || [];
-    const maxSelection = 2;
-
-    let newSauces;
-    if (currentSauces.includes(sauceId)) {
-      newSauces = currentSauces.filter(s => s !== sauceId);
-    } else {
-      if (sauceId === 'pas-sauce') {
-        newSauces = ['pas-sauce'];
-      } else {
-        newSauces = currentSauces.filter(s => s !== 'pas-sauce');
-        if (newSauces.length >= maxSelection) {
-          newSauces = [...newSauces.slice(1), sauceId];
-        } else {
-          newSauces = [...newSauces, sauceId];
-        }
-      }
-    }
 
     updateItemCustomizations(lineId, {
       ...(item?.customizations || {}),
-      sauce: newSauces
+      [groupKey]: toggleOptionSelection(item?.customizations?.[groupKey], optionId, group)
     });
+  };
+
+  // Puces de sélection d'un groupe d'options, affichées sous l'article offert
+  const renderItemOptionPicker = (item, groupKey, group) => {
+    const selected = item.customizations?.[groupKey] || [];
+    const incomplete = group.required && selected.length < getGroupMin(group);
+
+    return (
+      <View key={groupKey} style={styles.giftSauceSection}>
+        <Text style={styles.giftSauceTitle}>
+          {incomplete ? `⚠️ Choisissez : ${group.title}` : `${group.title} :`}
+        </Text>
+        <View style={styles.giftSauceGrid}>
+          {(group.options || []).map((option) => {
+            const isSelected = selected.includes(option.id);
+            return (
+              <TouchableOpacity
+                key={option.id}
+                style={[
+                  styles.giftSauceChip,
+                  isSelected && styles.giftSauceChipSelected
+                ]}
+                onPress={() => toggleItemOption(item.cartLineId, groupKey, group, option.id)}
+              >
+                <Text style={[
+                  styles.giftSauceChipText,
+                  isSelected && styles.giftSauceChipTextSelected
+                ]}>
+                  {option.name}{option.price > 0 ? ` +${option.price.toFixed(2)}€` : ''}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+    );
   };
 
   const renderCartItem = ({ item }) => {
     const customizationDetails = formatCustomizations(item.customizations, item.customizationOptions);
     const isGiftCheese = item.isFirstOrderGift === true;
+    const isRewardItem = item.isLoyaltyReward === true;
     const giftSauceOptions = isGiftCheese ? (item.customizationOptions?.sauce || sauceOptions?.sauce) : null;
-    const selectedGiftSauces = isGiftCheese ? (item.customizations?.sauce || []) : [];
 
     return (
       <View key={item.cartLineId} style={styles.cartItem}>
@@ -863,16 +1088,35 @@ export default function CartScreen() {
           <View style={styles.itemInfo}>
             <Text style={styles.itemName}>{item.name}</Text>
             <Text style={styles.itemDescription}>{item.description}</Text>
-            <Text style={styles.itemPrice}>{item.price.toFixed(2)} €</Text>
+            {isRewardItem ? (
+              <View style={styles.rewardPriceRow}>
+                <Text style={styles.rewardPriceOffered}>Offert</Text>
+                {/* Prix du produit réellement choisi : buildRewardCartItem le
+                    résout à partir de la variante retenue */}
+                {item.originalPrice > 0 && (
+                  <Text style={styles.rewardPriceStruck}>
+                    {item.originalPrice.toFixed(2)} €
+                  </Text>
+                )}
+              </View>
+            ) : (
+              <Text style={styles.itemPrice}>{item.price.toFixed(2)} €</Text>
+            )}
           </View>
 
           {/* Chaque ligne est un article distinct (jamais un compteur "x2") :
               un seul geste pour la retirer. Pour en ajouter un autre, il faut
-              repasser par la fiche produit. */}
+              repasser par la fiche produit.
+              Retirer un article offert rend les points au client : la
+              suppression passe donc par l'annulation de la récompense. */}
           <TouchableOpacity
             style={styles.removeItemButton}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              if (isRewardItem) {
+                handleCancelReward(item.rewardId);
+                return;
+              }
               removeItem(item.cartLineId);
             }}
           >
@@ -881,37 +1125,12 @@ export default function CartScreen() {
         </View>
 
         {/* Sélecteur de sauce pour le petit cheese offert */}
-        {isGiftCheese && giftSauceOptions && (
-          <View style={styles.giftSauceSection}>
-            <Text style={styles.giftSauceTitle}>
-              {selectedGiftSauces.length === 0 ? '⚠️ Choisissez votre sauce :' : 'Sauce :'}
-            </Text>
-            <View style={styles.giftSauceGrid}>
-              {giftSauceOptions.options.map((sauce) => {
-                const isSelected = selectedGiftSauces.includes(sauce.id);
-                return (
-                  <TouchableOpacity
-                    key={sauce.id}
-                    style={[
-                      styles.giftSauceChip,
-                      isSelected && styles.giftSauceChipSelected
-                    ]}
-                    onPress={() => toggleGiftCheeseSauce(item.cartLineId, sauce.id)}
-                  >
-                    <Text style={[
-                      styles.giftSauceChipText,
-                      isSelected && styles.giftSauceChipTextSelected
-                    ]}>
-                      {sauce.name}{sauce.price > 0 ? ` +${sauce.price.toFixed(2)}€` : ''}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        )}
+        {isGiftCheese && giftSauceOptions &&
+          renderItemOptionPicker(item, 'sauce', giftSauceOptions)}
 
-        {/* Section personnalisations */}
+        {/* Section personnalisations. Un article de récompense affiche ici les
+            choix faits avant l'ajout : ils ne se modifient plus sur place, il
+            faut retirer la récompense et la reprendre. */}
         {customizationDetails && !isGiftCheese && (
           <View style={styles.customizationDetails}>
             <Text style={styles.customizationTitle}>Personnalisations :</Text>
@@ -950,13 +1169,23 @@ export default function CartScreen() {
     }
 
     const points = userLoyaltyData.currentPoints || 0;
-    const activeRewards = calculateActiveRewardsDiscount(getSubtotal(), getDeliveryFee());
-    const usableNow = getAvailableRewardsForCart(getSubtotal(), orderMode === OrderMode.DELIVERY);
-    const usableIds = new Set(usableNow.map(r => r.id));
+    const subtotal = getSubtotal();
+    const activeRewards = calculateActiveRewardsDiscount(subtotal, getDeliveryFee());
+    const usableNow = getAvailableRewardsForCart(subtotal, orderMode === OrderMode.DELIVERY)
+      .map(reward => ({ ...reward, rewardValue: getRewardProductValue(reward, getProductById) }));
 
-    // Récompenses que le solde permet mais que le mode de commande empêche
+    // Récompenses que le solde permet
     const affordable = (rewards || []).filter(r => points >= r.points);
-    const blockedByMode = affordable.filter(r => !usableIds.has(r.id));
+    // ... mais que le mode de commande empêche. Testé sur le type plutôt que sur
+    // l'absence de `usableNow` : celui-ci est aussi vide quand le panier n'atteint
+    // pas le minimum, ce qui affichait « disponible en livraison » sur tout.
+    const blockedByMode = affordable.filter(
+      r => r.type === 'delivery' && orderMode !== OrderMode.DELIVERY
+    );
+
+    // Panier trop petit pour utiliser les points
+    const missingForMinimum = MIN_ORDER_FOR_REWARDS - subtotal;
+    const belowMinimum = missingForMinimum > 0;
 
     // Points que cette commande va rapporter (mêmes règles que le calcul du solde)
     const pointsFromOrder = Math.floor(getTotal() * POINTS_PER_EURO);
@@ -990,11 +1219,19 @@ export default function CartScreen() {
             <Ionicons name="checkmark-circle" size={20} color="#16A34A" />
             <View style={styles.loyaltyAppliedInfo}>
               <Text style={styles.loyaltyAppliedTitle}>{reward.title}</Text>
-              <Text style={styles.loyaltyAppliedSubtitle}>Récompense appliquée</Text>
+              <Text style={styles.loyaltyAppliedSubtitle}>
+                {reward.type === 'delivery'
+                  ? 'Récompense appliquée'
+                  : 'Ajouté à votre commande'}
+              </Text>
             </View>
-            <Text style={styles.loyaltyAppliedDiscount}>
-              -{reward.discountAmount.toFixed(2)}€
-            </Text>
+            {/* Un produit offert n'est pas une remise : il figure dans le
+                panier à 0 €, seule la livraison offerte affiche un montant */}
+            {reward.discountAmount > 0 && (
+              <Text style={styles.loyaltyAppliedDiscount}>
+                -{reward.discountAmount.toFixed(2)}€
+              </Text>
+            )}
             <TouchableOpacity
               style={styles.loyaltyRemoveButton}
               onPress={() => handleCancelReward(reward.id)}
@@ -1040,6 +1277,17 @@ export default function CartScreen() {
           </View>
         )}
 
+        {/* Récompense atteinte mais panier trop petit pour l'utiliser */}
+        {!activeRewards.hasActiveRewards && affordable.length > 0 && belowMinimum && (
+          <View style={styles.loyaltyBlockedCard}>
+            <Ionicons name="information-circle-outline" size={16} color={colors.neutral.gray500} />
+            <Text style={styles.loyaltyBlockedText}>
+              Vos points sont utilisables à partir de {MIN_ORDER_FOR_REWARDS} € de commande.
+              Encore {missingForMinimum.toFixed(2)} € pour en profiter.
+            </Text>
+          </View>
+        )}
+
         {/* Récompenses utilisables maintenant */}
         {!activeRewards.hasActiveRewards && usableNow.length > 0 && (
           <View style={styles.loyaltyRewardsList}>
@@ -1053,7 +1301,9 @@ export default function CartScreen() {
                   <Text style={styles.loyaltyRewardTitle}>{reward.title}</Text>
                   <Text style={styles.loyaltyRewardCost}>
                     {reward.points} pts
-                    {reward.discountValue > 0 ? ` · vaut ${reward.discountValue.toFixed(2)}€` : ''}
+                    {/* Valeur lue dans le catalogue : elle suit le prix réel du
+                        produit, modifiable depuis l'interface admin */}
+                    {reward.rewardValue > 0 ? ` · vaut ${reward.rewardValue.toFixed(2)}€` : ''}
                   </Text>
                 </View>
 
@@ -1069,7 +1319,7 @@ export default function CartScreen() {
         )}
 
         {/* Récompense atteinte mais incompatible avec le mode choisi */}
-        {!activeRewards.hasActiveRewards && blockedByMode.map((reward) => (
+        {!activeRewards.hasActiveRewards && !belowMinimum && blockedByMode.map((reward) => (
           <View key={reward.id} style={styles.loyaltyBlockedCard}>
             <Ionicons name="information-circle-outline" size={16} color={colors.neutral.gray500} />
             <Text style={styles.loyaltyBlockedText}>
@@ -1079,7 +1329,8 @@ export default function CartScreen() {
         ))}
 
         <Text style={styles.loyaltyFooterHint}>
-          1€ dépensé = {POINTS_PER_EURO} points
+          1€ dépensé = {POINTS_PER_EURO} points · une récompense par commande,
+          dès {MIN_ORDER_FOR_REWARDS} € d’achat
         </Text>
       </View>
     );
@@ -1170,6 +1421,24 @@ export default function CartScreen() {
     </View>
   );
 
+  // Le popup de confirmation est rendu dans les deux états de l'écran : le
+  // panier est vidé dès l'enregistrement de la commande, il ne doit pas
+  // disparaître avec le contenu du panier.
+  const orderConfirmationPopup = (
+    <OrderConfirmationPopup
+      visible={showConfirmationPopup}
+      orderData={pendingOrder}
+      onClose={cancelPendingOrder}
+      onConfirm={async () => {
+        // Confirmer la commande active
+        await confirmPendingOrder();
+
+        // Fermer le modal du panier et retourner à l'accueil
+        router.back();
+      }}
+    />
+  );
+
   if (orderItems.length === 0) {
     return (
       <LinearGradient
@@ -1178,6 +1447,7 @@ export default function CartScreen() {
       >
         <StatusBar style="light" />
         {renderEmptyCart()}
+        {orderConfirmationPopup}
       </LinearGradient>
     );
   }
@@ -1493,23 +1763,91 @@ export default function CartScreen() {
         </View>
       </Modal>
 
+      {/* Choix du produit offert, avant tout ajout au panier et tout débit */}
+      <Modal
+        visible={!!rewardBeingConfigured}
+        animationType="slide"
+        transparent
+        onRequestClose={closeRewardConfiguration}
+      >
+        <View style={styles.confirmationOverlay}>
+          <View style={styles.rewardConfigModal}>
+            <View style={styles.rewardConfigHeader}>
+              <View style={styles.rewardConfigHeaderText}>
+                <Text style={styles.rewardConfigTitle}>
+                  {rewardBeingConfigured?.reward?.title}
+                </Text>
+                <Text style={styles.rewardConfigSubtitle}>
+                  {rewardBeingConfigured?.reward?.points} pts · offert
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={closeRewardConfiguration}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Ionicons name="close" size={22} color={colors.neutral.gray600} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.rewardConfigBody}>
+              {rewardConfigGroups.map(([groupKey, group]) => {
+                const selected = rewardConfig[groupKey] || [];
+                const incomplete = group.required && selected.length < getGroupMin(group);
+
+                return (
+                  <View key={groupKey} style={styles.rewardConfigGroup}>
+                    <Text style={styles.giftSauceTitle}>
+                      {incomplete ? `⚠️ Choisissez : ${group.title}` : `${group.title} :`}
+                    </Text>
+                    <View style={styles.giftSauceGrid}>
+                      {(group.options || []).map((option) => {
+                        const isSelected = selected.includes(option.id);
+                        return (
+                          <TouchableOpacity
+                            key={option.id}
+                            style={[
+                              styles.giftSauceChip,
+                              isSelected && styles.giftSauceChipSelected
+                            ]}
+                            onPress={() => toggleRewardConfigOption(groupKey, group, option.id)}
+                          >
+                            <Text style={[
+                              styles.giftSauceChipText,
+                              isSelected && styles.giftSauceChipTextSelected
+                            ]}>
+                              {option.name}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                );
+              })}
+            </ScrollView>
+
+            <View style={styles.rewardConfigFooter}>
+              {/* Les points ne sont débités qu'ici : tant que le client n'a pas
+                  validé, rien n'entre au panier et son solde reste intact */}
+              <TouchableOpacity
+                style={[
+                  styles.rewardConfigConfirm,
+                  (!isRewardConfigComplete || isApplyingReward) && styles.rewardConfigConfirmDisabled
+                ]}
+                disabled={isApplyingReward}
+                onPress={confirmRewardConfiguration}
+              >
+                <Text style={styles.rewardConfigConfirmText}>
+                  {isApplyingReward ? 'Ajout en cours…' : 'Ajouter à ma commande'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Popup de confirmation de commande */}
-      <OrderConfirmationPopup
-        visible={showConfirmationPopup}
-        orderData={pendingOrder}
-        onClose={cancelPendingOrder}
-        onConfirm={async () => {
-          // Confirmer la commande active
-          await confirmPendingOrder();
-
-          // Vider le panier après confirmation
-          clearOrder();
-          setItemComments({});
-
-          // Fermer le modal du panier et retourner à l'accueil
-          router.back();
-        }}
-      />
+      {orderConfirmationPopup}
     </LinearGradient>
   );
 }
@@ -1758,6 +2096,77 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
     lineHeight: typography.fontSizes.sm * 1.3,
     marginBottom: 2,
+  },
+  rewardConfigModal: {
+    backgroundColor: colors.neutral.white,
+    borderRadius: borderRadius.xl,
+    overflow: 'hidden',
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '80%',
+  },
+  rewardConfigHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutral.gray100,
+  },
+  rewardConfigHeaderText: {
+    flex: 1,
+  },
+  rewardConfigTitle: {
+    fontSize: typography.fontSizes.lg,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.gray900,
+  },
+  rewardConfigSubtitle: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.medium,
+    color: '#16A34A',
+  },
+  rewardConfigBody: {
+    paddingHorizontal: spacing.lg,
+  },
+  rewardConfigGroup: {
+    paddingVertical: spacing.md,
+  },
+  rewardConfigFooter: {
+    padding: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.neutral.gray100,
+  },
+  rewardConfigConfirm: {
+    backgroundColor: colors.neutral.black,
+    borderRadius: borderRadius.full,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+  },
+  rewardConfigConfirmDisabled: {
+    opacity: 0.4,
+  },
+  rewardConfigConfirmText: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutral.white,
+  },
+  rewardPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  rewardPriceOffered: {
+    fontSize: typography.fontSizes.md,
+    fontFamily: typography.fontFamily.bold,
+    color: '#16A34A',
+  },
+  rewardPriceStruck: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray500,
+    textDecorationLine: 'line-through',
   },
   giftSauceSection: {
     paddingHorizontal: spacing.md,

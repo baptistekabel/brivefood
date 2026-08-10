@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   collection,
   addDoc,
@@ -43,6 +43,36 @@ const POINTS_PER_EURO = 10;
 // comme c'était le cas avec l'ancien calcul basé sur le total.
 const getOrderPoints = (order) =>
   Math.max(0, Math.round((parseFloat(order?.total) || 0) * POINTS_PER_EURO));
+
+// Anti-doublon. Une commande strictement identique renvoyée dans cette fenêtre
+// est un double envoi, pas une seconde commande : la cuisine recevait deux
+// tickets et deux numéros du jour pour un seul client.
+const DUPLICATE_WINDOW_MS = 90 * 1000;
+
+// Signature d'une commande : même client, mêmes lignes, même mode, même total.
+// Elle est stockée en clair sur le document pour être retrouvée par une simple
+// égalité — un `where` seul n'exige aucun index composite (firestore.indexes.json
+// est vide). Pas de hachage : une collision ferait disparaître une vraie commande.
+const getOrderSignature = (orderData) => {
+  const items = (orderData?.items || [])
+    .map(item => [
+      item.id,
+      item.quantity,
+      item.size || '',
+      item.options || '',
+      item.comment || '',
+    ].join('~'))
+    .sort()
+    .join('|');
+
+  return [
+    orderData?.userId || '',
+    String(orderData?.phone || '').replace(/\s/g, ''),
+    orderData?.mode || '',
+    Number(orderData?.total || 0).toFixed(2),
+    items,
+  ].join('#');
+};
 
 export const useOrders = () => {
   const context = useContext(OrdersContext);
@@ -379,6 +409,41 @@ export const OrdersProvider = ({ children }) => {
     console.log('🔢 Compteur de commandes initialisé à', highest);
   };
 
+  // Dernière commande réellement écrite depuis cet appareil, pour reconnaître un
+  // double envoi même quand Firestore n'est pas joignable en lecture.
+  const lastSubmissionRef = useRef(null);
+
+  // Commande identique déjà enregistrée il y a moins de DUPLICATE_WINDOW_MS ?
+  // Renvoie la commande d'origine, pour que le client retombe sur sa
+  // confirmation au lieu d'en créer une seconde.
+  const findRecentDuplicate = async (signature) => {
+    const now = Date.now();
+    const last = lastSubmissionRef.current;
+
+    if (last && last.signature === signature && now - last.at < DUPLICATE_WINDOW_MS) {
+      return last.order;
+    }
+
+    try {
+      const snapshot = await getDocs(query(ordersCollection, where('dedupeKey', '==', signature)));
+
+      return snapshot.docs
+        .map(d => ({ firestoreId: d.id, ...d.data() }))
+        // Une commande annulée entre-temps ne bloque pas un nouvel envoi
+        .filter(order => order.status !== OrderStatus.CANCELLED)
+        .filter(order => {
+          const createdAt = order.createdAtMs || order.createdAt?.toMillis?.() || 0;
+          return createdAt > 0 && now - createdAt < DUPLICATE_WINDOW_MS;
+        })
+        .sort((a, b) => (b.createdAtMs || 0) - (a.createdAtMs || 0))[0] || null;
+    } catch (error) {
+      // Hors ligne ou lecture refusée : on laisse passer la commande. Perdre une
+      // commande serait pire qu'un doublon.
+      console.warn('⚠️ Vérification anti-doublon impossible:', error?.message || error);
+      return null;
+    }
+  };
+
   // Générer les numéros d'une nouvelle commande.
   // La transaction garantit que deux clients simultanés n'obtiennent jamais
   // le même numéro.
@@ -444,6 +509,17 @@ export const OrdersProvider = ({ children }) => {
       console.log('=== CREATING ORDER IN FIRESTORE ===');
       console.log('Order data:', orderData);
 
+      // Vérifié avant d'attribuer un numéro : un doublon ne doit pas consommer
+      // un numéro du jour au passage.
+      const dedupeKey = getOrderSignature(orderData);
+      const duplicate = await findRecentDuplicate(dedupeKey);
+      if (duplicate) {
+        console.warn(
+          `🛑 Double envoi ignoré, commande identique déjà enregistrée (#${duplicate.orderNumber || duplicate.id})`
+        );
+        return { success: true, duplicate: true, order: duplicate };
+      }
+
       const { id: orderId, orderNumber, serviceDay } = await generateOrderNumbers();
       const newOrder = {
         id: orderId,
@@ -468,6 +544,11 @@ export const OrdersProvider = ({ children }) => {
         }),
         orderDate: new Date().toLocaleDateString('fr-FR'),
         createdAt: serverTimestamp(), // Utiliser serverTimestamp de Firestore
+        // Anti-doublon : signature de la commande et horodatage lisible dès
+        // l'écriture. `createdAt` n'est résolu que par le serveur, il vaut null
+        // dans le document local juste après l'envoi.
+        dedupeKey,
+        createdAtMs: Date.now(),
       };
 
       console.log('Creating order in Firestore:', newOrder);
@@ -475,6 +556,14 @@ export const OrdersProvider = ({ children }) => {
       // Ajouter à Firestore - le listener mettra à jour automatiquement le state
       const docRef = await addDoc(ordersCollection, newOrder);
       console.log('✅ Order created in Firestore with ID:', docRef.id);
+
+      // Repère local du dernier envoi : reconnaît un doublon même si la lecture
+      // Firestore échoue au second appui.
+      lastSubmissionRef.current = {
+        signature: dedupeKey,
+        at: Date.now(),
+        order: { ...newOrder, firestoreId: docRef.id },
+      };
 
       // L'impression automatique se fait uniquement côté admin (voir dashboard.tsx)
 

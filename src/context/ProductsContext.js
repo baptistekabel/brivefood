@@ -69,6 +69,28 @@ export const ProductsProvider = ({ children }) => {
           setIsFirebaseConnected(true);
           setLoading(false);
 
+          // Migrations ponctuelles, hors du verrou global.
+          //
+          // Chacune porte son propre drapeau et ne rejoue donc jamais. Les
+          // placer ici évite d'incrémenter MIGRATIONS_VERSION, ce qui ferait
+          // repasser sur les 35 migrations historiques — et réveillerait
+          // n'importe laquelle dont le drapeau n'aurait pas été écrit, au
+          // risque d'écraser une modification faite depuis l'interface admin.
+          await productService.runMigrationOnce(
+            'restrictPromoSandwichesToKebab',
+            () => productService.restrictPromoSandwichesToKebab()
+          );
+          await productService.runMigrationOnce(
+            'addSauceChoiceToPromoSandwiches',
+            () => productService.addSauceChoiceToPromoSandwiches()
+          );
+          // Après l'ajout des sauces : les sections de choix du sandwich
+          // servent de repère pour savoir combien de sauces poser
+          await productService.runMigrationOnce(
+            'removePromoSandwichChoiceSections',
+            () => productService.removePromoSandwichChoiceSections()
+          );
+
           // Verrou global : si toutes les migrations sont déjà passées, on saute
           // le bloc entier (1 lecture au lieu de 35, et aucun risque qu'une
           // migration réécrase un prix modifié depuis l'interface admin)

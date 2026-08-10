@@ -29,20 +29,34 @@ export const LoyaltyProvider = ({ children }) => {
   // Barème de gain : 1€ dépensé = 10 points
   const POINTS_PER_EURO = 10;
 
+  // Montant minimum du panier (hors frais de livraison, hors articles offerts)
+  // pour pouvoir utiliser une récompense
+  const MIN_ORDER_FOR_REWARDS = 15;
+
   // Le client cumule un solde de points et le dépense librement
-  // sur la récompense de son choix
+  // sur la récompense de son choix.
+  //
+  // Une récompense `product` est offerte en nature : `offer` désigne le produit
+  // réellement ajouté au panier à 0 € (voir utils/loyaltyRewardItem). Le champ
+  // `value` n'est plus qu'un repli d'affichage — le prix réel est lu dans le
+  // catalogue — et ne sert plus jamais à calculer une remise.
   const rewards = [
     {
       id: 'petit-cheese',
       points: 500,
-      title: 'Petit Cheese',
-      description: 'Un délicieux petit cheese offert',
+      title: "Pti' Cheese",
+      description: "Un Pti' Cheese offert, sauce au choix",
       icon: 'fast-food',
       image: require('../../assets/images/burgers/burgerClassic.png'),
       color: '#FFD700',
       gradient: ['#FFD700', '#FFA500'],
-      value: 8.50, // Prix du petit cheese
-      type: 'product'
+      value: 4.00,
+      type: 'product',
+      offer: {
+        productIds: ['petitfaim5'],
+        size: null,
+        optionGroups: ['sauce'],
+      },
     },
     {
       id: 'livraison-offerte',
@@ -58,24 +72,36 @@ export const LoyaltyProvider = ({ children }) => {
     {
       id: 'bruschetta-offerte',
       points: 900,
-      title: 'Bruschetta offerte',
-      description: 'Une bruschetta offerte',
+      title: 'Bruschetta',
+      description: 'Une bruschetta offerte, au choix dans la carte',
       icon: 'pizza',
       color: '#FF6B6B',
       gradient: ['#FF6B6B', '#FF8E53'],
-      value: 7.50, // Prix d'une bruschetta
-      type: 'product'
+      value: 7.50,
+      type: 'product',
+      offer: {
+        productIds: ['bruschetta1', 'bruschetta2', 'bruschetta3', 'bruschetta4'],
+        size: null,
+        optionGroups: [],
+      },
     },
     {
       id: 'tacos-1-viande-offert',
       points: 1400,
-      title: 'Tacos 1 viande offert',
+      title: 'Tacos M (1 viande)',
       description: 'Un tacos taille M (1 viande) offert',
       icon: 'fast-food',
       color: '#F59E0B',
       gradient: ['#F59E0B', '#FBBF24'],
-      value: 11.90, // Prix du tacos M (1 viande)
-      type: 'product'
+      value: 11.90,
+      type: 'product',
+      offer: {
+        productIds: ['tacos-custom'],
+        size: 'M',
+        optionGroups: ['viandes', 'sauce'],
+        // La taille M ne donne droit qu'à une seule viande
+        optionLimits: { viandes: 1 },
+      },
     },
   ];
 
@@ -176,9 +202,18 @@ export const LoyaltyProvider = ({ children }) => {
     setUserLoyaltyData(loyaltyData);
   }, [orders, userProfile, user]);
 
-  // Obtenir les récompenses disponibles pour le panier
-  // Le client peut utiliser toute récompense que son solde de points permet
+  // Une seule récompense par commande : celle en cours d'utilisation, s'il y en a
+  const getActiveReward = () =>
+    (userProfile?.usedRewards || []).find(used => !used.orderId) || null;
+
+  // Obtenir les récompenses disponibles pour le panier.
+  // Le client peut utiliser toute récompense que son solde de points permet, à
+  // condition d'atteindre le minimum de commande et de n'en avoir aucune autre
+  // en cours.
   const getAvailableRewardsForCart = (cartTotal = 0, isDelivery = false) => {
+    if (cartTotal < MIN_ORDER_FOR_REWARDS) return [];
+    if (getActiveReward()) return [];
+
     const loyalty = calculateLoyaltyData();
 
     return rewards
@@ -186,16 +221,18 @@ export const LoyaltyProvider = ({ children }) => {
       .filter(reward => loyalty.currentPoints >= reward.points)
       // La livraison offerte n'a de sens qu'en mode livraison
       .filter(reward => reward.type !== 'delivery' || isDelivery)
-      .map(reward => ({
-        ...reward,
-        // Pour la livraison, la valeur sera calculée selon les frais réels
-        discountValue: reward.type === 'product' ? reward.value : 0,
-        available: true
-      }));
+      // La valeur affichée au client est lue dans le catalogue par l'écran du
+      // panier (getRewardProductValue) : elle ne peut plus diverger du prix réel
+      .map(reward => ({ ...reward, available: true }));
   };
 
-  // Utiliser une récompense
-  const useReward = async (rewardId, orderTotal = 0, deliveryFee = 0) => {
+  // Utiliser une récompense.
+  //
+  // `customizations` porte les choix faits par le client avant validation
+  // (variante du produit, sauce, viande). Ils sont conservés sur le profil pour
+  // que la ligne du panier puisse être reconstruite à l'identique après un
+  // redémarrage de l'application.
+  const useReward = async (rewardId, orderTotal = 0, deliveryFee = 0, customizations = null) => {
     try {
       const reward = rewards.find(r => r.id === rewardId);
       if (!reward) {
@@ -207,27 +244,36 @@ export const LoyaltyProvider = ({ children }) => {
         return { success: false, error: 'Points insuffisants' };
       }
 
-      // Une même récompense ne peut pas être appliquée deux fois au même panier :
-      // les points étaient débités à chaque ajout, mais l'annulation n'en
-      // remboursait qu'un seul (voir cancelRewardUsage).
-      const alreadyActive = (userProfile.usedRewards || [])
-        .some(r => r.id === rewardId && !r.orderId);
-      if (alreadyActive) {
-        return { success: false, error: 'Cette récompense est déjà appliquée à votre commande' };
+      if (orderTotal < MIN_ORDER_FOR_REWARDS) {
+        return {
+          success: false,
+          error: `Vos points sont utilisables à partir de ${MIN_ORDER_FOR_REWARDS} € de commande.`
+        };
+      }
+
+      // Une seule récompense par commande. La règle couvre aussi le cas d'une
+      // même récompense appliquée deux fois : les points étaient débités à
+      // chaque ajout, mais l'annulation n'en remboursait qu'un seul
+      // (voir cancelRewardUsage).
+      const activeReward = getActiveReward();
+      if (activeReward) {
+        return {
+          success: false,
+          error: activeReward.id === rewardId
+            ? 'Cette récompense est déjà appliquée à votre commande'
+            : `« ${activeReward.title} » est déjà appliquée. Une seule récompense par commande : retirez-la pour en choisir une autre.`
+        };
       }
 
       let discountAmount = 0;
-      let description = '';
+      const description = `${reward.title} (-${reward.points} points)`;
 
-      switch (reward.type) {
-        case 'product':
-          discountAmount = Math.min(reward.value, orderTotal);
-          description = `${reward.title} (-${reward.points} points)`;
-          break;
-        case 'delivery':
-          discountAmount = deliveryFee;
-          description = `${reward.title} (-${reward.points} points)`;
-          break;
+      // Un produit offert est ajouté au panier à 0 € (l'écran du panier s'en
+      // charge, voir buildRewardCartItem) : il ne donne plus lieu à une remise
+      // en euros sur le reste de la commande. Seule la livraison offerte, qui
+      // n'a pas d'article correspondant, reste une remise.
+      if (reward.type === 'delivery') {
+        discountAmount = deliveryFee;
       }
 
       // Mettre à jour le profil utilisateur avec les points utilisés
@@ -241,6 +287,9 @@ export const LoyaltyProvider = ({ children }) => {
         points: reward.points,
         usedAt: new Date().toISOString(),
         discountAmount,
+        // Choix du client, pour reconstruire la ligne du panier à l'identique.
+        // Firestore refuse `undefined` : on écrit toujours un objet.
+        customizations: customizations || {},
         orderId: null // Sera mis à jour lors de la commande
       };
 
@@ -337,21 +386,15 @@ export const LoyaltyProvider = ({ children }) => {
     activeRewards.forEach(usedReward => {
       const reward = rewards.find(r => r.id === usedReward.id);
       if (reward) {
-        let discountAmount = 0;
-
-        switch (reward.type) {
-          case 'product':
-            discountAmount = Math.min(reward.value, cartTotal);
-            break;
-          case 'delivery':
-            discountAmount = deliveryFee;
-            break;
-        }
+        // Les produits offerts figurent dans le panier à 0 € : leur remise vaut
+        // zéro, sans quoi le client serait avantagé deux fois (voir useReward)
+        const discountAmount = reward.type === 'delivery' ? deliveryFee : 0;
 
         totalDiscount += discountAmount;
         rewardDiscounts.push({
           ...usedReward,
           discountAmount,
+          type: reward.type,
           title: reward.title
         });
       }
@@ -369,9 +412,11 @@ export const LoyaltyProvider = ({ children }) => {
     userLoyaltyData,
     rewards,
     POINTS_PER_EURO,
+    MIN_ORDER_FOR_REWARDS,
 
     // Functions
     calculateLoyaltyData,
+    getActiveReward,
     getAvailableRewardsForCart,
     useReward,
     cancelRewardUsage,

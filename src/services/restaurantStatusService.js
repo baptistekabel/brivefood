@@ -2,7 +2,38 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { doc, setDoc, onSnapshot, getDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 
-const FIRESTORE_DOC = 'settings/restaurant_status';
+// Forçage manuel (ouverture / fermeture) partagé par TOUS les postes admin.
+//
+// Il ne vivait que dans l'AsyncStorage du poste qui l'avait déclenché. Les
+// autres postes admin, eux, recalculaient le statut sur les horaires toutes les
+// minutes et republiaient « ouvert » dans Firestore : fermer le restaurant
+// depuis une tablette était défait dans la minute par n'importe quelle autre
+// tablette admin connectée.
+//
+// Document séparé de `settings/restaurant_status`, que le monitoring réécrit
+// intégralement chaque minute (setDoc sans merge).
+const OVERRIDE_DOC = ['settings', 'restaurant_override'];
+
+// Un forçage expiré ne vaut plus rien
+const isOverrideExpired = (override) =>
+  !!override?.expiresAt && new Date() > new Date(override.expiresAt);
+
+// `active: false` vaut « aucun forçage » : le document existe toujours, ce qui
+// évite d'avoir à distinguer « supprimé » de « jamais écrit »
+const parseOverride = (snapshot) => {
+  if (!snapshot?.exists?.()) return null;
+
+  const data = snapshot.data();
+  if (data?.active !== true) return null;
+
+  return {
+    active: true,
+    forceOpen: data.forceOpen === true,
+    reason: data.reason || null,
+    createdAt: data.createdAt || null,
+    expiresAt: data.expiresAt || null,
+  };
+};
 
 class RestaurantStatusService {
   constructor() {
@@ -10,6 +41,13 @@ class RestaurantStatusService {
     this.scheduleKey = '@restaurant_schedule';
     this.overrideKey = '@restaurant_override';
     this.firestoreUnsubscribe = null;
+    this.overrideUnsubscribe = null;
+    this.scheduleUnsubscribe = null;
+    // undefined = pas encore lu, null = aucun forçage, objet = forçage actif
+    this.sharedOverride = undefined;
+    // Horaires publiés, tenus à jour par un listener : évite une lecture
+    // Firestore à chaque passage du monitoring (toutes les minutes)
+    this.sharedSchedule = null;
     this.isClientMode = false; // true = lecture seule depuis Firestore, jamais d'écriture
 
     // Horaires par défaut (format 24h) - Service continu 11h-01h55
@@ -41,6 +79,13 @@ class RestaurantStatusService {
         this.firestoreUnsubscribe();
         this.firestoreUnsubscribe = null;
       }
+
+      // Forçage manuel en cours, décidé depuis n'importe quel poste admin.
+      // Lu AVANT le premier calcul de statut, sinon ce poste publierait
+      // « ouvert » dans Firestore et annulerait la fermeture d'un collègue.
+      await this.readOverride();
+      this.subscribeToOverride();
+      this.subscribeToSchedule();
 
       // Charger les horaires personnalisés ou utiliser les défauts
       const schedule = await this.getSchedule();
@@ -192,7 +237,7 @@ class RestaurantStatusService {
     }
   }
 
-  // Forcer le statut manuellement
+  // Forcer le statut manuellement, pour tous les postes admin à la fois
   async forceStatus(isOpen, reason = null, durationMinutes = null) {
     try {
       const override = {
@@ -205,7 +250,10 @@ class RestaurantStatusService {
           null
       };
 
-      await AsyncStorage.setItem(this.overrideKey, JSON.stringify(override));
+      // L'écriture partagée d'abord : si elle échoue, on le signale à l'admin
+      // plutôt que d'afficher une fermeture que les autres postes ignorent et
+      // défont à la minute suivante.
+      await this.writeOverride(override);
 
       // Mettre à jour immédiatement le statut et forcer la notification
       await this.updateStatus();
@@ -223,10 +271,10 @@ class RestaurantStatusService {
     }
   }
 
-  // Annuler le forçage manuel
+  // Annuler le forçage manuel, pour tous les postes admin à la fois
   async clearOverride() {
     try {
-      await AsyncStorage.removeItem(this.overrideKey);
+      await this.writeOverride(null);
       await this.updateStatus();
 
       // Forcer une notification pour s'assurer que les listeners sont mis à jour
@@ -320,20 +368,27 @@ class RestaurantStatusService {
   // repli du client (`schedule-fallback` / `offline-fallback`) calculaient donc
   // l'ouverture sur les horaires par défaut du code, et non sur ceux du
   // restaurant. Ils sont désormais publiés avec le reste des réglages.
+  // Les horaires publiés font foi pour tout le monde, clients comme postes
+  // admin. Les admins ne lisaient que leur AsyncStorage : deux tablettes aux
+  // horaires différents calculaient deux statuts différents et se les
+  // écrasaient mutuellement dans Firestore, exactement comme le forçage manuel.
+  // L'AsyncStorage ne sert plus que de cache hors ligne.
   async getSchedule() {
-    // Côté client, les horaires publiés par le restaurant font foi
-    if (this.isClientMode) {
-      try {
-        const snapshot = await getDoc(doc(db, 'settings', 'restaurant_schedule'));
-        const published = snapshot.exists() ? snapshot.data()?.schedule : null;
+    // Tenus à jour par subscribeToSchedule côté admin : pas de lecture réseau
+    // à chaque passage du monitoring
+    if (this.sharedSchedule) return this.sharedSchedule;
 
-        if (published) {
-          await AsyncStorage.setItem(this.scheduleKey, JSON.stringify(published));
-          return published;
-        }
-      } catch (error) {
-        console.warn('⚠️ Horaires Firestore indisponibles, repli local:', error.message);
+    try {
+      const snapshot = await getDoc(doc(db, 'settings', 'restaurant_schedule'));
+      const published = snapshot.exists() ? snapshot.data()?.schedule : null;
+
+      if (published) {
+        this.sharedSchedule = published;
+        await AsyncStorage.setItem(this.scheduleKey, JSON.stringify(published));
+        return published;
       }
+    } catch (error) {
+      console.warn('⚠️ Horaires Firestore indisponibles, repli local:', error.message);
     }
 
     try {
@@ -347,10 +402,13 @@ class RestaurantStatusService {
 
   async setSchedule(schedule) {
     try {
+      // Valeur en mémoire alignée avant le recalcul : getSchedule() la sert en
+      // priorité et renverrait sinon les anciens horaires
+      this.sharedSchedule = schedule;
       await AsyncStorage.setItem(this.scheduleKey, JSON.stringify(schedule));
 
-      // Publication pour les clients. Jamais depuis un appareil en mode client,
-      // qui est en lecture seule.
+      // Publication pour les clients et les autres postes admin. Jamais depuis
+      // un appareil en mode client, qui est en lecture seule.
       if (!this.isClientMode) {
         try {
           await setDoc(
@@ -372,17 +430,161 @@ class RestaurantStatusService {
     }
   }
 
-  // Obtenir l'override actuel
-  async getOverride() {
+  // Copie locale du forçage partagé, utilisée uniquement quand Firestore est
+  // injoignable. Ce n'est jamais une source de vérité : c'est le dernier état
+  // partagé connu, pas un état propre à cet appareil.
+  async cacheOverride(override) {
+    try {
+      if (override) {
+        await AsyncStorage.setItem(this.overrideKey, JSON.stringify(override));
+      } else {
+        await AsyncStorage.removeItem(this.overrideKey);
+      }
+    } catch (error) {
+      console.error('❌ Erreur cache forçage:', error);
+    }
+  }
+
+  async readCachedOverride() {
     try {
       const overrideJson = await AsyncStorage.getItem(this.overrideKey);
-      if (!overrideJson) return null;
+      return overrideJson ? JSON.parse(overrideJson) : null;
+    } catch (error) {
+      console.error('❌ Erreur lecture cache forçage:', error);
+      return null;
+    }
+  }
 
-      const override = JSON.parse(overrideJson);
+  // Lecture ponctuelle du forçage partagé
+  async readOverride() {
+    try {
+      const snapshot = await getDoc(doc(db, ...OVERRIDE_DOC));
+      const override = parseOverride(snapshot);
+      this.sharedOverride = override;
+      await this.cacheOverride(override);
+      return override;
+    } catch (error) {
+      console.warn('⚠️ Forçage Firestore illisible, repli sur le dernier état connu:', error.message);
+      return await this.readCachedOverride();
+    }
+  }
 
-      // Vérifier si l'override a expiré
-      if (override.expiresAt && new Date() > new Date(override.expiresAt)) {
-        await AsyncStorage.removeItem(this.overrideKey);
+  // Écriture du forçage partagé. Toute modification passe par ici pour que les
+  // autres postes admin la voient immédiatement.
+  async writeOverride(override) {
+    if (this.isClientMode) {
+      throw new Error('Un appareil client ne peut pas modifier le statut du restaurant');
+    }
+
+    const payload = override
+      ? {
+          active: true,
+          forceOpen: !!override.forceOpen,
+          reason: override.reason || null,
+          createdAt: override.createdAt || new Date().toISOString(),
+          expiresAt: override.expiresAt || null,
+          updatedAt: serverTimestamp(),
+        }
+      : {
+          active: false,
+          forceOpen: null,
+          reason: null,
+          createdAt: null,
+          expiresAt: null,
+          updatedAt: serverTimestamp(),
+        };
+
+    await setDoc(doc(db, ...OVERRIDE_DOC), payload);
+    this.sharedOverride = override || null;
+    await this.cacheOverride(this.sharedOverride);
+  }
+
+  // Écoute temps réel : un admin ferme, tous les autres postes s'alignent sans
+  // attendre le prochain passage du monitoring
+  subscribeToOverride() {
+    try {
+      if (this.overrideUnsubscribe) {
+        this.overrideUnsubscribe();
+        this.overrideUnsubscribe = null;
+      }
+
+      this.overrideUnsubscribe = onSnapshot(
+        doc(db, ...OVERRIDE_DOC),
+        async (snapshot) => {
+          const override = parseOverride(snapshot);
+          const previous = this.sharedOverride === undefined ? null : this.sharedOverride;
+          const hasChanged = JSON.stringify(override) !== JSON.stringify(previous);
+
+          this.sharedOverride = override;
+          await this.cacheOverride(override);
+
+          if (hasChanged) {
+            console.log(
+              '☁️ Forçage restaurant reçu:',
+              override ? (override.forceOpen ? 'OUVERT' : 'FERMÉ') : 'automatique'
+            );
+            await this.updateStatus();
+          }
+        },
+        (error) => {
+          console.error('❌ Erreur écoute forçage restaurant:', error);
+        }
+      );
+
+      console.log('🔄 Écoute du forçage partagé activée');
+    } catch (error) {
+      console.error('❌ Erreur souscription forçage:', error);
+    }
+  }
+
+  // Écoute des horaires publiés : un admin change les horaires, les autres
+  // postes recalculent sur les mêmes valeurs au lieu de leur copie locale
+  subscribeToSchedule() {
+    try {
+      if (this.scheduleUnsubscribe) {
+        this.scheduleUnsubscribe();
+        this.scheduleUnsubscribe = null;
+      }
+
+      this.scheduleUnsubscribe = onSnapshot(
+        doc(db, 'settings', 'restaurant_schedule'),
+        async (snapshot) => {
+          const published = snapshot.exists() ? snapshot.data()?.schedule : null;
+          if (!published) return;
+
+          const hasChanged = JSON.stringify(published) !== JSON.stringify(this.sharedSchedule);
+          this.sharedSchedule = published;
+          await AsyncStorage.setItem(this.scheduleKey, JSON.stringify(published));
+
+          if (hasChanged) {
+            console.log('☁️ Horaires restaurant mis à jour');
+            await this.updateStatus();
+          }
+        },
+        (error) => {
+          console.error('❌ Erreur écoute horaires restaurant:', error);
+        }
+      );
+
+      console.log('🔄 Écoute des horaires partagés activée');
+    } catch (error) {
+      console.error('❌ Erreur souscription horaires:', error);
+    }
+  }
+
+  // Obtenir l'override actuel (partagé entre tous les postes admin)
+  async getOverride() {
+    try {
+      const override = this.sharedOverride === undefined
+        ? await this.readOverride()
+        : this.sharedOverride;
+
+      if (override && isOverrideExpired(override)) {
+        // Expiré : on le lève pour tout le monde, pas seulement ici.
+        // `writeOverride` plutôt que `clearOverride` : ce dernier rappellerait
+        // updateStatus(), qui rappelle getOverride() — récursion sans fin.
+        console.log('⏱️ Forçage expiré, retour au mode automatique');
+        await this.writeOverride(null);
         return null;
       }
 
@@ -550,6 +752,18 @@ class RestaurantStatusService {
       console.log('🏪 Initialisation client du service de statut restaurant');
       this.isClientMode = true; // IMPORTANT : empêche le client d'écrire dans Firestore
 
+      // Le service est un singleton : un appareil qui quitte l'interface admin
+      // ne doit plus écouter le forçage, réservé au calcul de statut des admins
+      if (this.overrideUnsubscribe) {
+        this.overrideUnsubscribe();
+        this.overrideUnsubscribe = null;
+      }
+      if (this.scheduleUnsubscribe) {
+        this.scheduleUnsubscribe();
+        this.scheduleUnsubscribe = null;
+      }
+      this.sharedOverride = undefined;
+
       // Lire le statut actuel depuis Firestore (lecture unique)
       const docRef = doc(db, 'settings', 'restaurant_status');
       const snapshot = await getDoc(docRef);
@@ -584,8 +798,18 @@ class RestaurantStatusService {
       this.firestoreUnsubscribe();
       this.firestoreUnsubscribe = null;
     }
+    if (this.overrideUnsubscribe) {
+      this.overrideUnsubscribe();
+      this.overrideUnsubscribe = null;
+    }
+    if (this.scheduleUnsubscribe) {
+      this.scheduleUnsubscribe();
+      this.scheduleUnsubscribe = null;
+    }
     this.statusListeners = [];
     this.currentStatus = null;
+    this.sharedOverride = undefined;
+    this.sharedSchedule = null;
     this.isClientMode = false;
     console.log('🧹 Service de statut restaurant nettoyé');
   }

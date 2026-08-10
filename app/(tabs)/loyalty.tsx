@@ -26,7 +26,7 @@ const { width } = Dimensions.get('window');
 export default function LoyaltyScreen() {
   const fontsLoaded = useFonts();
   const { user, isAuthenticated } = useAuth();
-  const { userLoyaltyData, rewards, POINTS_PER_EURO } = useLoyalty();
+  const { userLoyaltyData, rewards, POINTS_PER_EURO, MIN_ORDER_FOR_REWARDS } = useLoyalty();
 
   const loyaltyData = userLoyaltyData;
 
@@ -224,7 +224,7 @@ export default function LoyaltyScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
         '🎁 Récompense disponible',
-        `Votre récompense "${reward.title}" est prête ! Utilisez-la depuis votre panier au moment de commander.`,
+        `Votre récompense "${reward.title}" est prête ! Utilisez-la depuis votre panier au moment de commander, à partir de ${MIN_ORDER_FOR_REWARDS} € d'achat et une seule par commande.`,
         [{ text: 'Compris !', style: 'default' }]
       );
     } else {
@@ -476,7 +476,8 @@ export default function LoyaltyScreen() {
               </Text>
             </View>
             <Text style={styles.progressHint}>
-              1€ dépensé = {POINTS_PER_EURO} points de fidélité
+              1€ dépensé = {POINTS_PER_EURO} points de fidélité{'\n'}
+              Une récompense par commande, dès {MIN_ORDER_FOR_REWARDS} € d’achat
             </Text>
           </Animated.View>
 

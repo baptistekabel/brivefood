@@ -19,6 +19,21 @@ import * as Haptics from 'expo-haptics';
 import localProductsData from '../data/products.js';
 import { ProductCategory } from '../types';
 
+// Sections de choix d'un sandwich dans une promo à choix multiples
+// (« Choix Américain 1 », « Choix Américain 2 »…)
+const SANDWICH_CHOICE_TITLE = /^Choix Américain/i;
+
+// Numéro du sandwich dans « Choix Américain 3 »
+const SANDWICH_CHOICE_NUMBER = /^Choix Américain\s+(\d+)/i;
+
+// Où sont rangées les options retirées d'une promo, pour pouvoir les rétablir
+const PROMO_SANDWICH_BACKUP = 'promoSandwichBackup';
+
+// Où sont rangées les sections « Choix Américain N » entièrement retirées.
+// Chaque entrée est autosuffisante : elle porte déjà la liste d'options
+// d'origine, de sorte que le rétablissement se fasse en une seule opération.
+const PROMO_SECTION_BACKUP = 'promoSandwichSectionBackup';
+
 class ProductService {
   constructor() {
     this.collectionName = 'products';
@@ -65,6 +80,285 @@ class ProductService {
       return result;
     } catch (error) {
       console.error(`❌ Migration ${name} error:`, error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Promos du moment : ne proposer que le sandwich kebab.
+  //
+  // Les produits « promos » n'existent que dans Firestore (rien dans
+  // data/products.js) et l'écran d'édition admin ne touche pas aux listes de
+  // choix : c'est donc une migration qui les met à jour. Les sandwichs retirés
+  // sont recopiés sur le produit avant suppression — voir restorePromoSandwiches
+  // pour les remettre quand la promo change.
+  async restrictPromoSandwichesToKebab() {
+    try {
+      console.log('🔄 Promos : restriction des sandwichs au kebab...');
+
+      const snapshot = await getDocs(collection(db, this.collectionName));
+      let updatedCount = 0;
+      let promoFound = false;
+
+      for (const docSnap of snapshot.docs) {
+        const data = docSnap.data();
+        if (data.category !== ProductCategory.PROMOS) continue;
+        promoFound = true;
+
+        const sections = data.customizationOptions;
+        if (!sections) continue;
+
+        const updatedSections = { ...sections };
+        const backup = { ...(data[PROMO_SANDWICH_BACKUP] || {}) };
+        let needsUpdate = false;
+
+        for (const [key, section] of Object.entries(sections)) {
+          if (!SANDWICH_CHOICE_TITLE.test(section?.title || '')) continue;
+          if (!Array.isArray(section.options)) continue;
+
+          const kebabOnly = section.options.filter(option => /kebab/i.test(option?.name || ''));
+
+          // Aucun kebab dans cette section, ou déjà restreinte : ne rien toucher.
+          // Sans ce garde-fou, une section sans kebab se retrouverait vide et la
+          // promo deviendrait incommandable.
+          if (kebabOnly.length === 0 || kebabOnly.length === section.options.length) continue;
+
+          // Sauvegarde de la liste d'origine, une seule fois : rejouer la
+          // migration ne doit pas écraser la sauvegarde par la version réduite
+          if (!backup[key]) backup[key] = section.options;
+
+          updatedSections[key] = { ...section, options: kebabOnly };
+          needsUpdate = true;
+        }
+
+        if (!needsUpdate) continue;
+
+        await updateDoc(doc(db, this.collectionName, docSnap.id), {
+          customizationOptions: updatedSections,
+          [PROMO_SANDWICH_BACKUP]: backup,
+          updatedAt: serverTimestamp()
+        });
+        updatedCount++;
+        console.log(`✅ Sandwichs limités au kebab : ${data.name}`);
+      }
+
+      // Aucune promo en base : on ne pose pas le drapeau, la migration
+      // s'appliquera à la promo dès qu'elle sera créée
+      if (!promoFound) {
+        console.warn('⚠️ Aucun produit dans la catégorie promos, migration reportée');
+        return { success: false, updatedCount: 0, error: 'Aucune promo trouvée' };
+      }
+
+      console.log(`✅ Promos mises à jour : ${updatedCount}`);
+      return { success: true, updatedCount };
+    } catch (error) {
+      console.error('❌ Erreur restriction sandwichs promos:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Promos du moment : retirer les sections « Choix Américain N ».
+  //
+  // Depuis que la promo ne propose plus que le kebab, ces sections n'ont qu'une
+  // seule option : elles obligent le client à cocher un choix qui n'en est pas
+  // un. Seules les sauces restent à choisir.
+  //
+  // La section entière est sauvegardée avant suppression, avec sa liste
+  // d'options d'origine (celle d'avant la restriction au kebab) : rétablir la
+  // promo complète se fait alors en une seule écriture.
+  async removePromoSandwichChoiceSections() {
+    try {
+      console.log('🔄 Promos : retrait des sections de choix du sandwich...');
+
+      const snapshot = await getDocs(collection(db, this.collectionName));
+      let updatedCount = 0;
+      let promoFound = false;
+
+      for (const docSnap of snapshot.docs) {
+        const data = docSnap.data();
+        if (data.category !== ProductCategory.PROMOS) continue;
+        promoFound = true;
+
+        const sections = data.customizationOptions;
+        if (!sections) continue;
+
+        const optionsBackup = data[PROMO_SANDWICH_BACKUP] || {};
+        const sectionBackup = { ...(data[PROMO_SECTION_BACKUP] || {}) };
+        const updatedSections = {};
+        let needsUpdate = false;
+
+        for (const [key, section] of Object.entries(sections)) {
+          if (!SANDWICH_CHOICE_TITLE.test(section?.title || '')) {
+            updatedSections[key] = section;
+            continue;
+          }
+
+          // Options d'origine si la restriction au kebab est déjà passée,
+          // sinon celles encore en place
+          if (!sectionBackup[key]) {
+            sectionBackup[key] = optionsBackup[key]
+              ? { ...section, options: optionsBackup[key] }
+              : section;
+          }
+          needsUpdate = true;
+        }
+
+        if (!needsUpdate) continue;
+
+        await updateDoc(doc(db, this.collectionName, docSnap.id), {
+          customizationOptions: updatedSections,
+          [PROMO_SECTION_BACKUP]: sectionBackup,
+          // Absorbée par la sauvegarde de section ci-dessus
+          [PROMO_SANDWICH_BACKUP]: deleteField(),
+          updatedAt: serverTimestamp()
+        });
+        updatedCount++;
+        console.log(`✅ Sections de choix retirées : ${data.name}`);
+      }
+
+      if (!promoFound) {
+        console.warn('⚠️ Aucun produit dans la catégorie promos, migration reportée');
+        return { success: false, updatedCount: 0, error: 'Aucune promo trouvée' };
+      }
+
+      console.log(`✅ Promos mises à jour : ${updatedCount}`);
+      return { success: true, updatedCount };
+    } catch (error) {
+      console.error('❌ Erreur retrait des sections de choix:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Promos du moment : une sauce au choix pour chaque sandwich.
+  //
+  // Les promos à plusieurs sandwichs ne proposaient aucune sauce, alors que le
+  // même sandwich vendu à la carte en demande une. On ajoute donc une section
+  // « Sauce Américain N » en face de chaque « Choix Américain N ».
+  //
+  // La liste des sauces est recopiée du sandwich américain réellement vendu
+  // plutôt qu'écrite en dur ici : elle suit ainsi les modifications faites
+  // depuis l'interface admin, sans risque de diverger de la carte.
+  async addSauceChoiceToPromoSandwiches() {
+    try {
+      console.log('🔄 Promos : ajout du choix de sauce aux sandwichs...');
+
+      const snapshot = await getDocs(collection(db, this.collectionName));
+      const docs = snapshot.docs.map(docSnap => ({ ref: docSnap.ref, data: docSnap.data() }));
+
+      // Sauce de référence : celle du sandwich américain de la carte
+      const reference = docs.find(({ data }) =>
+        data.category === ProductCategory.SANDWICH_AMERICAIN && data.customizationOptions?.sauce
+      );
+
+      if (!reference) {
+        console.warn('⚠️ Aucun sandwich américain avec sauce en base, migration reportée');
+        return { success: false, updatedCount: 0, error: 'Sauce de référence introuvable' };
+      }
+
+      const referenceSauce = reference.data.customizationOptions.sauce;
+      let updatedCount = 0;
+      let promoFound = false;
+
+      for (const { ref, data } of docs) {
+        if (data.category !== ProductCategory.PROMOS) continue;
+        promoFound = true;
+
+        const sections = data.customizationOptions;
+        if (!sections) continue;
+
+        const updatedSections = {};
+        let needsUpdate = false;
+
+        // Reconstruit dans l'ordre : chaque sauce est insérée juste après le
+        // sandwich auquel elle se rapporte
+        for (const [key, section] of Object.entries(sections)) {
+          updatedSections[key] = section;
+
+          const number = SANDWICH_CHOICE_NUMBER.exec(section?.title || '')?.[1];
+          if (!number) continue;
+
+          const sauceKey = `sauceAmericain${number}`;
+          if (sections[sauceKey]) continue; // déjà posée
+
+          updatedSections[sauceKey] = {
+            ...referenceSauce,
+            title: `Sauce Américain ${number}`,
+            subtitle: referenceSauce.subtitle || 'Choisissez-en de 1 à 2.',
+            required: true,
+          };
+          needsUpdate = true;
+        }
+
+        if (!needsUpdate) continue;
+
+        await updateDoc(ref, {
+          customizationOptions: updatedSections,
+          updatedAt: serverTimestamp()
+        });
+        updatedCount++;
+        console.log(`✅ Sauces ajoutées : ${data.name}`);
+      }
+
+      if (!promoFound) {
+        console.warn('⚠️ Aucun produit dans la catégorie promos, migration reportée');
+        return { success: false, updatedCount: 0, error: 'Aucune promo trouvée' };
+      }
+
+      console.log(`✅ Promos mises à jour : ${updatedCount}`);
+      return { success: true, updatedCount };
+    } catch (error) {
+      console.error('❌ Erreur ajout des sauces aux promos:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Contrepartie des deux migrations ci-dessus : remet les promos dans l'état
+  // où elles étaient — toutes les sections de choix, tous les sandwichs.
+  // À appeler quand la promo change, depuis une migration portant un nouveau
+  // nom : le drapeau de celles-ci empêche de les rejouer.
+  //
+  // Les sauces ajoutées ne sont pas retirées : elles manquaient à la promo
+  // d'origine, ce n'était pas un effet de la restriction au kebab.
+  async restorePromoSandwiches() {
+    try {
+      console.log('🔄 Promos : rétablissement de tous les sandwichs...');
+
+      const snapshot = await getDocs(collection(db, this.collectionName));
+      let updatedCount = 0;
+
+      for (const docSnap of snapshot.docs) {
+        const data = docSnap.data();
+        const sectionBackup = data[PROMO_SECTION_BACKUP] || {};
+        const optionsBackup = data[PROMO_SANDWICH_BACKUP] || {};
+        if (!Object.keys(sectionBackup).length && !Object.keys(optionsBackup).length) continue;
+
+        const updatedSections = { ...(data.customizationOptions || {}) };
+
+        // Sections entièrement supprimées : la sauvegarde porte déjà les
+        // options d'origine, on la repose telle quelle
+        Object.entries(sectionBackup).forEach(([key, section]) => {
+          updatedSections[key] = section;
+        });
+
+        // Sections encore présentes mais réduites au kebab
+        Object.entries(optionsBackup).forEach(([key, options]) => {
+          if (!updatedSections[key] || sectionBackup[key]) return;
+          updatedSections[key] = { ...updatedSections[key], options };
+        });
+
+        await updateDoc(doc(db, this.collectionName, docSnap.id), {
+          customizationOptions: updatedSections,
+          [PROMO_SANDWICH_BACKUP]: deleteField(),
+          [PROMO_SECTION_BACKUP]: deleteField(),
+          updatedAt: serverTimestamp()
+        });
+        updatedCount++;
+        console.log(`✅ Sandwichs rétablis : ${data.name}`);
+      }
+
+      console.log(`✅ Promos rétablies : ${updatedCount}`);
+      return { success: true, updatedCount };
+    } catch (error) {
+      console.error('❌ Erreur rétablissement sandwichs promos:', error);
       return { success: false, error: error.message };
     }
   }

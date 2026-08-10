@@ -175,6 +175,25 @@ export const OrderProvider = ({ children }) => {
     });
   }, [isFirstOrder]);
 
+  // Article offert par une récompense de fidélité (voir LoyaltyContext).
+  //
+  // L'ajout est idempotent : le panier vit en mémoire alors que la récompense
+  // est enregistrée sur le profil, et l'écran du panier rejoue l'ajout au
+  // démarrage pour reconstruire la ligne perdue. Une même récompense ne doit
+  // jamais produire deux articles.
+  const addRewardItem = (rewardItem) => {
+    if (!rewardItem?.rewardId) return;
+
+    setOrderItems(prevItems => {
+      if (prevItems.some(item => item.rewardId === rewardItem.rewardId)) return prevItems;
+      return [...prevItems, { ...rewardItem, cartLineId: getCartLineId(rewardItem), quantity: 1 }];
+    });
+  };
+
+  const removeRewardItem = (rewardId) => {
+    setOrderItems(prevItems => prevItems.filter(item => item.rewardId !== rewardId));
+  };
+
   // Supprimer le cheese offert si le panier est vidé
   const removeFirstOrderCheese = () => {
     setOrderItems(prevItems => prevItems.filter(item => item.id !== FIRST_ORDER_GIFT_ID));
@@ -289,20 +308,25 @@ export const OrderProvider = ({ children }) => {
     
     setOrderType(orderMode);
     
-    // Ajouter tous les articles de la commande précédente
-    const itemsToAdd = previousOrder.items.map(item => {
-      const rebuilt = {
-        id: item.id || `item_${Date.now()}_${Math.random()}`,
-        name: item.name,
-        price: item.price,
-        size: item.size,
-        quantity: item.quantity,
-        image: item.image || null, // Inclure l'image du produit
-        description: item.description || ''
-      };
+    // Ajouter les articles de la commande précédente, sans les articles offerts :
+    // un cadeau de bienvenue ou une récompense de fidélité vaut pour la commande
+    // qui l'a gagné. Les remettre au panier les redonnerait gratuitement, sans
+    // première commande et sans dépenser le moindre point.
+    const itemsToAdd = previousOrder.items
+      .filter(item => !item.isLoyaltyReward && !item.isFirstOrderGift)
+      .map(item => {
+        const rebuilt = {
+          id: item.id || `item_${Date.now()}_${Math.random()}`,
+          name: item.name,
+          price: item.price,
+          size: item.size,
+          quantity: item.quantity,
+          image: item.image || null, // Inclure l'image du produit
+          description: item.description || ''
+        };
 
-      return { ...rebuilt, cartLineId: getCartLineId(rebuilt) };
-    });
+        return { ...rebuilt, cartLineId: getCartLineId(rebuilt) };
+      });
 
     setOrderItems(itemsToAdd);
   };
@@ -333,7 +357,10 @@ export const OrderProvider = ({ children }) => {
     getFirstOrderCheese,
     firstOrderCheeseAdded,
     updateItemCustomizations,
-    sauceOptions
+    sauceOptions,
+    // Récompenses de fidélité
+    addRewardItem,
+    removeRewardItem
   };
 
   return (

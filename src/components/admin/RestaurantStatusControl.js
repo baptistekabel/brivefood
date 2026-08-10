@@ -150,7 +150,14 @@ export default function RestaurantStatusControl({ style }) {
           onPress: async () => {
             try {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              await restaurantStatusService.clearOverride();
+              // Le retour au mode automatique s'écrit dans Firestore : une
+              // écriture ratée laissait le restaurant forcé pour tout le monde
+              // alors que l'écran annonçait le contraire
+              const result = await restaurantStatusService.clearOverride();
+              if (!result?.success) {
+                Alert.alert('Erreur', 'Impossible de revenir au mode automatique');
+                return;
+              }
               Alert.alert('Mode automatique', 'Le statut est maintenant géré automatiquement');
             } catch (error) {
               Alert.alert('Erreur', 'Impossible de revenir au mode automatique');
