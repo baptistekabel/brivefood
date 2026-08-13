@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Brive Food",
-    "slug": "brivefood-app",
+    "slug": "brivefood",
     "version": "1.0.28",
     "orientation": "default",
     "icon": "./assets/images/logoBrivefood.png",
@@ -108,10 +108,10 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "8fd04f98-e494-4ab6-a320-b353199c6e43"
+        "projectId": "6210b974-01ea-4015-9d23-ec6bb0cd3c90"
       },
       "router": {}
     },
-    "owner": "thecheatcode"
+    "owner": "baptistekabel"
   }
 }
