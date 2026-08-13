@@ -152,11 +152,19 @@ export const expandTicketItems = (items) => {
   return expanded;
 };
 
-// Espace chaque chiffre du téléphone : « 07 69 01 29 55 » lisible à la
-// volée en cuisine plutôt qu'un bloc de dix chiffres collés.
+// Groupe les chiffres du téléphone 2 par 2 : « 07 69 01 29 55 » lisible à la
+// volée en cuisine plutôt qu'un bloc de dix chiffres collés ou que chaque
+// chiffre isolé. Le préfixe international +33 est ramené au format local.
 export const formatTicketPhone = (phone) => {
   if (!phone) return '';
-  return String(phone).replace(/(\d)(?=\d)/g, '$1 ');
+  let digits = String(phone).replace(/\D/g, '');
+  // « +33 6 12 34 56 78 » → « 0612345678 » pour garder des paires alignées
+  const international = String(phone).trim().startsWith('+33') || digits.startsWith('0033');
+  if (international) {
+    digits = '0' + digits.replace(/^0033/, '').replace(/^33/, '');
+  }
+  const pairs = digits.match(/\d{1,2}/g);
+  return pairs ? pairs.join(' ') : '';
 };
 
 export const getTicketItemNote = (item) => item.comment || item.comments || null;

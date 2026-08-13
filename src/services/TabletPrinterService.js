@@ -2,6 +2,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import bluetoothPrinterService from './BluetoothPrinterService';
+import { formatTicketPhone } from '../utils/ticketFormat';
 
 class TabletPrinterService {
   constructor() {
@@ -420,7 +421,7 @@ class TabletPrinterService {
 
         <div class="order-info">
           <div class="bold">CLIENT: ${order.customerName || 'Anonyme'}</div>
-          ${order.phone ? `<div class="bold">TEL: ${order.phone}</div>` : ''}
+          ${order.phone ? `<div class="bold">TEL: ${formatTicketPhone(order.phone)}</div>` : ''}
         </div>
         <div class="line"></div>
 

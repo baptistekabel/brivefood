@@ -90,6 +90,52 @@ export const ProductsProvider = ({ children }) => {
             'removePromoSandwichChoiceSections',
             () => productService.removePromoSandwichChoiceSections()
           );
+          // La promo ne propose plus que le kebab : le nom et la description
+          // doivent le dire (« 5 Américains Kebab » au lieu de « au choix »)
+          await productService.runMigrationOnce(
+            'addKebabToPromoAmericains',
+            () => productService.addKebabToPromoAmericains()
+          );
+          // Le Bissap (canette 33 cl à +2 €) n'a pas sa place dans le choix
+          // de grande bouteille des promos
+          await productService.runMigrationOnce(
+            'removeBissapFromPromos',
+            () => productService.removeBissapFromPromos()
+          );
+          // La promo burgers n'offrait aucun choix de sauce, contrairement
+          // aux burgers vendus à la carte
+          await productService.runMigrationOnce(
+            'addSauceChoiceToPromoBurgers',
+            () => productService.addSauceChoiceToPromoBurgers()
+          );
+          // La description de la promo américains reprend la composition de
+          // la carte : viande kebab, salade, tomate, oignon
+          await productService.runMigrationOnce(
+            'detailPromoAmericainsComposition',
+            () => productService.detailPromoAmericainsComposition()
+          );
+          // Gaufres / pizza dessert : suppléments sélectionnables plusieurs
+          // fois, chantilly pizza dessert à 1,50 €, topping Nutella ajouté
+          await productService.runMigrationOnce(
+            'updateGaufresPizzaDessertSupplements',
+            () => productService.updateGaufresPizzaDessertSupplements()
+          );
+          // Inventaire août 2026 : boissons arrêtées (Coca Vanille, Fanta Citron,
+          // Fanta Tropical, Oasis Pomme Poire, Sprite, Fuze Tea Pêche,
+          // Ice Tea Tropical, Tropico) retirées du catalogue et des menus
+          const discontinuedDrinks = await productService.runMigrationOnce(
+            'removeDiscontinuedDrinksAug2026',
+            () => productService.removeDiscontinuedDrinksAug2026()
+          );
+          if (discontinuedDrinks && discontinuedDrinks.updatedCount > 0) {
+            const refreshedAfterDrinks = await productService.getAllProducts();
+            if (refreshedAfterDrinks.success && refreshedAfterDrinks.products.length > 0) {
+              setProducts(refreshedAfterDrinks.products);
+              setProductsByCategory(
+                productService.organizeProductsByCategory(refreshedAfterDrinks.products)
+              );
+            }
+          }
 
           // Verrou global : si toutes les migrations sont déjà passées, on saute
           // le bloc entier (1 lecture au lieu de 35, et aucun risque qu'une

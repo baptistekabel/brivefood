@@ -29,6 +29,7 @@ import LoadingScreen from '../src/components/common/LoadingScreen';
 import ProductImage from '../src/components/common/ProductImage';
 import { getOrderDisplayNumber } from '../src/utils/serviceDay';
 import { sortCustomizationEntries } from '../src/utils/categoryUtils';
+import { OrderStatus } from '../src/types';
 
 export default function OrderDetailsScreen() {
   const fontsLoaded = useFonts();
@@ -137,6 +138,10 @@ export default function OrderDetailsScreen() {
       </LinearGradient>
     );
   }
+
+  // Commande annulée par le restaurant : plus de chrono ni de délai, un
+  // bandeau explique la situation et la fenêtre d'annulation n'a plus de sens
+  const isCancelled = activeOrder.status === OrderStatus.CANCELLED;
 
   const getModeIcon = (mode) => {
     switch (mode) {
@@ -374,21 +379,44 @@ export default function OrderDetailsScreen() {
                 </Animated.View>
               </View>
 
+              {/* Commande annulée par le restaurant : le chrono et le délai
+                  n'ont plus de sens, on affiche l'explication à la place */}
+              {isCancelled && (
+                <TouchableOpacity
+                  style={styles.cancelledBanner}
+                  onPress={() => Linking.openURL(RESTAURANT_PHONE_URI)}
+                >
+                  <View style={styles.cancelledBannerHeader}>
+                    <Ionicons name="close-circle" size={20} color="#DC2626" />
+                    <Text style={styles.cancelledBannerTitle}>Commande annulée</Text>
+                  </View>
+                  <Text style={styles.cancelledBannerText}>
+                    Votre commande a été annulée par le restaurant. Si vous avez
+                    une question, appelez le{' '}
+                    <Text style={styles.cancelledBannerPhone}>{RESTAURANT_PHONE}</Text>.
+                  </Text>
+                </TouchableOpacity>
+              )}
+
               <View style={styles.orderInfo}>
                 {/* Chronomètre temps écoulé */}
-                <View style={styles.timerRow}>
-                  <View style={styles.timerContainer}>
-                    <Ionicons name="time" size={16} color={colors.accent.main} />
-                    <Text style={styles.timerText}>{elapsedTime}</Text>
+                {!isCancelled && (
+                  <View style={styles.timerRow}>
+                    <View style={styles.timerContainer}>
+                      <Ionicons name="time" size={16} color={colors.accent.main} />
+                      <Text style={styles.timerText}>{elapsedTime}</Text>
+                    </View>
+                    <Text style={styles.timerSeparator}>•</Text>
+                    <Text style={styles.estimatedTimeText}>~{activeOrder.estimatedTime}</Text>
                   </View>
-                  <Text style={styles.timerSeparator}>•</Text>
-                  <Text style={styles.estimatedTimeText}>~{activeOrder.estimatedTime}</Text>
-                </View>
+                )}
 
-                <View style={styles.infoRow}>
-                  <Ionicons name="hourglass-outline" size={18} color={colors.neutral.gray600} />
-                  <Text style={styles.infoText}>Délai approximatif: ~{activeOrder.estimatedTime}</Text>
-                </View>
+                {!isCancelled && (
+                  <View style={styles.infoRow}>
+                    <Ionicons name="hourglass-outline" size={18} color={colors.neutral.gray600} />
+                    <Text style={styles.infoText}>Délai approximatif: ~{activeOrder.estimatedTime}</Text>
+                  </View>
+                )}
 
                 <View style={styles.infoRow}>
                   <Ionicons name="calendar-outline" size={18} color={colors.neutral.gray600} />
@@ -458,17 +486,20 @@ export default function OrderDetailsScreen() {
                 onPress={handleCompleteOrder}
               >
                 <LinearGradient
-                  colors={['#22C55E', '#16A34A']}
+                  colors={isCancelled ? ['#6B7280', '#4B5563'] : ['#22C55E', '#16A34A']}
                   style={styles.completeButtonGradient}
                 >
                   <Ionicons name="checkmark-circle" size={20} color={colors.neutral.white} />
-                  <Text style={styles.completeButtonText}>Marquer comme terminée</Text>
+                  <Text style={styles.completeButtonText}>
+                    {isCancelled ? 'Fermer cette commande' : 'Marquer comme terminée'}
+                  </Text>
                 </LinearGradient>
               </TouchableOpacity>
 
               {/* L'annulation passe uniquement par un appel, et seulement
-                  pendant les premières minutes : ensuite la cuisine a démarré */}
-              {cancelRemainingMs > 0 ? (
+                  pendant les premières minutes : ensuite la cuisine a démarré.
+                  Commande déjà annulée : ces encarts n'ont plus de raison d'être */}
+              {isCancelled ? null : cancelRemainingMs > 0 ? (
                 <TouchableOpacity
                   style={styles.cancelWindowBox}
                   onPress={() => Linking.openURL(RESTAURANT_PHONE_URI)}
@@ -856,6 +887,37 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   // Fenêtre d'annulation encore ouverte
+  // Commande annulée par le restaurant
+  cancelledBanner: {
+    marginBottom: spacing.md,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+  },
+  cancelledBannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  cancelledBannerTitle: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.bold,
+    color: '#DC2626',
+  },
+  cancelledBannerText: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.medium,
+    color: '#991B1B',
+    lineHeight: 19,
+  },
+  cancelledBannerPhone: {
+    fontFamily: typography.fontFamily.bold,
+    color: '#DC2626',
+  },
+
   cancelWindowBox: {
     marginTop: spacing.sm,
     padding: spacing.md,

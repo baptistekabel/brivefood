@@ -77,9 +77,7 @@ export default function CartScreen() {
     removeItem,
     addItem,
     clearOrder,
-    markAsHasOrdered,
     updateItemCustomizations,
-    sauceOptions,
     addRewardItem,
     removeRewardItem,
   } = useOrder();
@@ -635,6 +633,23 @@ export default function CartScreen() {
   };
 
   const performCheckout = async () => {
+    // Mode invité : un profil est nécessaire pour commander (suivi, notifications,
+    // fidélité). Le panier est conservé pendant la création du compte.
+    if (!isAuthenticated) {
+      console.log('BLOCKED: Guest user - profile required to order');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert(
+        'Profil requis',
+        'Créez un profil ou connectez-vous pour passer votre commande. Votre panier sera conservé.',
+        [
+          { text: 'Annuler', style: 'cancel' },
+          { text: 'Se connecter', onPress: () => router.push('/auth/login') },
+          { text: 'Créer un profil', onPress: () => router.push('/auth/register') },
+        ]
+      );
+      return;
+    }
+
     console.log('=== DEBUG CHECKOUT ===');
     console.log('orderItems.length:', orderItems.length);
     console.log('orderMode:', orderMode);
@@ -794,9 +809,6 @@ export default function CartScreen() {
     const result = await createOrder(orderData);
 
     if (result.success) {
-      // Marquer que l'utilisateur a commandé (pour la promo première commande)
-      await markAsHasOrdered();
-
       // Confirmer l'utilisation des récompenses avec le numéro de commande
       // Une seule écriture pour toutes les récompenses : confirmées une par une,
       // chaque appel repartait du profil figé au rendu et annulait le précédent
@@ -1014,61 +1026,9 @@ export default function CartScreen() {
     );
   };
 
-  // Choix d'une option directement depuis le panier, réservé au cadeau de
-  // bienvenue : les produits payants se personnalisent depuis leur fiche, et
-  // les récompenses de fidélité depuis leur écran de choix.
-  // Même règle de sélection que cet écran (voir toggleOptionSelection).
-  const toggleItemOption = (lineId, groupKey, group, optionId) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const item = orderItems.find(i => i.cartLineId === lineId);
-
-    updateItemCustomizations(lineId, {
-      ...(item?.customizations || {}),
-      [groupKey]: toggleOptionSelection(item?.customizations?.[groupKey], optionId, group)
-    });
-  };
-
-  // Puces de sélection d'un groupe d'options, affichées sous l'article offert
-  const renderItemOptionPicker = (item, groupKey, group) => {
-    const selected = item.customizations?.[groupKey] || [];
-    const incomplete = group.required && selected.length < getGroupMin(group);
-
-    return (
-      <View key={groupKey} style={styles.giftSauceSection}>
-        <Text style={styles.giftSauceTitle}>
-          {incomplete ? `⚠️ Choisissez : ${group.title}` : `${group.title} :`}
-        </Text>
-        <View style={styles.giftSauceGrid}>
-          {(group.options || []).map((option) => {
-            const isSelected = selected.includes(option.id);
-            return (
-              <TouchableOpacity
-                key={option.id}
-                style={[
-                  styles.giftSauceChip,
-                  isSelected && styles.giftSauceChipSelected
-                ]}
-                onPress={() => toggleItemOption(item.cartLineId, groupKey, group, option.id)}
-              >
-                <Text style={[
-                  styles.giftSauceChipText,
-                  isSelected && styles.giftSauceChipTextSelected
-                ]}>
-                  {option.name}{option.price > 0 ? ` +${option.price.toFixed(2)}€` : ''}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-    );
-  };
-
   const renderCartItem = ({ item }) => {
     const customizationDetails = formatCustomizations(item.customizations, item.customizationOptions);
-    const isGiftCheese = item.isFirstOrderGift === true;
     const isRewardItem = item.isLoyaltyReward === true;
-    const giftSauceOptions = isGiftCheese ? (item.customizationOptions?.sauce || sauceOptions?.sauce) : null;
 
     return (
       <View key={item.cartLineId} style={styles.cartItem}>
@@ -1124,14 +1084,10 @@ export default function CartScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Sélecteur de sauce pour le petit cheese offert */}
-        {isGiftCheese && giftSauceOptions &&
-          renderItemOptionPicker(item, 'sauce', giftSauceOptions)}
-
         {/* Section personnalisations. Un article de récompense affiche ici les
             choix faits avant l'ajout : ils ne se modifient plus sur place, il
             faut retirer la récompense et la reprendre. */}
-        {customizationDetails && !isGiftCheese && (
+        {customizationDetails && (
           <View style={styles.customizationDetails}>
             <Text style={styles.customizationTitle}>Personnalisations :</Text>
             {customizationDetails.map((category, index) => (

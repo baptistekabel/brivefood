@@ -836,7 +836,7 @@ export default function CategoryScreen() {
                         );
                       })()}
                       {/* Afficher le compteur pour les catégories multi-select (ex: viande pizzdwich) */}
-                      {category.multiSelect === true && (category.maxSelections || category.maxSelection) > 1 && !(categoryKey === 'viandes' && product.sizes) && (() => {
+                      {(category.multiSelect === true || category.allowQuantity === true) && (category.maxSelections || category.maxSelection) > 1 && !(categoryKey === 'viandes' && product.sizes) && (() => {
                         const maxSel = category.maxSelections || category.maxSelection;
                         const selectedCount = selectedOptions.length;
                         return (
@@ -899,10 +899,11 @@ export default function CategoryScreen() {
                         ? getViandesLimitForSize(selectedSizes[product.id], maxSelectLimit || 4)
                         : maxSelectLimit;
 
-                      // Catégories viande/viandes en sélection multiple : autoriser
-                      // plusieurs fois la même viande via un stepper +/- au lieu
-                      // d'une simple case à cocher.
-                      const isMeatQuantityCategory = (categoryKey === 'viande' || categoryKey === 'viandes') && !isSingleSelect;
+                      // Catégories viande/viandes en sélection multiple, ou toute
+                      // section marquée allowQuantity (ex: toppings des gaufres et
+                      // pizzas dessert) : autoriser plusieurs fois la même option
+                      // via un stepper +/- au lieu d'une simple case à cocher.
+                      const isMeatQuantityCategory = (categoryKey === 'viande' || categoryKey === 'viandes' || category.allowQuantity === true) && !isSingleSelect;
 
                       if (isMeatQuantityCategory) {
                         const quantity = selectedOptions ? selectedOptions.filter(id => id === optionId).length : 0;

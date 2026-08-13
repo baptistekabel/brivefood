@@ -23,18 +23,28 @@ export default function EditCustomizationModal({ visible, onClose, product, onSa
   // Charger les personnalisations existantes
   useEffect(() => {
     if (visible && product?.customizationOptions) {
-      const loaded = Object.entries(product.customizationOptions).filter(([, v]) => v != null).map(([key, data]) => ({
-        id: key,
-        title: data.title || '',
-        subtitle: data.subtitle || '',
-        required: data.required || false,
-        maxSelections: data.maxSelections?.toString() || '1',
-        options: data.options?.map((opt, idx) => ({
-          id: opt.id || `opt_${idx}`,
-          name: opt.name || '',
-          price: opt.price?.toString() || '0',
-        })) || [],
-      }));
+      const loaded = Object.entries(product.customizationOptions).filter(([, v]) => v != null).map(([key, data]) => {
+        // Conserver les champs que cet éditeur ne gère pas (minSelections,
+        // multiSelect, allowQuantity...) pour ne pas les perdre à la sauvegarde
+        const { title, subtitle, required, maxSelections, options, ...extraFields } = data;
+        return {
+          id: key,
+          title: title || '',
+          subtitle: subtitle || '',
+          required: required || false,
+          maxSelections: maxSelections?.toString() || '1',
+          extraFields,
+          options: options?.map((opt, idx) => {
+            const { id, name, price, ...optExtraFields } = opt;
+            return {
+              id: id || `opt_${idx}`,
+              name: name || '',
+              price: price?.toString() || '0',
+              extraFields: optExtraFields,
+            };
+          }) || [],
+        };
+      });
       setCustomizations(loaded);
     } else if (visible) {
       // Nouveau produit sans personnalisations
@@ -140,11 +150,13 @@ export default function EditCustomizationModal({ visible, onClose, product, onSa
       const customizationOptions = {};
       customizations.forEach(group => {
         customizationOptions[group.id] = {
+          ...(group.extraFields || {}),
           title: group.title.trim(),
           subtitle: group.subtitle.trim(),
           required: group.required,
           maxSelections: parseInt(group.maxSelections) || 1,
           options: group.options.map(opt => ({
+            ...(opt.extraFields || {}),
             id: opt.id,
             name: opt.name.trim(),
             price: parseFloat(opt.price) || 0,

@@ -420,6 +420,11 @@ export default function OrdersScreen() {
     router.push('/auth/login');
   };
 
+  const handleRegister = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    router.push('/auth/register');
+  };
+
   // Si l'utilisateur n'est pas authentifié, afficher l'écran de connexion
   if (!isAuthenticated) {
     return (
@@ -435,17 +440,22 @@ export default function OrdersScreen() {
 
         <View style={styles.loginPrompt}>
           <Ionicons name="receipt-outline" size={80} color={colors.neutral.gray300} />
-          <Text style={styles.loginTitle}>Connexion requise</Text>
+          <Text style={styles.loginTitle}>Profil requis</Text>
           <Text style={styles.loginMessage}>
-            Connectez-vous pour voir vos commandes et suivre leur statut
+            Créez un profil pour commander et suivre vos commandes en temps réel
           </Text>
-          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+          <TouchableOpacity style={styles.loginButton} onPress={handleRegister}>
             <LinearGradient
               colors={[colors.secondary.main, colors.secondary.dark || '#E65100']}
               style={styles.loginButtonGradient}
             >
-              <Text style={styles.loginButtonText}>Se connecter</Text>
+              <Text style={styles.loginButtonText}>Créer un profil</Text>
             </LinearGradient>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.loginLink} onPress={handleLogin}>
+            <Text style={styles.loginLinkText}>
+              Déjà un compte ? <Text style={styles.loginLinkBold}>Se connecter</Text>
+            </Text>
           </TouchableOpacity>
         </View>
       </LinearGradient>
@@ -720,6 +730,19 @@ const styles = StyleSheet.create({
   },
   loginButtonText: {
     fontSize: typography.fontSizes.lg,
+    fontFamily: typography.fontFamily.semibold,
+    color: colors.neutral.white,
+  },
+  loginLink: {
+    marginTop: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  loginLinkText: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.regular,
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
+  loginLinkBold: {
     fontFamily: typography.fontFamily.semibold,
     color: colors.neutral.white,
   },

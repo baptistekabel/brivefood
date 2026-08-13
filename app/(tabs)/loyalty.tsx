@@ -14,6 +14,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import useFonts from '../../src/hooks/useFonts';
 import LoadingScreen from '../../src/components/common/LoadingScreen';
@@ -246,10 +247,37 @@ export default function LoyaltyScreen() {
           <StatusBar style="light" />
           <View style={styles.unauthenticatedContainer}>
             <Ionicons name="star-outline" size={80} color="rgba(255,255,255,0.3)" />
-            <Text style={styles.unauthenticatedTitle}>Connectez-vous</Text>
+            <Text style={styles.unauthenticatedTitle}>Profil requis</Text>
             <Text style={styles.unauthenticatedText}>
-              Connectez-vous pour accéder à votre programme de fidélité
+              Créez un profil pour cumuler des points de fidélité et débloquer
+              des récompenses
             </Text>
+            <TouchableOpacity
+              style={styles.createProfileButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                router.push('/auth/register');
+              }}
+            >
+              <LinearGradient
+                colors={[colors.secondary.main, colors.secondary.dark]}
+                style={styles.createProfileGradient}
+              >
+                <Ionicons name="person-add-outline" size={20} color={colors.neutral.white} />
+                <Text style={styles.createProfileText}>Créer un profil</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.loginLink}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/auth/login');
+              }}
+            >
+              <Text style={styles.loginLinkText}>
+                Déjà un compte ? <Text style={styles.loginLinkBold}>Se connecter</Text>
+              </Text>
+            </TouchableOpacity>
           </View>
         </LinearGradient>
       </View>
@@ -948,6 +976,37 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.8)',
     textAlign: 'center',
     lineHeight: typography.fontSizes.base * 1.5,
+  },
+  createProfileButton: {
+    borderRadius: borderRadius.lg,
+    marginTop: spacing.xl,
+  },
+  createProfileGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: borderRadius.lg,
+  },
+  createProfileText: {
+    fontSize: typography.fontSizes.lg,
+    fontFamily: typography.fontFamily.semibold,
+    color: colors.neutral.white,
+  },
+  loginLink: {
+    marginTop: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  loginLinkText: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.regular,
+    color: 'rgba(255,255,255,0.7)',
+  },
+  loginLinkBold: {
+    fontFamily: typography.fontFamily.semibold,
+    color: colors.neutral.white,
   },
 
   // Styles pour les emojis flottants

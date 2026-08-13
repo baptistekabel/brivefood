@@ -13,6 +13,7 @@ import {
   reauthenticateWithCredential
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { Alert } from 'react-native';
 import * as Notifications from 'expo-notifications';
@@ -23,6 +24,9 @@ import { registerCustomerForBroadcast, removeCustomerFromBroadcast } from '../se
 import { getExpoProjectId } from '../utils/pushProject';
 
 const AuthContext = createContext({});
+
+// Clé de persistance du mode invité (survit au redémarrage de l'app)
+const GUEST_MODE_KEY = '@guestMode';
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -99,6 +103,18 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isGuest, setIsGuest] = useState(false);
+
+  // Restaurer le mode invité choisi lors d'une session précédente
+  useEffect(() => {
+    AsyncStorage.getItem(GUEST_MODE_KEY)
+      .then(value => {
+        if (value === 'true') {
+          setIsGuest(true);
+        }
+      })
+      .catch(error => console.log('Erreur lecture mode invité:', error));
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -106,6 +122,12 @@ export const AuthProvider = ({ children }) => {
       setUser(user);
 
       if (user) {
+        // Un utilisateur connecté n'est plus un invité
+        setIsGuest(false);
+        AsyncStorage.removeItem(GUEST_MODE_KEY).catch(error =>
+          console.log('Erreur suppression mode invité:', error)
+        );
+
         try {
           // Récupérer le profil utilisateur depuis Firestore
           console.log('Fetching user profile for:', user.uid);
@@ -332,6 +354,30 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Continuer sans compte : l'utilisateur peut parcourir le menu, mais les
+  // actions nécessitant un profil (commander, fidélité, etc.) le redirigent
+  // vers la création de compte
+  const continueAsGuest = async () => {
+    try {
+      await AsyncStorage.setItem(GUEST_MODE_KEY, 'true');
+      setIsGuest(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  };
+
+  const exitGuestMode = async () => {
+    try {
+      await AsyncStorage.removeItem(GUEST_MODE_KEY);
+      setIsGuest(false);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  };
+
   const logout = async () => {
     try {
       // Supprimer le token du broadcast si c'est un client
@@ -476,6 +522,9 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
+    isGuest,
+    continueAsGuest,
+    exitGuestMode,
     updateUserProfile,
     resendEmailVerification,
     resetPassword,

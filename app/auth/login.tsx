@@ -25,7 +25,7 @@ import { isTablet, isLandscape, getResponsiveStyles } from '../../src/utils/devi
 
 export default function LoginScreen() {
   const fontsLoaded = useFonts();
-  const { login } = useAuth();
+  const { login, continueAsGuest } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -223,6 +223,12 @@ export default function LoginScreen() {
   const handleGoToRegister = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push('/auth/register');
+  };
+
+  const handleContinueAsGuest = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    await continueAsGuest();
+    router.replace('/(tabs)');
   };
 
   return (
@@ -471,6 +477,17 @@ export default function LoginScreen() {
                       <Text style={[styles.registerLink, styles.registerLinkTablet]}>S'inscrire</Text>
                     </TouchableOpacity>
                   </View>
+
+                  {/* Guest Mode */}
+                  <TouchableOpacity
+                    style={[styles.guestButton, styles.guestButtonTablet]}
+                    onPress={handleContinueAsGuest}
+                  >
+                    <Ionicons name="person-outline" size={20} color={colors.neutral.gray600} />
+                    <Text style={[styles.guestButtonText, styles.guestButtonTextTablet]}>
+                      Continuer en tant qu'invité
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             </View>
@@ -565,6 +582,12 @@ export default function LoginScreen() {
                       <Text style={styles.registerLink}>S'inscrire</Text>
                     </TouchableOpacity>
                   </View>
+
+                  {/* Guest Mode */}
+                  <TouchableOpacity style={styles.guestButton} onPress={handleContinueAsGuest}>
+                    <Ionicons name="person-outline" size={18} color={colors.neutral.gray600} />
+                    <Text style={styles.guestButtonText}>Continuer en tant qu'invité</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
 
@@ -773,6 +796,20 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.semibold,
     color: '#000000',
   },
+  guestButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  guestButtonText: {
+    fontSize: typography.fontSizes.base,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray600,
+    textDecorationLine: 'underline',
+  },
   adminSection: {
     marginTop: spacing.lg,
     paddingHorizontal: spacing.lg,
@@ -980,5 +1017,12 @@ const styles = StyleSheet.create({
   registerLinkTablet: {
     fontSize: typography.fontSizes.lg,
     fontFamily: typography.fontFamily.bold,
+  },
+  guestButtonTablet: {
+    marginTop: spacing.xl,
+    paddingVertical: spacing.md,
+  },
+  guestButtonTextTablet: {
+    fontSize: typography.fontSizes.lg,
   },
 });

@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform, PermissionsAndroid } from 'react-native';
+import { formatTicketPhone } from '../utils/ticketFormat';
 
 // Storage keys
 const STORAGE_KEYS = {
@@ -406,7 +407,7 @@ class BluetoothPrinterServiceV2 {
       ticket += COMMANDS.BOLD_OFF;
 
       if (order.phone) {
-        ticket += `TEL: ${order.phone}\n`;
+        ticket += `TEL: ${formatTicketPhone(order.phone)}\n`;
       }
 
       ticket += '--------------------------------\n';

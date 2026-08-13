@@ -178,6 +178,8 @@ export default function ActiveOrderWidget({ onPress }) {
     }
   };
 
+  const isCancelled = activeOrder.status === OrderStatus.CANCELLED;
+
   const getModeIcon = (mode) => {
     switch (mode) {
       case 'dine_in':
@@ -245,19 +247,26 @@ export default function ActiveOrderWidget({ onPress }) {
                 </View>
               </View>
 
-              <View style={styles.timeRow}>
-                <Ionicons name="time-outline" size={14} color={colors.accent.main} />
-                <Text style={styles.elapsedTimeText}>{elapsedTime}</Text>
-                <Text style={styles.timeSeparator}>•</Text>
-                <Text style={styles.timeText}>~{activeOrder.estimatedTime}</Text>
-              </View>
+              {isCancelled ? (
+                <View style={styles.timeRow}>
+                  <Ionicons name="close-circle" size={14} color="#EF4444" />
+                  <Text style={styles.cancelledText}>Annulée par le restaurant</Text>
+                </View>
+              ) : (
+                <View style={styles.timeRow}>
+                  <Ionicons name="time-outline" size={14} color={colors.accent.main} />
+                  <Text style={styles.elapsedTimeText}>{elapsedTime}</Text>
+                  <Text style={styles.timeSeparator}>•</Text>
+                  <Text style={styles.timeText}>~{activeOrder.estimatedTime}</Text>
+                </View>
+              )}
             </View>
 
             {/* Section droite - Total et action */}
             <View style={styles.rightSection}>
               <Text style={styles.totalAmount}>{activeOrder.total.toFixed(2)}€</Text>
               <View style={styles.actionHint}>
-                <Text style={styles.actionText}>Suivre</Text>
+                <Text style={styles.actionText}>{isCancelled ? 'Détails' : 'Suivre'}</Text>
                 <Ionicons name="chevron-forward" size={16} color={colors.accent.main} />
               </View>
             </View>
@@ -366,6 +375,11 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.sm,
     fontFamily: typography.fontFamily.bold,
     color: colors.accent.main,
+  },
+  cancelledText: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.bold,
+    color: '#EF4444',
   },
   timeSeparator: {
     fontSize: typography.fontSizes.sm,

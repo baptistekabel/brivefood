@@ -10,7 +10,7 @@ import * as SplashScreen from 'expo-splash-screen';
 SplashScreen.preventAutoHideAsync();
 
 export default function AppEntry() {
-  const { user, userProfile, loading, isEmailVerified } = useAuth();
+  const { user, userProfile, loading, isEmailVerified, isGuest } = useAuth();
   const {
     user: adminUser,
     userProfile: adminProfile,
@@ -117,6 +117,12 @@ export default function AppEntry() {
 
   // Navigation finale
   if (!currentUser) {
+    // Mode invité : accès à l'app sans compte, les actions nécessitant un
+    // profil redirigeront vers la création de compte
+    if (isGuest) {
+      console.log('🚀 Guest mode active - redirecting to main app');
+      return <Redirect href="/(tabs)" />;
+    }
     console.log('🚀 No user found - redirecting to login');
     return <Redirect href="/auth/login" />;
   }

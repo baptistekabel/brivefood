@@ -199,12 +199,60 @@ class CustomerNotificationService {
             return await this.notifyCustomerOrderReady(orderId, 'Votre commande est prête à être servie! 🍽️');
           }
           break;
+        case 'cancelled':
+          return await this.notifyCustomerOrderCancelled(orderId);
         default:
           console.log(`ℹ️ Pas de notification client pour le statut: ${newStatus}`);
           return false;
       }
     } catch (error) {
       console.error('❌ Erreur notification changement statut:', error);
+      return false;
+    }
+  }
+
+  // Notifier que la commande est annulée par le restaurant.
+  // Note : le client affiche de toute façon sa propre notification locale en
+  // voyant le statut changer dans Firestore (voir ActiveOrderContext) — cet
+  // envoi ne fonctionne que si le token de la commande est connu de l'appareil.
+  async notifyCustomerOrderCancelled(orderId) {
+    try {
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
+
+      const tokenData = this.customerTokens.get(orderId);
+      if (!tokenData) {
+        console.warn(`⚠️ Aucun token trouvé pour la commande ${orderId}`);
+        return false;
+      }
+
+      const title = '❌ Commande annulée';
+      const body = `Commande #${orderId} - Votre commande a été annulée par le restaurant. Appelez-le pour toute question.`;
+
+      const notificationData = {
+        type: 'order_cancelled',
+        orderId,
+        orderStatus: 'cancelled',
+      };
+
+      const result = await notificationService.sendPushNotification(
+        tokenData.token,
+        title,
+        body,
+        notificationData
+      );
+
+      if (result) {
+        console.log(`✅ Notification annulation envoyée pour ${orderId}`);
+        // Commande close : le token ne servira plus
+        await this.unregisterCustomerForOrder(orderId);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('❌ Erreur notification annulation:', error);
       return false;
     }
   }

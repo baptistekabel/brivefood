@@ -228,6 +228,124 @@ class ProductService {
     }
   }
 
+  // Promos du moment : préciser « Kebab » dans le nom et la description.
+  //
+  // Depuis que la promo ne propose plus que le sandwich kebab, l'intitulé
+  // « 5 Américains au choix » induisait le client en erreur : il n'y a plus
+  // de choix, ce sont des américains kebab.
+  async addKebabToPromoAmericains() {
+    try {
+      console.log('🔄 Promos : mention « Kebab » sur la promo américains...');
+
+      const snapshot = await getDocs(collection(db, this.collectionName));
+      let updatedCount = 0;
+      let promoFound = false;
+
+      for (const docSnap of snapshot.docs) {
+        const data = docSnap.data();
+        if (data.category !== ProductCategory.PROMOS) continue;
+        if (!/am[ée]ricains?/i.test(data.name || '')) continue;
+        promoFound = true;
+
+        // Déjà précisé (ou renommé depuis l'admin) : ne rien écraser
+        if (/kebab/i.test(data.name || '')) continue;
+
+        const updates = {
+          name: data.name.replace(/(Am[ée]ricains?)/i, '$1 Kebab'),
+        };
+
+        if (data.description) {
+          // « américains au choix » n'a plus de sens : seul le kebab reste
+          updates.description = /am[ée]ricains?\s+au\s+choix/i.test(data.description)
+            ? data.description.replace(/(am[ée]ricains?)\s+au\s+choix/i, '$1 kebab')
+            : data.description.replace(/(am[ée]ricains?)/i, '$1 kebab');
+        }
+
+        await updateDoc(doc(db, this.collectionName, docSnap.id), {
+          ...updates,
+          updatedAt: serverTimestamp()
+        });
+        updatedCount++;
+        console.log(`✅ Promo renommée : ${updates.name}`);
+      }
+
+      // Aucune promo américains en base : on ne pose pas le drapeau, la
+      // migration s'appliquera dès que la promo existera
+      if (!promoFound) {
+        console.warn('⚠️ Aucune promo américains trouvée, migration reportée');
+        return { success: false, updatedCount: 0, error: 'Aucune promo trouvée' };
+      }
+
+      console.log(`✅ Promos renommées : ${updatedCount}`);
+      return { success: true, updatedCount };
+    } catch (error) {
+      console.error('❌ Erreur mention kebab sur la promo:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Promos du moment : retirer le Bissap du choix de bouteille.
+  //
+  // addBissapToDrinks l'a ajouté à TOUTES les sections « boisson », y compris
+  // celles des promos où l'on choisit une grande bouteille : une canette de
+  // 33 cl à +2 € n'y a pas sa place. Il reste vendu à la carte et proposé
+  // dans les menus classiques.
+  async removeBissapFromPromos() {
+    try {
+      console.log('🔄 Promos : retrait du Bissap du choix de bouteille...');
+
+      const snapshot = await getDocs(collection(db, this.collectionName));
+      let updatedCount = 0;
+      let promoFound = false;
+
+      for (const docSnap of snapshot.docs) {
+        const data = docSnap.data();
+        if (data.category !== ProductCategory.PROMOS) continue;
+        promoFound = true;
+
+        const sections = data.customizationOptions;
+        if (!sections) continue;
+
+        const updatedSections = { ...sections };
+        let needsUpdate = false;
+
+        for (const [key, section] of Object.entries(sections)) {
+          if (!Array.isArray(section?.options)) continue;
+
+          const filtered = section.options.filter(
+            opt => opt.id !== 'bissap' && (opt.name || '').toLowerCase() !== 'bissap'
+          );
+          if (filtered.length !== section.options.length) {
+            updatedSections[key] = { ...section, options: filtered };
+            needsUpdate = true;
+          }
+        }
+
+        if (!needsUpdate) continue;
+
+        await updateDoc(doc(db, this.collectionName, docSnap.id), {
+          customizationOptions: updatedSections,
+          updatedAt: serverTimestamp()
+        });
+        updatedCount++;
+        console.log(`✅ Bissap retiré de la promo : ${data.name}`);
+      }
+
+      // Aucune promo en base : on ne pose pas le drapeau, la migration
+      // s'appliquera dès que la promo existera
+      if (!promoFound) {
+        console.warn('⚠️ Aucun produit dans la catégorie promos, migration reportée');
+        return { success: false, updatedCount: 0, error: 'Aucune promo trouvée' };
+      }
+
+      console.log(`✅ Promos nettoyées : ${updatedCount}`);
+      return { success: true, updatedCount };
+    } catch (error) {
+      console.error('❌ Erreur retrait Bissap des promos:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
   // Promos du moment : une sauce au choix pour chaque sandwich.
   //
   // Les promos à plusieurs sandwichs ne proposaient aucune sauce, alors que le
@@ -307,6 +425,145 @@ class ProductService {
       return { success: true, updatedCount };
     } catch (error) {
       console.error('❌ Erreur ajout des sauces aux promos:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Promos du moment : une sauce au choix pour chaque burger.
+  //
+  // La promo burgers n'a aucune section de choix par burger (contrairement à
+  // celle des américains) : le nombre de sections de sauce à poser vient donc
+  // du nom de la promo (« 4 Burgers ... » → 4 sauces). La liste des sauces est
+  // recopiée du Burger Classique de la carte, comme pour les américains.
+  async addSauceChoiceToPromoBurgers() {
+    try {
+      console.log('🔄 Promos : ajout du choix de sauce aux burgers...');
+
+      const snapshot = await getDocs(collection(db, this.collectionName));
+      const docs = snapshot.docs.map(docSnap => ({ ref: docSnap.ref, data: docSnap.data() }));
+
+      // Sauce de référence : celle du Burger Classique de la carte, sinon
+      // n'importe quel burger qui propose des sauces
+      const reference =
+        docs.find(({ data }) =>
+          data.category === ProductCategory.BURGER &&
+          /classique/i.test(data.name || '') &&
+          data.customizationOptions?.sauce
+        ) ||
+        docs.find(({ data }) =>
+          data.category === ProductCategory.BURGER && data.customizationOptions?.sauce
+        );
+
+      if (!reference) {
+        console.warn('⚠️ Aucun burger avec sauce en base, migration reportée');
+        return { success: false, updatedCount: 0, error: 'Sauce de référence introuvable' };
+      }
+
+      const referenceSauce = reference.data.customizationOptions.sauce;
+      let updatedCount = 0;
+      let promoFound = false;
+
+      for (const { ref, data } of docs) {
+        if (data.category !== ProductCategory.PROMOS) continue;
+        if (!/burgers?/i.test(data.name || '')) continue;
+        promoFound = true;
+
+        const sections = data.customizationOptions || {};
+        if (sections.sauceBurger1) continue; // déjà posées
+
+        // « 4 Burgers Classiques + ... » → 4 sections de sauce
+        const count = parseInt(/(\d+)\s*burgers?/i.exec(data.name || '')?.[1], 10);
+        if (!count || count > 10) {
+          console.warn(`⚠️ Nombre de burgers illisible dans « ${data.name} », promo ignorée`);
+          continue;
+        }
+
+        // Les sauces d'abord, le choix de bouteille (sections existantes) ensuite
+        const updatedSections = {};
+        for (let i = 1; i <= count; i += 1) {
+          updatedSections[`sauceBurger${i}`] = {
+            ...referenceSauce,
+            title: `Sauce Burger ${i}`,
+            subtitle: referenceSauce.subtitle || 'Choisissez-en de 1 à 2.',
+            required: true,
+          };
+        }
+        Object.entries(sections).forEach(([key, section]) => {
+          updatedSections[key] = section;
+        });
+
+        await updateDoc(ref, {
+          customizationOptions: updatedSections,
+          updatedAt: serverTimestamp()
+        });
+        updatedCount++;
+        console.log(`✅ ${count} sauces ajoutées : ${data.name}`);
+      }
+
+      // Aucune promo burgers en base : on ne pose pas le drapeau, la
+      // migration s'appliquera dès que la promo existera
+      if (!promoFound) {
+        console.warn('⚠️ Aucune promo burgers trouvée, migration reportée');
+        return { success: false, updatedCount: 0, error: 'Aucune promo trouvée' };
+      }
+
+      console.log(`✅ Promos burgers mises à jour : ${updatedCount}`);
+      return { success: true, updatedCount };
+    } catch (error) {
+      console.error('❌ Erreur ajout des sauces aux promos burgers:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Promos du moment : détailler la composition de l'américain kebab.
+  //
+  // « 5 sandwichs américains kebab » ne dit pas ce qu'il y a dedans : on
+  // reprend la composition de la carte (« Kebab, salade, tomate, oignon »)
+  async detailPromoAmericainsComposition() {
+    try {
+      console.log('🔄 Promos : composition détaillée de l\'américain kebab...');
+
+      const snapshot = await getDocs(collection(db, this.collectionName));
+      let updatedCount = 0;
+      let promoFound = false;
+
+      for (const docSnap of snapshot.docs) {
+        const data = docSnap.data();
+        if (data.category !== ProductCategory.PROMOS) continue;
+        if (!/am[ée]ricains?/i.test(data.name || '')) continue;
+        promoFound = true;
+
+        const description = data.description || '';
+        // Déjà détaillée (ou réécrite depuis l'admin) : ne rien écraser
+        if (/salade/i.test(description)) continue;
+
+        const updatedDescription = /kebab/i.test(description)
+          ? description.replace(/(viande\s+kebab|kebab)/i, '$1 (salade, tomate, oignon)')
+          : description
+              .replace(/(am[ée]ricains?)/i, '$1 viande kebab (salade, tomate, oignon)')
+              // Si l'ancien libellé « au choix » traîne encore, il n'a plus de sens
+              .replace(/\s+au\s+choix/i, '');
+
+        if (updatedDescription === description) continue;
+
+        await updateDoc(doc(db, this.collectionName, docSnap.id), {
+          description: updatedDescription,
+          updatedAt: serverTimestamp()
+        });
+        updatedCount++;
+        console.log(`✅ Composition détaillée : ${data.name}`);
+      }
+
+      // Aucune promo américains en base : on ne pose pas le drapeau
+      if (!promoFound) {
+        console.warn('⚠️ Aucune promo américains trouvée, migration reportée');
+        return { success: false, updatedCount: 0, error: 'Aucune promo trouvée' };
+      }
+
+      console.log(`✅ Promos détaillées : ${updatedCount}`);
+      return { success: true, updatedCount };
+    } catch (error) {
+      console.error('❌ Erreur composition promo américains:', error);
       return { success: false, error: error.message };
     }
   }
@@ -3956,6 +4213,187 @@ class ProductService {
       return { success: true, updatedCount };
     } catch (error) {
       console.error('❌ Error in updatePizzaBriocheeNutella:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Migration: gaufres et pizza dessert — les suppléments/toppings deviennent
+  // sélectionnables plusieurs fois (allowQuantity → stepper +/- côté client),
+  // la chantilly de la pizza dessert passe à 1,50 € et le topping Nutella est
+  // ajouté à sa liste.
+  //
+  // Seules les sections de suppléments/toppings payants sont touchées : les
+  // nappages (gout) et les sections « Chantilly ? » (oui/non) restent des
+  // choix simples.
+  async updateGaufresPizzaDessertSupplements() {
+    try {
+      console.log('🔄 Gaufres / pizza dessert : suppléments multiples, chantilly 1.50€, topping Nutella...');
+      const snapshot = await getDocs(collection(db, this.collectionName));
+      let updatedCount = 0;
+
+      const targetIds = ['dessert5', 'dessert-gauffre-gourmande', 'dessert8'];
+      // « supplement », « Suppléments de toppings », « Choix de topping »...
+      const isSupplementSection = (key, section) => {
+        const label = `${key} ${section?.title || ''}`
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[̀-ͯ]/g, '');
+        return /supplement|topping/.test(label);
+      };
+
+      for (const docSnap of snapshot.docs) {
+        const data = docSnap.data();
+        // Couvre aussi les gaufres créées à la main depuis l'interface admin
+        const isGaufre = /gauf+re/i.test(data.name || '');
+        if (!targetIds.includes(data.id) && !isGaufre) continue;
+
+        const sections = data.customizationOptions;
+        if (!sections) continue;
+
+        let needsUpdate = false;
+        const updatedSections = {};
+
+        Object.entries(sections).forEach(([key, section]) => {
+          if (!section || !isSupplementSection(key, section)) {
+            updatedSections[key] = section;
+            return;
+          }
+
+          const updated = { ...section };
+
+          if (updated.allowQuantity !== true) {
+            updated.allowQuantity = true;
+            needsUpdate = true;
+          }
+
+          // Une limite à 1 rendrait le stepper inutile : ouvrir à 5 minimum
+          const currentMax = updated.maxSelections || updated.maxSelection || 1;
+          if (currentMax < 5) {
+            updated.maxSelections = 5;
+            needsUpdate = true;
+          }
+
+          // Pizza dessert : ajouter le topping Nutella s'il manque
+          if (data.id === 'dessert8' && Array.isArray(updated.options)) {
+            const hasNutella = updated.options.some(opt => /nutella/i.test(opt.name || opt.id || ''));
+            if (!hasNutella) {
+              updated.options = [
+                { id: 'nutella-topping', name: 'Nutella', price: 1.00 },
+                ...updated.options
+              ];
+              needsUpdate = true;
+            }
+          }
+
+          updatedSections[key] = updated;
+        });
+
+        // Pizza dessert : chantilly à 1,50 €
+        if (data.id === 'dessert8' && Array.isArray(updatedSections.chantilly?.options)) {
+          const options = updatedSections.chantilly.options.map(opt => {
+            if (opt.id === 'oui-chantilly' && opt.price !== 1.50) {
+              needsUpdate = true;
+              return { ...opt, price: 1.50 };
+            }
+            return opt;
+          });
+          updatedSections.chantilly = { ...updatedSections.chantilly, options };
+        }
+
+        if (!needsUpdate) continue;
+
+        await updateDoc(doc(db, this.collectionName, docSnap.id), {
+          customizationOptions: updatedSections,
+          updatedAt: serverTimestamp()
+        });
+
+        console.log(`✅ ${data.name} mis à jour (suppléments multiples)`);
+        updatedCount++;
+      }
+
+      console.log(`✅ Migration gaufres/pizza dessert terminée: ${updatedCount} produits`);
+      return { success: true, updatedCount };
+    } catch (error) {
+      console.error('❌ Error in updateGaufresPizzaDessertSupplements:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Migration: Retirer les boissons arrêtées (inventaire août 2026) — produits
+  // autonomes ET options boisson des menus/formules
+  async removeDiscontinuedDrinksAug2026() {
+    try {
+      console.log('🔄 Removing discontinued drinks (Aug 2026 inventory)...');
+      const productsRef = collection(db, this.collectionName);
+      const snapshot = await getDocs(productsRef);
+      let updatedCount = 0;
+
+      // Produits autonomes de la catégorie boissons à supprimer
+      const productIdsToDelete = [
+        'cocacola-vanille', 'fanta-citron', 'fanta-tropical', 'oasis-pomme-poire',
+        'sprite', 'fuze-tea-peche', 'lipton-tropical', 'ice-tea-tropical', 'tropico',
+      ];
+      const productNamesToDelete = [
+        'coca-cola vanille', 'coca cola vanille', 'fanta citron', 'fanta tropical',
+        'oasis pomme poire', 'sprite', 'fuze tea pêche', 'fuze tea peche', 'fuzetea',
+        'lipton tropical', 'ice tea tropical', 'tropico',
+      ];
+
+      // Options boisson à retirer des menus/formules (ids différents des produits)
+      const optionIdsToRemove = [
+        'coca-vanille', 'cocacola-vanille', 'fanta-citron', 'fanta-tropical',
+        'sprite', 'oasis-pomme-poire', 'fuzetea', 'fuze-tea-peche',
+        'ice-tea-tropical', 'lipton-tropical', 'tropico',
+      ];
+
+      for (const docSnap of snapshot.docs) {
+        const data = docSnap.data();
+
+        // 1. Supprimer les boissons autonomes concernées
+        const shouldDelete =
+          productIdsToDelete.includes(data.id) ||
+          productIdsToDelete.includes(docSnap.id) ||
+          productNamesToDelete.includes((data.name || '').toLowerCase().trim());
+
+        if (shouldDelete) {
+          await deleteDoc(doc(db, this.collectionName, docSnap.id));
+          console.log(`🗑️ Deleted discontinued drink: ${data.name || docSnap.id}`);
+          updatedCount++;
+          continue;
+        }
+
+        // 2. Retirer ces boissons des listes d'options des autres produits
+        if (!data.customizationOptions) continue;
+
+        let needsUpdate = false;
+        const updatedOptions = { ...data.customizationOptions };
+
+        for (const [key, section] of Object.entries(updatedOptions)) {
+          if (section?.options && Array.isArray(section.options)) {
+            const filtered = section.options.filter(
+              opt => !optionIdsToRemove.includes(opt.id)
+            );
+            if (filtered.length !== section.options.length) {
+              updatedOptions[key] = { ...section, options: filtered };
+              needsUpdate = true;
+            }
+          }
+        }
+
+        if (needsUpdate) {
+          await updateDoc(doc(db, this.collectionName, docSnap.id), {
+            customizationOptions: updatedOptions,
+            updatedAt: serverTimestamp()
+          });
+          console.log(`✅ Removed discontinued drink options from: ${data.name}`);
+          updatedCount++;
+        }
+      }
+
+      console.log(`✅ Discontinued drinks migration complete: ${updatedCount} documents updated`);
+      return { success: true, updatedCount };
+    } catch (error) {
+      console.error('❌ Error in removeDiscontinuedDrinksAug2026:', error);
       return { success: false, error: error.message };
     }
   }

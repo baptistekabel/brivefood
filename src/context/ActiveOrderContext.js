@@ -79,6 +79,19 @@ export const ActiveOrderProvider = ({ children }) => {
         setActiveOrder(updatedActiveOrder);
         saveActiveOrder(updatedActiveOrder);
 
+        // Annulation par le restaurant : prévenir clairement le client.
+        // La notification est locale, déclenchée par le téléphone lui-même en
+        // voyant le statut changer dans Firestore : celles envoyées depuis la
+        // tablette ne peuvent pas l'atteindre, le token push du client n'étant
+        // enregistré que sur son propre appareil (voir customerNotificationService).
+        if (updatedOrder.status === OrderStatus.CANCELLED) {
+          notificationService.sendLocalNotification(
+            'Commande annulée ❌',
+            'Votre commande a été annulée par le restaurant. Appelez-le pour toute question.',
+            { type: 'order_cancelled', orderId: updatedOrder.id }
+          );
+        }
+
         // Notifier le contexte de notation du changement de statut
         if (globalOrderStatusChangeCallback) {
           // Vérifier s'il y a une info de changement manuel stockée
