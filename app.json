@@ -2,7 +2,7 @@
   "expo": {
     "name": "Brive Food",
     "slug": "brivefood-app",
-    "version": "1.0.27",
+    "version": "1.0.28",
     "orientation": "default",
     "icon": "./assets/images/logoBrivefood.png",
     "scheme": "brivefoodapp",
@@ -12,7 +12,7 @@
       "supportsTablet": true,
       "requireFullScreen": false,
       "bundleIdentifier": "com.brivefood.app",
-      "buildNumber": "52",
+      "buildNumber": "53",
       "splash": {
         "image": "./assets/images/logoBrivefood.png",
         "resizeMode": "cover",
@@ -47,7 +47,7 @@
       }
     },
     "android": {
-      "versionCode": 52,
+      "versionCode": 53,
       "package": "com.brivefood.app",
       "icon": "./assets/images/logoBrivefood.png",
       "adaptiveIcon": {
