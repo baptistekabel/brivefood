@@ -61,39 +61,23 @@ export const LoyaltyProvider = ({ children }) => {
     {
       id: 'boisson-offerte',
       points: 600,
-      title: 'Boisson offerte',
-      description: 'Une boisson 33 cl offerte, au choix dans la carte',
+      title: 'Boisson du moment',
+      description: 'La boisson du moment offerte, choisie par le restaurant',
       icon: 'cafe',
       color: '#4CAF50',
       gradient: ['#4CAF50', '#66BB6A'],
       value: 2.00,
       type: 'product',
       offer: {
-        // Les canettes 33 cl à 2 €. Les bouteilles 2 L et les boissons
-        // énergisantes (3 à 4,50 €) sont volontairement exclues : à 600 points
-        // la récompense vaut le prix d'une canette.
-        // `size: 'Cannette'` ne concerne que les références déclinées en 2 L
-        // (Oasis) ; les autres n'ont pas de taille et gardent leur prix.
-        productIds: [
-          'cocacola',
-          'cocacola-zero',
-          'cocacola-cherry',
-          'fanta-orange',
-          'fanta-framboise',
-          'fanta-fruit-dragon',
-          'orangina',
-          'schweppes',
-          '7up-original',
-          '7up-mojito',
-          'oasis-tropical',
-          'oasis-cassis-framboise',
-          'oasis-fraise-framboise',
-          'lipton-peche',
-          'lipton-pasteque-menthe',
-          'hawaii',
-          'perrier',
-        ],
-        size: 'Cannette',
+        // Le client ne choisit pas sa boisson : c'est celle du moment, servie
+        // par le restaurant. Un seul produit est donc déclaré — le catalogue
+        // n'en propose aucun de générique — et il ne sert que de référence de
+        // prix (canette 33 cl à 2 €) et de visuel. Avec un seul produit
+        // éligible, buildRewardCartItem n'affiche aucun choix et la ligne du
+        // panier comme le ticket de cuisine portent le titre de la récompense,
+        // « Boisson du moment (OFFERT) ».
+        productIds: ['cocacola'],
+        size: null,
         optionGroups: [],
       },
     },
