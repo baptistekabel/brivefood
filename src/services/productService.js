@@ -1846,6 +1846,44 @@ class ProductService {
     }
   }
 
+  // Les frites normales en option de menu sont vendues 1 € : le prix affiché
+  // dans les sections « Frites » avait dérivé (2,50 €). On ne touche qu'à
+  // cette option pour ne pas écraser les autres prix réglés côté admin.
+  async fixFritesNormalesTo1Euro() {
+    try {
+      const snapshot = await getDocs(collection(db, this.collectionName));
+      let updatedCount = 0;
+
+      for (const docSnap of snapshot.docs) {
+        const data = docSnap.data();
+        const fritesBlock = data.customizationOptions?.frites;
+        const options = fritesBlock?.options;
+        if (!Array.isArray(options)) continue;
+
+        const target = options.find(o => o.id === 'frites-normales');
+        if (!target || target.price === 1.00) continue;
+
+        const updatedOptions = options.map(o =>
+          o.id === 'frites-normales' ? { ...o, price: 1.00 } : o
+        );
+
+        await updateDoc(doc(db, this.collectionName, docSnap.id), {
+          'customizationOptions.frites': { ...fritesBlock, options: updatedOptions },
+          updatedAt: serverTimestamp()
+        });
+
+        console.log(`✅ Frites normales à 1 € pour ${data.name}`);
+        updatedCount++;
+      }
+
+      console.log(`✅ fixFritesNormalesTo1Euro: ${updatedCount} produits mis à jour`);
+      return { success: true, updatedCount };
+    } catch (error) {
+      console.error('❌ Erreur fixFritesNormalesTo1Euro:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
   async addSupplementsToTacos() {
     try {
       const productsRef = collection(db, this.collectionName);

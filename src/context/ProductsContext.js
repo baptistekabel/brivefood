@@ -123,6 +123,11 @@ export const ProductsProvider = ({ children }) => {
           // Inventaire août 2026 : boissons arrêtées (Coca Vanille, Fanta Citron,
           // Fanta Tropical, Oasis Pomme Poire, Sprite, Fuze Tea Pêche,
           // Ice Tea Tropical, Tropico) retirées du catalogue et des menus
+          // Les frites normales en supplément de menu sont à 1 €
+          await productService.runMigrationOnce(
+            'fixFritesNormalesTo1Euro',
+            () => productService.fixFritesNormalesTo1Euro()
+          );
           const discontinuedDrinks = await productService.runMigrationOnce(
             'removeDiscontinuedDrinksAug2026',
             () => productService.removeDiscontinuedDrinksAug2026()
