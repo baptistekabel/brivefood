@@ -22,6 +22,8 @@ export const DEFAULT_MAX_DISTANCE = 10;
 export const DEFAULT_RESTAURANT_COORDS = { lat: 45.157566, lng: 1.524584 };
 
 export const DEFAULT_DELIVERY_SETTINGS = {
+  // Interrupteur admin : à false, le mode « Livraison » disparaît côté client
+  deliveryEnabled: true,
   restaurantAddress: '23 Bis Avenue Du Président Roosevelt, Brive-La-Gaillarde',
   restaurantCoords: DEFAULT_RESTAURANT_COORDS,
   tierPrices: DEFAULT_TIER_PRICES,
@@ -74,6 +76,8 @@ const normalizeSettings = (raw) => {
   return {
     ...DEFAULT_DELIVERY_SETTINGS,
     ...raw,
+    // Absent du document = livraison active (comportement historique)
+    deliveryEnabled: raw.deliveryEnabled !== false,
     maxDistance,
     tierPrices: normalizeTierPrices(tierPrices, maxDistance),
     restaurantCoords: hasCoords ? coords : DEFAULT_RESTAURANT_COORDS,
@@ -138,6 +142,27 @@ export const saveDeliverySettings = async (settings) => {
     return { success: true, settings: toStore };
   } catch (error) {
     console.error('Erreur sauvegarde des paramètres de livraison:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Activation / désactivation de la livraison depuis les paramètres admin.
+// Écriture ciblée : les tarifs et la distance maximale ne sont pas retouchés.
+export const setDeliveryEnabled = async (enabled) => {
+  try {
+    await setDoc(
+      doc(db, ...SETTINGS_DOC),
+      { deliveryEnabled: !!enabled, updatedAt: serverTimestamp() },
+      { merge: true }
+    );
+
+    const cached = (await readCachedSettings()) || DEFAULT_DELIVERY_SETTINGS;
+    const settings = { ...cached, deliveryEnabled: !!enabled };
+    await cacheSettings(settings);
+
+    return { success: true, settings };
+  } catch (error) {
+    console.error('Erreur mise à jour de l\'activation de la livraison:', error);
     return { success: false, error: error.message };
   }
 };

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,6 +21,11 @@ import * as Haptics from 'expo-haptics';
 import { colors, typography, spacing, borderRadius } from '../../src/constants/theme';
 import { useAdminAuth } from '../../src/context/AdminAuthContext';
 import broadcastNotificationService from '../../src/services/broadcastNotificationService';
+import {
+  subscribeToDeliverySettings,
+  loadDeliverySettings,
+  setDeliveryEnabled,
+} from '../../src/utils/deliveryPricing';
 
 export default function AdminSettings() {
   const { userProfile: adminProfile, logout } = useAdminAuth();
@@ -29,6 +35,47 @@ export default function AdminSettings() {
   const [notificationTitle, setNotificationTitle] = useState('');
   const [notificationMessage, setNotificationMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
+
+  // Livraison activée ou non : lue en temps réel pour que deux tablettes admin
+  // affichent le même état
+  const [deliveryEnabled, setDeliveryEnabledState] = useState(true);
+  const [isUpdatingDelivery, setIsUpdatingDelivery] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    loadDeliverySettings().then((settings) => {
+      if (mounted) setDeliveryEnabledState(settings.deliveryEnabled !== false);
+    });
+
+    const unsubscribe = subscribeToDeliverySettings((settings) => {
+      if (mounted) setDeliveryEnabledState(settings.deliveryEnabled !== false);
+    });
+
+    return () => {
+      mounted = false;
+      unsubscribe && unsubscribe();
+    };
+  }, []);
+
+  const handleToggleDelivery = async (value) => {
+    if (isUpdatingDelivery) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsUpdatingDelivery(true);
+    // Optimiste : l'écoute temps réel remettra la vraie valeur si l'écriture échoue
+    setDeliveryEnabledState(value);
+
+    const result = await setDeliveryEnabled(value);
+    setIsUpdatingDelivery(false);
+
+    if (result.success) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else {
+      setDeliveryEnabledState(!value);
+      Alert.alert('Erreur', 'Impossible de modifier la disponibilité de la livraison');
+    }
+  };
 
   const handlePrinterSettings = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -183,6 +230,17 @@ export default function AdminSettings() {
           onPress: handlePrinterSettings,
         },
         {
+          icon: deliveryEnabled ? 'bicycle' : 'bicycle-outline',
+          title: 'Livraison',
+          subtitle: deliveryEnabled
+            ? 'Les clients peuvent commander en livraison'
+            : 'Livraison désactivée : seuls sur place et à emporter sont proposés',
+          color: deliveryEnabled ? '#22C55E' : '#F44336',
+          toggle: true,
+          value: deliveryEnabled,
+          onToggle: handleToggleDelivery,
+        },
+        {
           icon: 'bicycle-outline',
           title: 'Paramètres Livraisons',
           subtitle: 'Configuration des zones et tarifs de livraison',
@@ -247,8 +305,10 @@ export default function AdminSettings() {
     <TouchableOpacity
       key={index}
       style={[styles.settingItem, item.disabled && styles.settingItemDisabled]}
-      onPress={item.disabled ? null : item.onPress}
-      disabled={item.disabled}
+      // Une ligne à interrupteur ne navigue pas : tout passe par le Switch
+      onPress={item.disabled || item.toggle ? null : item.onPress}
+      disabled={item.disabled || item.toggle}
+      activeOpacity={item.toggle ? 1 : 0.2}
     >
       <View style={[styles.iconContainer, { backgroundColor: `${item.color}20` }]}>
         {item.disabled ? (
@@ -263,8 +323,18 @@ export default function AdminSettings() {
         <Text style={styles.settingSubtitle}>{item.subtitle}</Text>
       </View>
 
-      {!item.disabled && (
-        <Ionicons name="chevron-forward" size={20} color={colors.neutral.gray400} />
+      {item.toggle ? (
+        <Switch
+          value={item.value}
+          onValueChange={item.onToggle}
+          disabled={isUpdatingDelivery}
+          trackColor={{ false: colors.neutral.gray400, true: '#22C55E' }}
+          thumbColor={colors.neutral.white}
+        />
+      ) : (
+        !item.disabled && (
+          <Ionicons name="chevron-forward" size={20} color={colors.neutral.gray400} />
+        )
       )}
     </TouchableOpacity>
   );

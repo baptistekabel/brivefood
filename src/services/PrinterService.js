@@ -42,7 +42,7 @@ class PrinterService {
         .center { text-align: center; }
         .bold { font-weight: bold; }
         .big { font-size: 20px; font-weight: bold; }
-        .item { font-size: 14px; font-weight: bold; margin-top: 4px; }
+        .item { font-size: 18px; font-weight: bold; margin-top: 4px; }
         .option { padding-left: 6px; font-size: 18px; font-weight: bold; }
         .note { font-weight: bold; }
         .sep { text-align: center; margin: 4px 0; }
@@ -357,12 +357,13 @@ class PrinterService {
 
     commands.push({ type: 'align', position: 'left' });
     expandTicketItems(order.items).forEach(item => {
+      // Titre et options à la même taille : un article sans option (« Wings
+      // x3 ») se lisait sinon deux fois plus petit que le reste du bon
       commands.push(
-        { type: 'style', bold: true, size: 'normal' },
+        { type: 'style', bold: true, size: 'double' },
         { type: 'text', data: `${getTicketItemTitle(item)}\n` }
       );
 
-      commands.push({ type: 'style', bold: true, size: 'double' });
       getTicketItemOptions(item).forEach(option => {
         commands.push({ type: 'text', data: ` ${option}\n` });
       });
@@ -447,9 +448,9 @@ class PrinterService {
     const receiptItems = expandTicketItems(order.items);
     if (receiptItems.length > 0) {
       receiptItems.forEach(item => {
+        data += BIG_ON;
         data += `${getTicketItemTitle(item)}\n`;
 
-        data += BIG_ON;
         getTicketItemOptions(item).forEach(option => {
           data += ` ${option}\n`;
         });

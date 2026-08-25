@@ -33,6 +33,16 @@ export const LoyaltyProvider = ({ children }) => {
   // pour pouvoir utiliser une récompense
   const MIN_ORDER_FOR_REWARDS = 15;
 
+  // Plafond de la récompense « Livraison Offerte ». Les frais sont calculés à
+  // la distance et montent jusqu'à une dizaine d'euros sur les adresses les
+  // plus éloignées : sans plafond, la récompense offrait ces 10 € entiers.
+  // Au-delà de 5 €, le reste des frais reste à la charge du client.
+  const MAX_FREE_DELIVERY_DISCOUNT = 5;
+
+  // Remise réellement accordée par la livraison offerte, plafonnée
+  const getDeliveryRewardDiscount = (deliveryFee = 0) =>
+    Math.min(Number(deliveryFee) || 0, MAX_FREE_DELIVERY_DISCOUNT);
+
   // Le client cumule un solde de points et le dépense librement
   // sur la récompense de son choix.
   //
@@ -62,7 +72,7 @@ export const LoyaltyProvider = ({ children }) => {
       id: 'livraison-offerte',
       points: 600,
       title: 'Livraison Offerte',
-      description: 'Frais de livraison gratuits',
+      description: `Frais de livraison offerts jusqu'à ${MAX_FREE_DELIVERY_DISCOUNT} €`,
       icon: 'bicycle',
       color: '#4CAF50',
       gradient: ['#4CAF50', '#66BB6A'],
@@ -273,7 +283,7 @@ export const LoyaltyProvider = ({ children }) => {
       // en euros sur le reste de la commande. Seule la livraison offerte, qui
       // n'a pas d'article correspondant, reste une remise.
       if (reward.type === 'delivery') {
-        discountAmount = deliveryFee;
+        discountAmount = getDeliveryRewardDiscount(deliveryFee);
       }
 
       // Mettre à jour le profil utilisateur avec les points utilisés
@@ -388,7 +398,9 @@ export const LoyaltyProvider = ({ children }) => {
       if (reward) {
         // Les produits offerts figurent dans le panier à 0 € : leur remise vaut
         // zéro, sans quoi le client serait avantagé deux fois (voir useReward)
-        const discountAmount = reward.type === 'delivery' ? deliveryFee : 0;
+        const discountAmount = reward.type === 'delivery'
+          ? getDeliveryRewardDiscount(deliveryFee)
+          : 0;
 
         totalDiscount += discountAmount;
         rewardDiscounts.push({
@@ -413,6 +425,7 @@ export const LoyaltyProvider = ({ children }) => {
     rewards,
     POINTS_PER_EURO,
     MIN_ORDER_FOR_REWARDS,
+    MAX_FREE_DELIVERY_DISCOUNT,
 
     // Functions
     calculateLoyaltyData,

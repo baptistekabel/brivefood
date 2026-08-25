@@ -626,13 +626,13 @@ class EpsonBluetoothService {
     const kitchenItems = expandTicketItems(order.items);
     if (kitchenItems.length > 0) {
       for (const item of kitchenItems) {
-        // Titre de l'article : un peu plus petit que les options. Tout le
-        // ticket reste en gras (voir le em:TRUE global en tête de fonction).
-        await printer.addTextSize({ width: 1, height: 2 });
+        // Titre de l'article à la même taille que ses options : un « Wings x3 »
+        // sans option passait inaperçu en corps réduit. Tout le ticket reste en
+        // gras (voir le em:TRUE global en tête de fonction).
+        await printer.addTextSize({ width: 2, height: 2 });
         await printer.addText(`${getTicketItemTitle(item)}\n`);
 
-        // Options agrandies : c'est ce que la cuisine lit en premier
-        await printer.addTextSize({ width: 2, height: 2 });
+        // Options à la même taille : c'est ce que la cuisine lit en premier
         for (const option of getTicketItemOptions(item)) {
           await printer.addText(` ${option}\n`);
         }

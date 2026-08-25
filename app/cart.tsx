@@ -40,6 +40,7 @@ import { registerCustomerForBroadcast } from '../src/services/broadcastNotificat
 import restaurantStatusService from '../src/services/restaurantStatusService';
 import rushModeService from '../src/services/rushModeService';
 import { isEveningServiceAvailable, EVENING_START_HOUR } from '../src/utils/eveningRestriction';
+import { loadDeliverySettings, subscribeToDeliverySettings } from '../src/utils/deliveryPricing';
 import { getWaitTimeLabel, isRushApplicable } from '../src/utils/waitTime';
 import { sortCustomizationEntries, getMissingCustomizations } from '../src/utils/categoryUtils';
 import {
@@ -114,6 +115,8 @@ export default function CartScreen() {
   const [rushMode, setRushMode] = useState({ active: false, extraMinutes: 0 });
   // Rafraîchi toutes les minutes pour débloquer la livraison dès 18h sans recharger l'écran
   const [deliveryAvailable, setDeliveryAvailable] = useState(isEveningServiceAvailable());
+  // Interrupteur admin (Paramètres > Livraison) : coupe la livraison à tout moment
+  const [deliveryEnabled, setDeliveryEnabled] = useState(true);
   // Créneau 1h50-2h : commandes uniquement par téléphone
   const [phoneOrderOnly, setPhoneOrderOnly] = useState(isPhoneOrderWindow());
   const [deliveryAddress, setDeliveryAddress] = useState(null);
@@ -169,6 +172,31 @@ export default function CartScreen() {
     const unsubscribe = rushModeService.subscribe(setRushMode);
     return () => unsubscribe && unsubscribe();
   }, []);
+
+  // Activation de la livraison côté restaurant, en temps réel
+  useEffect(() => {
+    let mounted = true;
+
+    loadDeliverySettings().then((settings) => {
+      if (mounted) setDeliveryEnabled(settings.deliveryEnabled !== false);
+    });
+
+    const unsubscribe = subscribeToDeliverySettings((settings) => {
+      if (mounted) setDeliveryEnabled(settings.deliveryEnabled !== false);
+    });
+
+    return () => {
+      mounted = false;
+      unsubscribe && unsubscribe();
+    };
+  }, []);
+
+  // La livraison vient d'être coupée : ne pas laisser un panier ouvert dessus
+  useEffect(() => {
+    if (!deliveryEnabled && orderMode === OrderMode.DELIVERY) {
+      setOrderMode(null);
+    }
+  }, [deliveryEnabled, orderMode]);
 
   // Vérifier l'ouverture du service de livraison toutes les 60 secondes
   useEffect(() => {
@@ -367,6 +395,18 @@ export default function CartScreen() {
         message: 'Choisissez sur place, à emporter ou livraison avant de valider votre commande.',
         actionLabel: 'Choisir',
         action: scrollToOrderSection,
+      };
+    }
+
+    if (orderMode === OrderMode.DELIVERY && !deliveryEnabled) {
+      return {
+        title: 'Livraison indisponible',
+        message: 'Le restaurant a suspendu la livraison pour le moment. Vous pouvez commander à emporter ou sur place.',
+        actionLabel: 'Passer à emporter',
+        action: () => {
+          setOrderMode(OrderMode.TAKEOUT);
+          scrollToOrderSection();
+        },
       };
     }
 
@@ -700,6 +740,16 @@ export default function CartScreen() {
       Alert.alert(
         'Mode de commande requis',
         'Choisissez sur place, à emporter ou livraison avant de valider votre commande.'
+      );
+      return;
+    }
+
+    if (orderMode === OrderMode.DELIVERY && !deliveryEnabled) {
+      console.log('BLOCKED: Delivery disabled by admin');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        'Livraison indisponible',
+        'Le restaurant a suspendu la livraison pour le moment. Vous pouvez commander sur place ou à emporter.'
       );
       return;
     }
@@ -1309,8 +1359,11 @@ export default function CartScreen() {
   };
 
   const renderOrderMode = ({ item }) => {
-    // Seule la livraison est réservée au service du soir
-    const isDeliveryRestricted = item.id === OrderMode.DELIVERY && !deliveryAvailable;
+    // Seule la livraison est réservée au service du soir — et le restaurant
+    // peut la couper à tout moment depuis les paramètres admin
+    const isDelivery = item.id === OrderMode.DELIVERY;
+    const isDeliveryOff = isDelivery && !deliveryEnabled;
+    const isDeliveryRestricted = isDeliveryOff || (isDelivery && !deliveryAvailable);
     return (
       <TouchableOpacity
         key={item.id}
@@ -1324,7 +1377,9 @@ export default function CartScreen() {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
             Alert.alert(
               'Livraison indisponible',
-              `La livraison est disponible à partir de ${EVENING_START_HOUR}h. Sur place et à emporter restent disponibles toute la journée.`
+              isDeliveryOff
+                ? 'Le restaurant a suspendu la livraison pour le moment. Sur place et à emporter restent disponibles.'
+                : `La livraison est disponible à partir de ${EVENING_START_HOUR}h. Sur place et à emporter restent disponibles toute la journée.`
             );
             return;
           }
@@ -1341,7 +1396,11 @@ export default function CartScreen() {
           styles.orderModeText,
           orderMode === item.id && styles.selectedOrderModeText
         ]}>
-          {isDeliveryRestricted ? `Livraison (dès ${EVENING_START_HOUR}h)` : item.name}
+          {isDeliveryOff
+            ? 'Livraison indisponible'
+            : isDeliveryRestricted
+              ? `Livraison (dès ${EVENING_START_HOUR}h)`
+              : item.name}
         </Text>
       </TouchableOpacity>
     );
