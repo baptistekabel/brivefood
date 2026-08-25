@@ -41,7 +41,7 @@ import restaurantStatusService from '../src/services/restaurantStatusService';
 import rushModeService from '../src/services/rushModeService';
 import { isEveningServiceAvailable, EVENING_START_HOUR } from '../src/utils/eveningRestriction';
 import { getWaitTimeLabel, isRushApplicable } from '../src/utils/waitTime';
-import { sortCustomizationEntries } from '../src/utils/categoryUtils';
+import { sortCustomizationEntries, getMissingCustomizations } from '../src/utils/categoryUtils';
 import {
   buildRewardCartItem,
   getRewardProductValue,
@@ -901,16 +901,28 @@ export default function CartScreen() {
     }
   };
 
-  const addRecommendedItem = (item) => {
+  // Un produit dont une section est obligatoire (le nappage de la gaufre, la
+  // base du milkshake...) ne peut pas être ajouté en un clic : ajouté brut, il
+  // arrive en cuisine sans aucun choix et le bon ne porte que son nom. On
+  // renvoie vers la carte, sur le produit, pour finir la personnalisation.
+  const requiresCustomization = (item) => getMissingCustomizations(item, {}).length > 0;
+
+  const addRecommendedItem = (item, category) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    if (requiresCustomization(item)) {
+      router.push(`/category/${category}?productId=${item.id}`);
+      return;
+    }
+
     addItem(item);
   };
 
-  const renderRecommendation = (item, type) => (
+  const renderRecommendation = (item, category) => (
     <TouchableOpacity
       key={item.id}
       style={styles.recommendationItem}
-      onPress={() => addRecommendedItem(item)}
+      onPress={() => addRecommendedItem(item, category)}
     >
       <View style={styles.recommendationContent}>
         {/* ProductImage gère l'image Firebase, l'asset local et le logo de repli */}
@@ -924,7 +936,11 @@ export default function CartScreen() {
           <Text style={styles.recommendationPrice}>{item.price.toFixed(2)} €</Text>
         </View>
         <View style={styles.addRecommendationButton}>
-          <Ionicons name="add" size={14} color={colors.neutral.white} />
+          <Ionicons
+            name={requiresCustomization(item) ? 'options-outline' : 'add'}
+            size={14}
+            color={colors.neutral.white}
+          />
         </View>
       </View>
     </TouchableOpacity>
@@ -980,7 +996,7 @@ export default function CartScreen() {
             </View>
             <FlatList
               data={recommendedDrinks}
-              renderItem={({ item }) => renderRecommendation(item, 'drink')}
+              renderItem={({ item }) => renderRecommendation(item, ProductCategory.BOISSONS)}
               keyExtractor={(item) => item.id}
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -1014,7 +1030,7 @@ export default function CartScreen() {
             </View>
             <FlatList
               data={recommendedDesserts}
-              renderItem={({ item }) => renderRecommendation(item, 'dessert')}
+              renderItem={({ item }) => renderRecommendation(item, ProductCategory.DESSERTS)}
               keyExtractor={(item) => item.id}
               horizontal
               showsHorizontalScrollIndicator={false}

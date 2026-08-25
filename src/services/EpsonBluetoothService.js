@@ -17,6 +17,12 @@ const STORAGE_KEYS = {
   SIMULATION_MODE: '@epson_simulation_mode', // Mode simulation pour tester sans imprimante
 };
 
+// Nombre d'exemplaires sortis à chaque commande : un bon reste en cuisine,
+// l'autre part avec la commande. Les copies sont composées dans une seule
+// session d'impression (voir printOrder) : rouvrir une connexion par ticket
+// double le risque d'échec Bluetooth et ne ferait sortir qu'un seul bon.
+export const TICKET_COPIES = 2;
+
 class EpsonBluetoothService {
   constructor() {
     this.Printer = null;
@@ -538,6 +544,129 @@ class EpsonBluetoothService {
     }
   }
 
+  // Composition d'un exemplaire du bon de cuisine dans le tampon de
+  // l'imprimante. Appelée une fois par copie (voir TICKET_COPIES) : le ticket
+  // se termine par sa propre coupe, la copie suivante repart sur un papier
+  // vierge.
+  async composeOrderTicket(printer, PC, order) {
+    // Déterminer le mode
+    const mode = this.getModeText(order.mode);
+    const isLivraison = order.mode?.toUpperCase() === 'DELIVERY';
+
+    // Heure de la commande
+    const heureCommande = order.orderTime || new Date().toLocaleTimeString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    // === TOUT EN GRAS ===
+    await printer.addTextStyle({ em: PC.TRUE });
+
+    // === EN-TÊTE ===
+    await printer.addTextAlign(PC.ALIGN_CENTER);
+    await printer.addTextSize({ width: 1, height: 2 });
+    await printer.addText('BON DE CUISINE\n');
+    await printer.addTextSize({ width: 1, height: 1 });
+    await printer.addText(`${TICKET_SEPARATOR}\n`);
+
+    // === NUMÉRO DE COMMANDE (TRÈS GROS) ===
+    await printer.addTextSize({ width: 2, height: 3 });
+    await printer.addText(`#${order.orderNumber || order.id}\n`);
+
+    // === HEURE ===
+    await printer.addTextSize({ width: 1, height: 2 });
+    await printer.addText(`${heureCommande}\n`);
+    await printer.addTextSize({ width: 1, height: 1 });
+    await printer.addText(`${TICKET_SEPARATOR}\n`);
+
+    // === NOM CLIENT ===
+    const customerName = order.customerName ||
+                        (order.firstName && order.lastName ? `${order.firstName} ${order.lastName}` : null) ||
+                        order.firstName ||
+                        'Client';
+    await printer.addTextSize({ width: 1, height: 2 });
+    await printer.addText(`${customerName}\n`);
+
+    // === MODE (TRÈS VISIBLE) ===
+    await printer.addTextSize({ width: 2, height: 2 });
+    await printer.addText(`${mode}\n`);
+    await printer.addTextSize({ width: 1, height: 1 });
+
+    // === INFOS CLIENT ===
+    if (isLivraison && order.address) {
+      // Adresse centrée pour livraison
+              await printer.addTextSize({ width: 1, height: 2 });
+      await printer.addTextAlign(PC.ALIGN_CENTER);
+      await printer.addText(`${order.address}\n`);
+      await printer.addTextSize({ width: 1, height: 1 });
+    }
+
+    // Téléphone pour TOUS les types de commande
+    const customerPhone = order.phone || order.phoneNumber || '';
+    if (customerPhone) {
+              await printer.addTextSize({ width: 1, height: 2 });
+      await printer.addTextAlign(PC.ALIGN_CENTER);
+      await printer.addText(`TEL: ${formatTicketPhone(customerPhone)}\n`);
+      await printer.addTextSize({ width: 1, height: 1 });
+    }
+
+    await printer.addText(`\n${TICKET_SEPARATOR}\n`);
+
+    // === PRODUITS A PREPARER ===
+    await printer.addTextSize({ width: 1, height: 2 });
+    await printer.addText('PRODUITS\n');
+    await printer.addTextSize({ width: 1, height: 1 });
+    await printer.addText(`${TICKET_SEPARATOR}\n`);
+
+    // Liste des produits : blocs resserrés, police agrandie pour la cuisine.
+    // Les options suivent l'ordre de montage : viande, sauces, suppléments,
+    // puis frites et boissons en fin de liste (voir utils/ticketFormat).
+    await printer.addTextAlign(PC.ALIGN_LEFT);
+
+    const kitchenItems = expandTicketItems(order.items);
+    if (kitchenItems.length > 0) {
+      for (const item of kitchenItems) {
+        // Titre de l'article : un peu plus petit que les options. Tout le
+        // ticket reste en gras (voir le em:TRUE global en tête de fonction).
+        await printer.addTextSize({ width: 1, height: 2 });
+        await printer.addText(`${getTicketItemTitle(item)}\n`);
+
+        // Options agrandies : c'est ce que la cuisine lit en premier
+        await printer.addTextSize({ width: 2, height: 2 });
+        for (const option of getTicketItemOptions(item)) {
+          await printer.addText(` ${option}\n`);
+        }
+
+        const note = getTicketItemNote(item);
+        if (note) {
+          await printer.addText(`NOTE: ${note}\n`);
+        }
+
+        await printer.addTextSize({ width: 1, height: 1 });
+        await printer.addTextAlign(PC.ALIGN_CENTER);
+        await printer.addText(`${TICKET_SEPARATOR}\n`);
+        await printer.addTextAlign(PC.ALIGN_LEFT);
+      }
+    }
+
+    await printer.addTextSize({ width: 1, height: 1 });
+    await printer.addTextAlign(PC.ALIGN_CENTER);
+
+    // Total puis mode de reglement
+    await printer.addTextSize({ width: 2, height: 2 });
+    await printer.addText(`${(Number(order.total) || 0).toFixed(2)} EUR\n`);
+
+    await printer.addTextSize({ width: 1, height: 2 });
+    await printer.addText(`${getPaymentLabel(order)}\n`);
+
+    await printer.addTextSize({ width: 1, height: 1 });
+    await printer.addText(`${TICKET_SEPARATOR}\n`);
+
+    await printer.addTextStyle({ em: PC.FALSE });
+    await printer.addFeedLine(4);
+    await printer.addCut();
+  }
+
   // Imprimer une commande (BON DE CUISINE)
   async printOrder(order) {
     if (!order || !order.id) {
@@ -588,7 +717,12 @@ class EpsonBluetoothService {
       lines.push(TICKET_SEPARATOR);
 
       console.log('🎮 ========== MODE SIMULATION ==========');
-      lines.forEach(line => console.log(`🎮 ${line}`));
+      // Autant de tickets qu'à l'impression réelle : la simulation sert à
+      // vérifier ce qui sort du rouleau, exemplaires compris.
+      for (let copy = 1; copy <= TICKET_COPIES; copy += 1) {
+        console.log(`🎮 --- Exemplaire ${copy}/${TICKET_COPIES} ---`);
+        lines.forEach(line => console.log(`🎮 ${line}`));
+      }
       console.log(`🎮 ✅ Commande #${order.orderNumber || order.id} simulée avec succès`);
 
       // Simuler un délai d'impression
@@ -637,122 +771,11 @@ class EpsonBluetoothService {
       console.log('⏳ Timeout: 30 secondes...');
       await printer.connect(30000);
 
-      // Déterminer le mode
-      const mode = this.getModeText(order.mode);
-      const isLivraison = order.mode?.toUpperCase() === 'DELIVERY';
-
-      // Heure de la commande
-      const heureCommande = order.orderTime || new Date().toLocaleTimeString('fr-FR', {
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-
-      // === TOUT EN GRAS ===
-      await printer.addTextStyle({ em: PC.TRUE });
-
-      // === EN-TÊTE ===
-      await printer.addTextAlign(PC.ALIGN_CENTER);
-      await printer.addTextSize({ width: 1, height: 2 });
-      await printer.addText('BON DE CUISINE\n');
-      await printer.addTextSize({ width: 1, height: 1 });
-      await printer.addText(`${TICKET_SEPARATOR}\n`);
-
-      // === NUMÉRO DE COMMANDE (TRÈS GROS) ===
-      await printer.addTextSize({ width: 2, height: 3 });
-      await printer.addText(`#${order.orderNumber || order.id}\n`);
-
-      // === HEURE ===
-      await printer.addTextSize({ width: 1, height: 2 });
-      await printer.addText(`${heureCommande}\n`);
-      await printer.addTextSize({ width: 1, height: 1 });
-      await printer.addText(`${TICKET_SEPARATOR}\n`);
-
-      // === NOM CLIENT ===
-      const customerName = order.customerName ||
-                          (order.firstName && order.lastName ? `${order.firstName} ${order.lastName}` : null) ||
-                          order.firstName ||
-                          'Client';
-      await printer.addTextSize({ width: 1, height: 2 });
-      await printer.addText(`${customerName}\n`);
-
-      // === MODE (TRÈS VISIBLE) ===
-      await printer.addTextSize({ width: 2, height: 2 });
-      await printer.addText(`${mode}\n`);
-      await printer.addTextSize({ width: 1, height: 1 });
-
-      // === INFOS CLIENT ===
-      if (isLivraison && order.address) {
-        // Adresse centrée pour livraison
-                await printer.addTextSize({ width: 1, height: 2 });
-        await printer.addTextAlign(PC.ALIGN_CENTER);
-        await printer.addText(`${order.address}\n`);
-        await printer.addTextSize({ width: 1, height: 1 });
+      // Les deux exemplaires partent dans la même session : la commande
+      // n'est jamais imprimée à moitié si la liaison lâche entre les copies.
+      for (let copy = 0; copy < TICKET_COPIES; copy += 1) {
+        await this.composeOrderTicket(printer, PC, order);
       }
-
-      // Téléphone pour TOUS les types de commande
-      const customerPhone = order.phone || order.phoneNumber || '';
-      if (customerPhone) {
-                await printer.addTextSize({ width: 1, height: 2 });
-        await printer.addTextAlign(PC.ALIGN_CENTER);
-        await printer.addText(`TEL: ${formatTicketPhone(customerPhone)}\n`);
-        await printer.addTextSize({ width: 1, height: 1 });
-      }
-
-      await printer.addText(`\n${TICKET_SEPARATOR}\n`);
-
-      // === PRODUITS A PREPARER ===
-      await printer.addTextSize({ width: 1, height: 2 });
-      await printer.addText('PRODUITS\n');
-      await printer.addTextSize({ width: 1, height: 1 });
-      await printer.addText(`${TICKET_SEPARATOR}\n`);
-
-      // Liste des produits : blocs resserrés, police agrandie pour la cuisine.
-      // Les options suivent l'ordre de montage : viande, sauces, suppléments,
-      // puis frites et boissons en fin de liste (voir utils/ticketFormat).
-      await printer.addTextAlign(PC.ALIGN_LEFT);
-
-      const kitchenItems = expandTicketItems(order.items);
-      if (kitchenItems.length > 0) {
-        for (const item of kitchenItems) {
-          // Titre de l'article : un peu plus petit que les options. Tout le
-          // ticket reste en gras (voir le em:TRUE global en tête de fonction).
-          await printer.addTextSize({ width: 1, height: 2 });
-          await printer.addText(`${getTicketItemTitle(item)}\n`);
-
-          // Options agrandies : c'est ce que la cuisine lit en premier
-          await printer.addTextSize({ width: 2, height: 2 });
-          for (const option of getTicketItemOptions(item)) {
-            await printer.addText(` ${option}\n`);
-          }
-
-          const note = getTicketItemNote(item);
-          if (note) {
-            await printer.addText(`NOTE: ${note}\n`);
-          }
-
-          await printer.addTextSize({ width: 1, height: 1 });
-          await printer.addTextAlign(PC.ALIGN_CENTER);
-          await printer.addText(`${TICKET_SEPARATOR}\n`);
-          await printer.addTextAlign(PC.ALIGN_LEFT);
-        }
-      }
-
-      await printer.addTextSize({ width: 1, height: 1 });
-      await printer.addTextAlign(PC.ALIGN_CENTER);
-
-      // Total puis mode de reglement
-      await printer.addTextSize({ width: 2, height: 2 });
-      await printer.addText(`${(Number(order.total) || 0).toFixed(2)} EUR\n`);
-
-      await printer.addTextSize({ width: 1, height: 2 });
-      await printer.addText(`${getPaymentLabel(order)}\n`);
-
-      await printer.addTextSize({ width: 1, height: 1 });
-      await printer.addText(`${TICKET_SEPARATOR}\n`);
-
-      await printer.addTextStyle({ em: PC.FALSE });
-      await printer.addFeedLine(4);
-      await printer.addCut();
 
       // Envoyer à l'imprimante
       console.log('📤 Envoi des donnees...');
@@ -761,8 +784,8 @@ class EpsonBluetoothService {
       // Déconnexion
       await printer.disconnect();
 
-      console.log(`✅ Commande #${order.id} imprimee, status:`, status);
-      return { success: true, message: `Ticket #${order.id} imprime` };
+      console.log(`✅ Commande #${order.id} imprimee en ${TICKET_COPIES} exemplaires, status:`, status);
+      return { success: true, message: `Ticket #${order.id} imprime x${TICKET_COPIES}` };
 
     } catch (error) {
       console.error('❌ Erreur impression:', error.message);

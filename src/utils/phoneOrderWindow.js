@@ -3,8 +3,8 @@
 export const PHONE_ORDER_START = { hours: 1, minutes: 50 };
 export const PHONE_ORDER_END = { hours: 2, minutes: 0 };
 
-export const RESTAURANT_PHONE = '07 77 88 16 97';
-export const RESTAURANT_PHONE_URI = 'tel:0777881697';
+export const RESTAURANT_PHONE = '07 66 88 16 97';
+export const RESTAURANT_PHONE_URI = 'tel:0766881697';
 
 const toMinutes = ({ hours, minutes }) => hours * 60 + minutes;
 

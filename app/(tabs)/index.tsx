@@ -97,7 +97,7 @@ export default function HomeScreen() {
 
   const callRestaurant = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const phoneNumber = "tel:0777881697";
+    const phoneNumber = "tel:0766881697";
     Linking.openURL(phoneNumber);
   };
 
@@ -641,7 +641,7 @@ export default function HomeScreen() {
                 </View>
                 <View style={styles.infoTextContainer}>
                   <Text style={styles.infoLabel}>Téléphone</Text>
-                  <Text style={styles.infoMainText}>07 77 88 16 97</Text>
+                  <Text style={styles.infoMainText}>07 66 88 16 97</Text>
                   <Text style={styles.infoHint}>service gratuit + coût de l'appel</Text>
                 </View>
               </LinearGradient>

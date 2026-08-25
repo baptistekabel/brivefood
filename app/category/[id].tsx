@@ -85,13 +85,32 @@ const restrictionStyles = StyleSheet.create({
 
 
 export default function CategoryScreen() {
-  const { id } = useLocalSearchParams();
+  // `productId` : produit à ouvrir directement (envoyé par les suggestions du
+  // panier pour un produit dont la personnalisation est obligatoire)
+  const { id, productId } = useLocalSearchParams();
   const { addItem, orderItems, getItemCount } = useOrder();
   const { getProductsByCategory, getProductById, productsByCategory: allProductsByCategory } = useProducts();
   const [selectedSizes, setSelectedSizes] = useState({});
   const [customizations, setCustomizations] = useState({});
   const [expandedCustomizations, setExpandedCustomizations] = useState({});
   const [productComments, setProductComments] = useState({});
+
+  // Ouverture d'un produit ciblé : sa position n'est connue qu'au premier
+  // rendu, on déclenche donc le défilement depuis son `onLayout` plutôt que
+  // depuis un effet, qui s'exécuterait avant que la liste soit mesurée.
+  const scrollViewRef = useRef(null);
+  const pendingProductRef = useRef(productId || null);
+
+  const handleProductLayout = (targetId) => (event) => {
+    if (pendingProductRef.current !== targetId) return;
+    pendingProductRef.current = null;
+
+    const { y } = event.nativeEvent.layout;
+    setExpandedCustomizations(prev => ({ ...prev, [targetId]: true }));
+    requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollTo({ y: Math.max(y - spacing.md, 0), animated: true });
+    });
+  };
 
   // Statut restaurant (ouvert/fermé)
   const [isRestaurantOpen, setIsRestaurantOpen] = useState(true);
@@ -1596,7 +1615,7 @@ export default function CategoryScreen() {
       const badgeIcon = isUnavailable ? "close-circle-outline" : "lock-closed-outline";
       const badgeColor = "#FFFFFF";
       return (
-        <View key={product.id} style={{ opacity: 0.5 }}>
+        <View key={product.id} style={{ opacity: 0.5 }} onLayout={handleProductLayout(product.id)}>
           {productContent}
           <View style={restrictionStyles.productBadge}>
             <Ionicons name={badgeIcon} size={14} color={badgeColor} />
@@ -1606,7 +1625,11 @@ export default function CategoryScreen() {
       );
     }
 
-    return productContent;
+    return (
+      <View key={product.id} onLayout={handleProductLayout(product.id)}>
+        {productContent}
+      </View>
+    );
   };
 
   return (
@@ -1742,6 +1765,7 @@ export default function CategoryScreen() {
 
       {/* Liste des produits */}
       <ScrollView
+        ref={scrollViewRef}
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
@@ -1755,7 +1779,11 @@ export default function CategoryScreen() {
               // Pour les desserts, traiter séparément les produits personnalisables et normaux
               products.map(product => {
                 if (product.customizable && product.id === 'milkshake-custom') {
-                  return renderSingleCardWithCustomization(id, product);
+                  return (
+                    <View key={product.id} onLayout={handleProductLayout(product.id)}>
+                      {renderSingleCardWithCustomization(id, product)}
+                    </View>
+                  );
                 } else {
                   return renderProduct(product);
                 }

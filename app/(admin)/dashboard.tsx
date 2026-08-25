@@ -74,6 +74,31 @@ export default function AdminDashboard() {
   const isSoundPlayingRef = useRef(false);
   const pendingNewOrdersRef = useRef<Set<string>>(new Set()); // Commandes en attente de clic
 
+  // Alerte visuelle : l'écran pulse en orange tant qu'une nouvelle commande
+  // n'a pas été prise en main. Le son ne sonne que 4 fois ; sans repère qui
+  // dure, une commande arrivée pendant un coup de feu passait inaperçue.
+  // Le compteur double le Set (une ref ne redéclenche pas le rendu).
+  const [pendingAlertCount, setPendingAlertCount] = useState(0);
+  const alertBlinkAnim = useRef(new Animated.Value(0)).current;
+
+  const syncPendingAlert = () => {
+    setPendingAlertCount(pendingNewOrdersRef.current.size);
+  };
+
+  // Une commande est « prise en main » dès qu'on ouvre son menu de statut ou
+  // qu'on la fait avancer au swipe : l'alerte s'éteint pour celle-ci.
+  const acknowledgeOrder = (orderId: string) => {
+    if (!pendingNewOrdersRef.current.has(orderId)) return;
+
+    pendingNewOrdersRef.current.delete(orderId);
+    syncPendingAlert();
+
+    // Si plus aucune commande en attente, arrêter le son
+    if (pendingNewOrdersRef.current.size === 0) {
+      stopNotificationSound();
+    }
+  };
+
   console.log('📊 [DASHBOARD] Orders from Firestore:', orders.length);
 
   // Détection de l'appareil et orientation
@@ -143,6 +168,55 @@ export default function AdminDashboard() {
       console.error('❌ Erreur arrêt son:', error);
     }
   };
+
+  // Clignotement orange tant qu'une commande attend une action
+  useEffect(() => {
+    if (pendingAlertCount === 0) {
+      alertBlinkAnim.stopAnimation();
+      alertBlinkAnim.setValue(0);
+      return;
+    }
+
+    const blink = Animated.loop(
+      Animated.sequence([
+        Animated.timing(alertBlinkAnim, {
+          toValue: 1,
+          duration: 450,
+          useNativeDriver: true,
+        }),
+        Animated.timing(alertBlinkAnim, {
+          toValue: 0,
+          duration: 450,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    blink.start();
+
+    return () => blink.stop();
+  }, [pendingAlertCount]);
+
+  // Filet de sécurité : une commande traitée depuis un autre appareil (ou
+  // supprimée) ne doit pas laisser l'écran clignoter indéfiniment.
+  useEffect(() => {
+    if (pendingNewOrdersRef.current.size === 0) return;
+
+    let changed = false;
+    pendingNewOrdersRef.current.forEach((orderId) => {
+      const order = orders.find((o: any) => o.id === orderId);
+      if (!order || order.status !== OrderStatus.PENDING) {
+        pendingNewOrdersRef.current.delete(orderId);
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      syncPendingAlert();
+      if (pendingNewOrdersRef.current.size === 0) {
+        stopNotificationSound();
+      }
+    }
+  }, [orders]);
 
   // Configurer le mode audio au montage
   useEffect(() => {
@@ -364,6 +438,7 @@ export default function AdminDashboard() {
           try {
             // Ajouter aux commandes en attente de clic (pour le son)
             pendingNewOrdersRef.current.add(order.id);
+            syncPendingAlert();
 
             // Jouer le son de notification (4 fois en boucle)
             playNotificationSound();
@@ -478,14 +553,8 @@ export default function AdminDashboard() {
     setShowStatusMenu(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    // Retirer cette commande des commandes en attente et arrêter le son
-    if (pendingNewOrdersRef.current.has(order.id)) {
-      pendingNewOrdersRef.current.delete(order.id);
-      // Si plus aucune commande en attente, arrêter le son
-      if (pendingNewOrdersRef.current.size === 0) {
-        stopNotificationSound();
-      }
-    }
+    // Retirer cette commande des commandes en attente : son et clignotement
+    acknowledgeOrder(order.id);
   };
 
   // Fonction pour fermer le menu
@@ -611,6 +680,9 @@ export default function AdminDashboard() {
   const handleSwipeStatusChange = async (order: any, newStatus: string) => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      // Faire avancer la commande vaut prise en main : couper l'alerte
+      acknowledgeOrder(order.id);
 
       const success = await updateOrderStatus(order.id, newStatus, {
         manualStatusChange: true,
@@ -1692,6 +1764,14 @@ export default function AdminDashboard() {
           </View>
         </Modal>
 
+        {/* Alerte nouvelle commande (voir le rendu mobile pour le détail) */}
+        {pendingAlertCount > 0 && (
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.newOrderFlash, { opacity: alertBlinkAnim }]}
+          />
+        )}
+
       </LinearGradient>
       </View>
     );
@@ -1985,6 +2065,16 @@ export default function AdminDashboard() {
           onHide={() => setToast(null)}
         />
 
+        {/* Alerte nouvelle commande : pulse orange par-dessus tout l'écran.
+            `pointerEvents="none"` — l'alerte ne doit jamais gêner le geste qui
+            va justement l'éteindre (ouvrir la commande ou la faire avancer). */}
+        {pendingAlertCount > 0 && (
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.newOrderFlash, { opacity: alertBlinkAnim }]}
+          />
+        )}
+
       </LinearGradient>
     </GestureHandlerRootView>
   );
@@ -1993,6 +2083,15 @@ export default function AdminDashboard() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  // Voile orange du clignotement « nouvelle commande ». Volontairement peu
+  // opaque avec un cadre franc : l'écran doit sauter aux yeux de loin sans
+  // rendre les commandes illisibles pendant qu'on les traite.
+  newOrderFlash: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 140, 0, 0.22)',
+    borderWidth: 10,
+    borderColor: '#FF8C00',
   },
   header: {
     paddingHorizontal: spacing.lg,

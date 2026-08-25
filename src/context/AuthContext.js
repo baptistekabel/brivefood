@@ -254,8 +254,13 @@ export const AuthProvider = ({ children }) => {
     return unsubscribe;
   }, []);
 
-  // Un compte bloqué par l'admin est déconnecté immédiatement, même si la session
-  // était déjà ouverte au moment du blocage
+  // Profil suivi en direct : compte bloqué par l'admin (déconnexion immédiate,
+  // même si la session était déjà ouverte) et surtout solde de fidélité.
+  //
+  // Le profil n'était lu qu'une fois à la connexion : quand le restaurant
+  // annulait une commande, les points repris dans Firestore (voir
+  // OrdersContext.updateOrderStatus) restaient affichés au client jusqu'à sa
+  // prochaine reconnexion, et il pouvait dépenser un solde qu'il n'avait plus.
   useEffect(() => {
     if (!user?.uid) return;
 
@@ -263,6 +268,11 @@ export const AuthProvider = ({ children }) => {
       doc(db, 'users', user.uid),
       (snapshot) => {
         if (!snapshot.exists()) return;
+
+        // Firestore renvoie l'écriture locale immédiatement : mettre le profil
+        // à jour ici ne fait pas clignoter les modifications faites depuis
+        // l'application elle-même.
+        setUserProfile(snapshot.data());
 
         if (snapshot.data().blocked === true) {
           console.log('🚫 Compte bloqué par l\'administrateur, déconnexion forcée');
