@@ -33,16 +33,6 @@ export const LoyaltyProvider = ({ children }) => {
   // pour pouvoir utiliser une récompense
   const MIN_ORDER_FOR_REWARDS = 15;
 
-  // Plafond de la récompense « Livraison Offerte ». Les frais sont calculés à
-  // la distance et montent jusqu'à une dizaine d'euros sur les adresses les
-  // plus éloignées : sans plafond, la récompense offrait ces 10 € entiers.
-  // Au-delà de 5 €, le reste des frais reste à la charge du client.
-  const MAX_FREE_DELIVERY_DISCOUNT = 5;
-
-  // Remise réellement accordée par la livraison offerte, plafonnée
-  const getDeliveryRewardDiscount = (deliveryFee = 0) =>
-    Math.min(Number(deliveryFee) || 0, MAX_FREE_DELIVERY_DISCOUNT);
-
   // Le client cumule un solde de points et le dépense librement
   // sur la récompense de son choix.
   //
@@ -69,15 +59,43 @@ export const LoyaltyProvider = ({ children }) => {
       },
     },
     {
-      id: 'livraison-offerte',
+      id: 'boisson-offerte',
       points: 600,
-      title: 'Livraison Offerte',
-      description: `Frais de livraison offerts jusqu'à ${MAX_FREE_DELIVERY_DISCOUNT} €`,
-      icon: 'bicycle',
+      title: 'Boisson offerte',
+      description: 'Une boisson 33 cl offerte, au choix dans la carte',
+      icon: 'cafe',
       color: '#4CAF50',
       gradient: ['#4CAF50', '#66BB6A'],
-      value: 0, // Valeur variable selon les frais de livraison
-      type: 'delivery'
+      value: 2.00,
+      type: 'product',
+      offer: {
+        // Les canettes 33 cl à 2 €. Les bouteilles 2 L et les boissons
+        // énergisantes (3 à 4,50 €) sont volontairement exclues : à 600 points
+        // la récompense vaut le prix d'une canette.
+        // `size: 'Cannette'` ne concerne que les références déclinées en 2 L
+        // (Oasis) ; les autres n'ont pas de taille et gardent leur prix.
+        productIds: [
+          'cocacola',
+          'cocacola-zero',
+          'cocacola-cherry',
+          'fanta-orange',
+          'fanta-framboise',
+          'fanta-fruit-dragon',
+          'orangina',
+          'schweppes',
+          '7up-original',
+          '7up-mojito',
+          'oasis-tropical',
+          'oasis-cassis-framboise',
+          'oasis-fraise-framboise',
+          'lipton-peche',
+          'lipton-pasteque-menthe',
+          'hawaii',
+          'perrier',
+        ],
+        size: 'Cannette',
+        optionGroups: [],
+      },
     },
     {
       id: 'bruschetta-offerte',
@@ -212,6 +230,29 @@ export const LoyaltyProvider = ({ children }) => {
     setUserLoyaltyData(loyaltyData);
   }, [orders, userProfile, user]);
 
+  // Récompense retirée du catalogue alors qu'un client l'avait déjà appliquée
+  // à son panier (cas de « Livraison Offerte ») : ses points sont rendus et la
+  // ligne supprimée. Sans ça, elle bloquerait toute autre récompense
+  // (une seule par commande) sans jamais s'afficher au panier, donc sans bouton
+  // pour la retirer, et les points seraient perdus.
+  useEffect(() => {
+    const usedRewards = userProfile?.usedRewards;
+    if (!usedRewards?.length) return;
+
+    const isObsolete = (used) =>
+      !used.orderId && !rewards.some(reward => reward.id === used.id);
+    const obsolete = usedRewards.filter(isObsolete);
+    if (obsolete.length === 0) return;
+
+    const refunded = obsolete.reduce((total, used) => total + (used.points || 0), 0);
+    console.log(`♻️ Récompense retirée du catalogue : ${refunded} points rendus`);
+
+    updateUserProfile({
+      usedLoyaltyPoints: Math.max(0, (userProfile.usedLoyaltyPoints || 0) - refunded),
+      usedRewards: usedRewards.filter(used => !isObsolete(used)),
+    });
+  }, [userProfile]);
+
   // Une seule récompense par commande : celle en cours d'utilisation, s'il y en a
   const getActiveReward = () =>
     (userProfile?.usedRewards || []).find(used => !used.orderId) || null;
@@ -219,8 +260,9 @@ export const LoyaltyProvider = ({ children }) => {
   // Obtenir les récompenses disponibles pour le panier.
   // Le client peut utiliser toute récompense que son solde de points permet, à
   // condition d'atteindre le minimum de commande et de n'en avoir aucune autre
-  // en cours.
-  const getAvailableRewardsForCart = (cartTotal = 0, isDelivery = false) => {
+  // en cours. Toutes les récompenses sont des produits offerts : aucune ne
+  // dépend du mode de commande depuis le retrait de la livraison offerte.
+  const getAvailableRewardsForCart = (cartTotal = 0) => {
     if (cartTotal < MIN_ORDER_FOR_REWARDS) return [];
     if (getActiveReward()) return [];
 
@@ -229,8 +271,6 @@ export const LoyaltyProvider = ({ children }) => {
     return rewards
       // Assez de points pour cette récompense ?
       .filter(reward => loyalty.currentPoints >= reward.points)
-      // La livraison offerte n'a de sens qu'en mode livraison
-      .filter(reward => reward.type !== 'delivery' || isDelivery)
       // La valeur affichée au client est lue dans le catalogue par l'écran du
       // panier (getRewardProductValue) : elle ne peut plus diverger du prix réel
       .map(reward => ({ ...reward, available: true }));
@@ -242,7 +282,7 @@ export const LoyaltyProvider = ({ children }) => {
   // (variante du produit, sauce, viande). Ils sont conservés sur le profil pour
   // que la ligne du panier puisse être reconstruite à l'identique après un
   // redémarrage de l'application.
-  const useReward = async (rewardId, orderTotal = 0, deliveryFee = 0, customizations = null) => {
+  const useReward = async (rewardId, orderTotal = 0, customizations = null) => {
     try {
       const reward = rewards.find(r => r.id === rewardId);
       if (!reward) {
@@ -275,16 +315,11 @@ export const LoyaltyProvider = ({ children }) => {
         };
       }
 
-      let discountAmount = 0;
+      // Toutes les récompenses sont des produits offerts, ajoutés au panier à
+      // 0 € (l'écran du panier s'en charge, voir buildRewardCartItem) : aucune
+      // ne donne lieu à une remise en euros sur le reste de la commande.
+      const discountAmount = 0;
       const description = `${reward.title} (-${reward.points} points)`;
-
-      // Un produit offert est ajouté au panier à 0 € (l'écran du panier s'en
-      // charge, voir buildRewardCartItem) : il ne donne plus lieu à une remise
-      // en euros sur le reste de la commande. Seule la livraison offerte, qui
-      // n'a pas d'article correspondant, reste une remise.
-      if (reward.type === 'delivery') {
-        discountAmount = getDeliveryRewardDiscount(deliveryFee);
-      }
 
       // Mettre à jour le profil utilisateur avec les points utilisés
       const currentUsedPoints = userProfile.usedLoyaltyPoints || 0;
@@ -386,7 +421,7 @@ export const LoyaltyProvider = ({ children }) => {
   };
 
   // Calculer la réduction totale des récompenses en cours d'utilisation
-  const calculateActiveRewardsDiscount = (cartTotal = 0, deliveryFee = 0) => {
+  const calculateActiveRewardsDiscount = (cartTotal = 0) => {
     const usedRewards = userProfile?.usedRewards || [];
     const activeRewards = usedRewards.filter(r => !r.orderId); // Récompenses en cours d'utilisation
 
@@ -398,9 +433,7 @@ export const LoyaltyProvider = ({ children }) => {
       if (reward) {
         // Les produits offerts figurent dans le panier à 0 € : leur remise vaut
         // zéro, sans quoi le client serait avantagé deux fois (voir useReward)
-        const discountAmount = reward.type === 'delivery'
-          ? getDeliveryRewardDiscount(deliveryFee)
-          : 0;
+        const discountAmount = 0;
 
         totalDiscount += discountAmount;
         rewardDiscounts.push({
@@ -425,7 +458,6 @@ export const LoyaltyProvider = ({ children }) => {
     rewards,
     POINTS_PER_EURO,
     MIN_ORDER_FOR_REWARDS,
-    MAX_FREE_DELIVERY_DISCOUNT,
 
     // Functions
     calculateLoyaltyData,

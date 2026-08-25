@@ -324,14 +324,14 @@ export default function CartScreen() {
 
   const handleDeliveryFeeCalculated = (fee, distance) => {
     // getDeliveryFee() (utils) renvoie null hors zone : on conserve la
-    // distinction avec une livraison offerte à 0 €
+    // distinction avec une livraison facturée 0 €
     setDynamicDeliveryFee(typeof fee === 'number' ? fee : null);
   };
 
   const getTotal = () => {
     const subtotal = getSubtotal();
     const deliveryFee = getDeliveryFee();
-    const rewardsDiscount = calculateActiveRewardsDiscount(subtotal, deliveryFee);
+    const rewardsDiscount = calculateActiveRewardsDiscount(subtotal);
     return Math.max(0, subtotal + deliveryFee - rewardsDiscount.totalDiscount);
   };
 
@@ -365,7 +365,7 @@ export default function CartScreen() {
     // Récompense appliquée au-dessus du minimum, puis articles retirés pour
     // repasser dessous : le panier doit toujours atteindre le minimum au moment
     // de valider, sinon la règle se contourne en trois gestes.
-    const activeRewards = calculateActiveRewardsDiscount(getSubtotal(), getDeliveryFee());
+    const activeRewards = calculateActiveRewardsDiscount(getSubtotal());
     if (activeRewards.hasActiveRewards && getSubtotal() < MIN_ORDER_FOR_REWARDS) {
       return {
         title: `Minimum ${MIN_ORDER_FOR_REWARDS} € avec une récompense`,
@@ -541,7 +541,7 @@ export default function CartScreen() {
       }
     }
 
-    const result = await useReward(reward.id, getSubtotal(), getDeliveryFee(), customizations);
+    const result = await useReward(reward.id, getSubtotal(), customizations);
     if (!result.success) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Erreur', result.error);
@@ -865,7 +865,7 @@ export default function CartScreen() {
       // `result.duplicate` : la commande existait déjà (double envoi rattrapé
       // par OrdersContext). Ses récompenses ont été confirmées au premier envoi,
       // les reconfirmer les consommerait une seconde fois.
-      const rewardsDiscount = calculateActiveRewardsDiscount(getSubtotal(), getDeliveryFee());
+      const rewardsDiscount = calculateActiveRewardsDiscount(getSubtotal());
       if (rewardsDiscount.hasActiveRewards && !result.duplicate) {
         await confirmRewardUsage(
           rewardsDiscount.rewardDiscounts.map(reward => reward.id),
@@ -1192,18 +1192,12 @@ export default function CartScreen() {
 
     const points = userLoyaltyData.currentPoints || 0;
     const subtotal = getSubtotal();
-    const activeRewards = calculateActiveRewardsDiscount(subtotal, getDeliveryFee());
-    const usableNow = getAvailableRewardsForCart(subtotal, orderMode === OrderMode.DELIVERY)
+    const activeRewards = calculateActiveRewardsDiscount(subtotal);
+    const usableNow = getAvailableRewardsForCart(subtotal)
       .map(reward => ({ ...reward, rewardValue: getRewardProductValue(reward, getProductById) }));
 
     // Récompenses que le solde permet
     const affordable = (rewards || []).filter(r => points >= r.points);
-    // ... mais que le mode de commande empêche. Testé sur le type plutôt que sur
-    // l'absence de `usableNow` : celui-ci est aussi vide quand le panier n'atteint
-    // pas le minimum, ce qui affichait « disponible en livraison » sur tout.
-    const blockedByMode = affordable.filter(
-      r => r.type === 'delivery' && orderMode !== OrderMode.DELIVERY
-    );
 
     // Panier trop petit pour utiliser les points
     const missingForMinimum = MIN_ORDER_FOR_REWARDS - subtotal;
@@ -1241,14 +1235,10 @@ export default function CartScreen() {
             <Ionicons name="checkmark-circle" size={20} color="#16A34A" />
             <View style={styles.loyaltyAppliedInfo}>
               <Text style={styles.loyaltyAppliedTitle}>{reward.title}</Text>
-              <Text style={styles.loyaltyAppliedSubtitle}>
-                {reward.type === 'delivery'
-                  ? 'Récompense appliquée'
-                  : 'Ajouté à votre commande'}
-              </Text>
+              <Text style={styles.loyaltyAppliedSubtitle}>Ajouté à votre commande</Text>
             </View>
             {/* Un produit offert n'est pas une remise : il figure dans le
-                panier à 0 €, seule la livraison offerte affiche un montant */}
+                panier à 0 €, il n'y a donc pas de montant à afficher */}
             {reward.discountAmount > 0 && (
               <Text style={styles.loyaltyAppliedDiscount}>
                 -{reward.discountAmount.toFixed(2)}€
@@ -1339,16 +1329,6 @@ export default function CartScreen() {
             ))}
           </View>
         )}
-
-        {/* Récompense atteinte mais incompatible avec le mode choisi */}
-        {!activeRewards.hasActiveRewards && !belowMinimum && blockedByMode.map((reward) => (
-          <View key={reward.id} style={styles.loyaltyBlockedCard}>
-            <Ionicons name="information-circle-outline" size={16} color={colors.neutral.gray500} />
-            <Text style={styles.loyaltyBlockedText}>
-              « {reward.title} » est débloquée, disponible en mode livraison.
-            </Text>
-          </View>
-        ))}
 
         <Text style={styles.loyaltyFooterHint}>
           1€ dépensé = {POINTS_PER_EURO} points · une récompense par commande,
@@ -1536,7 +1516,7 @@ export default function CartScreen() {
 
               {/* Loyalty Rewards Discount */}
               {(() => {
-                const rewardsDiscount = calculateActiveRewardsDiscount(getSubtotal(), getDeliveryFee());
+                const rewardsDiscount = calculateActiveRewardsDiscount(getSubtotal());
                 if (rewardsDiscount.hasActiveRewards && rewardsDiscount.totalDiscount > 0) {
                   return (
                     <View style={styles.summaryRow}>
