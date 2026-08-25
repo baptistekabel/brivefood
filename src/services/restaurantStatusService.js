@@ -14,6 +14,12 @@ import { db } from '../../config/firebase';
 // intégralement chaque minute (setDoc sans merge).
 const OVERRIDE_DOC = ['settings', 'restaurant_override'];
 
+// Jour de fermeture hebdomadaire. En mode automatique le restaurant est fermé
+// le mardi quels que soient les horaires publiés : des horaires anciens (ou
+// republiés par erreur avec `enabled: true`) rouvriraient sinon ce jour-là.
+// Seul un forçage manuel d'un poste admin peut encore ouvrir un mardi.
+const WEEKLY_CLOSING_DAY = 'tuesday';
+
 // Un forçage expiré ne vaut plus rien
 const isOverrideExpired = (override) =>
   !!override?.expiresAt && new Date() > new Date(override.expiresAt);
@@ -53,7 +59,8 @@ class RestaurantStatusService {
     // Horaires par défaut (format 24h) - Service continu 11h-01h55
     this.defaultSchedule = {
       monday: { open: '11:00', close: '01:50', enabled: true },
-      tuesday: { open: '11:00', close: '01:50', enabled: true },
+      // Fermeture hebdomadaire : le mardi le restaurant ne sert pas
+      tuesday: { open: '11:00', close: '01:50', enabled: false },
       wednesday: { open: '11:00', close: '01:50', enabled: true },
       thursday: { open: '11:00', close: '01:50', enabled: true },
       friday: { open: '11:00', close: '01:50', enabled: true },
@@ -95,6 +102,13 @@ class RestaurantStatusService {
       if (needsMigration) {
         // Migrer vers les horaires actuels 11h-01h50
         await this.setSchedule(this.defaultSchedule);
+      } else if (schedule[WEEKLY_CLOSING_DAY]?.enabled !== false) {
+        // Horaires publiés avant la fermeture du mardi : les aligner, sinon
+        // l'affichage des horaires annoncerait un jour où l'on ne sert pas
+        await this.setSchedule({
+          ...schedule,
+          [WEEKLY_CLOSING_DAY]: { ...schedule[WEEKLY_CLOSING_DAY], enabled: false },
+        });
       }
 
       // Calculer le statut initial
@@ -200,10 +214,12 @@ class RestaurantStatusService {
 
       const todaySchedule = schedule[currentDay];
 
-      if (!todaySchedule || !todaySchedule.enabled) {
+      if (currentDay === WEEKLY_CLOSING_DAY || !todaySchedule || !todaySchedule.enabled) {
         return {
           isOpen: false,
-          reason: 'Fermé aujourd\'hui',
+          reason: currentDay === WEEKLY_CLOSING_DAY
+            ? 'Fermé le mardi'
+            : 'Fermé aujourd\'hui',
           nextChange: this.getNextOpenTime(schedule, now)
         };
       }
@@ -733,7 +749,7 @@ class RestaurantStatusService {
       const dayKey = days[dayIndex];
       const daySchedule = schedule[dayKey];
 
-      if (daySchedule && daySchedule.enabled) {
+      if (dayKey !== WEEKLY_CLOSING_DAY && daySchedule && daySchedule.enabled) {
         const nextDate = new Date(fromDate);
         nextDate.setDate(nextDate.getDate() + i);
         const openTime = this.parseTime(daySchedule.open);
