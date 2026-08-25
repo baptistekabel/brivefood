@@ -641,7 +641,17 @@ export default function HomeScreen() {
                 </View>
                 <View style={styles.infoTextContainer}>
                   <Text style={styles.infoLabel}>Téléphone</Text>
-                  <Text style={styles.infoMainText}>07 66 88 16 97</Text>
+                  {/* Le numéro doit rester sur une seule ligne : il se réduit
+                      au besoin plutôt que de passer à la ligne sur les écrans
+                      étroits (la carte ne fait que la moitié de la largeur) */}
+                  <Text
+                    style={styles.infoMainText}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.6}
+                  >
+                    07 66 88 16 97
+                  </Text>
                   <Text style={styles.infoHint}>service gratuit + coût de l'appel</Text>
                 </View>
               </LinearGradient>
@@ -1505,8 +1515,11 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.bold,
     color: colors.neutral.white,
     textAlign: 'center',
+    alignSelf: 'stretch',
     marginBottom: spacing.xs,
-    letterSpacing: 1,
+    // Interlettrage réduit : à 1 px, les 14 caractères du numéro débordaient
+    // de la carte et repassaient à la ligne
+    letterSpacing: 0.2,
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
