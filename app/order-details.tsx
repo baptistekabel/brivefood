@@ -390,6 +390,12 @@ export default function OrderDetailsScreen() {
                     <Ionicons name="close-circle" size={20} color="#DC2626" />
                     <Text style={styles.cancelledBannerTitle}>Commande annulée</Text>
                   </View>
+                  {activeOrder.cancellationReason ? (
+                    <Text style={styles.cancelledBannerText}>
+                      Motif indiqué par le restaurant :{' '}
+                      <Text style={styles.cancelledBannerReason}>{activeOrder.cancellationReason}</Text>
+                    </Text>
+                  ) : null}
                   <Text style={styles.cancelledBannerText}>
                     Votre commande a été annulée par le restaurant. Si vous avez
                     une question, appelez le{' '}
@@ -916,6 +922,10 @@ const styles = StyleSheet.create({
   cancelledBannerPhone: {
     fontFamily: typography.fontFamily.bold,
     color: '#DC2626',
+  },
+  cancelledBannerReason: {
+    fontFamily: typography.fontFamily.bold,
+    color: '#991B1B',
   },
 
   cancelWindowBox: {

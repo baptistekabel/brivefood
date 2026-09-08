@@ -1,5 +1,6 @@
 import notificationService from './notificationService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getCustomerPushToken } from './broadcastNotificationService';
 
 class CustomerNotificationService {
   constructor() {
@@ -200,7 +201,7 @@ class CustomerNotificationService {
           }
           break;
         case 'cancelled':
-          return await this.notifyCustomerOrderCancelled(orderId);
+          return await this.notifyCustomerOrderCancelled(orderId, orderData);
         default:
           console.log(`ℹ️ Pas de notification client pour le statut: ${newStatus}`);
           return false;
@@ -211,36 +212,65 @@ class CustomerNotificationService {
     }
   }
 
+  // Token push du client d'une commande, cherché dans cet ordre :
+  //
+  //   1. le token enregistré sur la commande elle-même à sa validation — seul
+  //      moyen de joindre un client sans compte ;
+  //   2. le registre local, qui ne contient que les commandes passées depuis
+  //      CET appareil (donc jamais celles du client quand on est côté admin) ;
+  //   3. le registre Firestore `push_tokens`, alimenté à la connexion.
+  //
+  // Sans les points 1 et 3, une notification envoyée depuis la tablette du
+  // restaurant ne partait jamais : le registre local y est toujours vide.
+  async resolveCustomerToken(orderId, orderData = {}) {
+    if (orderData.pushToken) return orderData.pushToken;
+
+    const localToken = this.customerTokens.get(orderId)?.token;
+    if (localToken) return localToken;
+
+    if (orderData.userId) {
+      return await getCustomerPushToken(orderData.userId);
+    }
+
+    return null;
+  }
+
   // Notifier que la commande est annulée par le restaurant.
-  // Note : le client affiche de toute façon sa propre notification locale en
-  // voyant le statut changer dans Firestore (voir ActiveOrderContext) — cet
-  // envoi ne fonctionne que si le token de la commande est connu de l'appareil.
-  async notifyCustomerOrderCancelled(orderId) {
+  // Le motif saisi par le restaurant est repris tel quel : « annulée » sans
+  // explication est la première cause d'appel au restaurant.
+  async notifyCustomerOrderCancelled(orderId, orderData = {}) {
     try {
       if (!this.isInitialized) {
         await this.initialize();
       }
 
-      const tokenData = this.customerTokens.get(orderId);
-      if (!tokenData) {
+      const token = await this.resolveCustomerToken(orderId, orderData);
+      if (!token) {
         console.warn(`⚠️ Aucun token trouvé pour la commande ${orderId}`);
         return false;
       }
 
+      const reference = orderData.orderNumber || orderId;
+      const reason = (orderData.reason || '').trim();
+
       const title = '❌ Commande annulée';
-      const body = `Commande #${orderId} - Votre commande a été annulée par le restaurant. Appelez-le pour toute question.`;
+      const body = reason
+        ? `Commande #${reference} - Annulée par le restaurant : ${reason}`
+        : `Commande #${reference} - Votre commande a été annulée par le restaurant. Appelez-le pour toute question.`;
 
       const notificationData = {
         type: 'order_cancelled',
         orderId,
         orderStatus: 'cancelled',
+        ...(reason && { reason }),
       };
 
       const result = await notificationService.sendPushNotification(
-        tokenData.token,
+        token,
         title,
         body,
-        notificationData
+        notificationData,
+        { channelId: 'order-updates' }
       );
 
       if (result) {

@@ -791,8 +791,14 @@ export default function CartScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
+    // Token push de cet appareil, attaché à la commande : c'est par lui que le
+    // restaurant prévient le client (annulation notamment). Sans ça, seuls les
+    // clients connectés sont joignables, via le registre `push_tokens`.
+    const pushToken = await notificationService.getPushToken().catch(() => null);
+
     // Créer la commande directement
     const orderData = {
+      pushToken: pushToken || null,
       customerName: userProfile?.firstName && userProfile?.lastName
         ? `${userProfile.firstName} ${userProfile.lastName}`
         : userProfile?.name || 'Client BriveFood',

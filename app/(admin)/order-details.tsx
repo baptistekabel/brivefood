@@ -28,6 +28,15 @@ import epsonBluetoothService from '../../src/services/EpsonBluetoothService';
 import ProductImage from '../../src/components/common/ProductImage';
 import { getOrderDisplayNumber } from '../../src/utils/serviceDay';
 
+// Motifs d'annulation les plus fréquents en service : un appui suffit, le
+// texte libre reste là pour le reste.
+const CANCEL_REASONS = [
+  { key: 'out_of_stock', label: 'Produit indisponible' },
+  { key: 'too_busy', label: 'Restaurant surchargé' },
+  { key: 'unreachable', label: 'Client injoignable' },
+  { key: 'mistake', label: 'Erreur de commande' },
+];
+
 export default function AdminOrderDetails() {
   const { orderId } = useLocalSearchParams();
   const { orders, loading, updateOrderStatus, getActiveAlertForOrder, flagCustomerAlert, resolveCustomerAlert } = useOrders();
@@ -37,6 +46,10 @@ export default function AdminOrderDetails() {
   const [toast, setToast] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState(null);
+  const [cancelNote, setCancelNote] = useState('');
+  const [isCancelling, setIsCancelling] = useState(false);
   const [showFlagModal, setShowFlagModal] = useState(false);
   const [flagReason, setFlagReason] = useState(null);
   const [flagNote, setFlagNote] = useState('');
@@ -255,17 +268,56 @@ export default function AdminOrderDetails() {
   // Annulation restaurant : commande non récupérée, erreur de saisie, rupture...
   // Les points de fidélité gagnés sur cette commande sont automatiquement retirés
   const handleCancelOrder = () => {
-    Alert.alert(
-      'Annuler la commande',
-      `Annuler la commande #${getOrderDisplayNumber(order)} ?\n\nLes points de fidélité gagnés sur cette commande seront retirés au client, et les points qu'il aurait dépensés en récompense lui seront rendus.`,
-      [
-        { text: 'Retour', style: 'cancel' },
-        {
-          text: 'Annuler la commande',
-          style: 'destructive',
-          onPress: () => handleStatusUpdate(OrderStatus.CANCELLED),
-        },
-      ]
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setCancelReason(null);
+    setCancelNote('');
+    setShowCancelModal(true);
+  };
+
+  const handleCloseCancelModal = () => {
+    if (isCancelling) return;
+    setShowCancelModal(false);
+  };
+
+  // Libellé envoyé au client : le texte libre prime sur le motif coché, et
+  // l'annulation reste possible sans motif (rien n'est alors annoncé).
+  const getCancelReasonLabel = () => {
+    const note = cancelNote.trim();
+    if (note) return note;
+    return CANCEL_REASONS.find(reason => reason.key === cancelReason)?.label || '';
+  };
+
+  const handleConfirmCancelOrder = async () => {
+    setIsCancelling(true);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+
+    let result;
+    try {
+      result = await updateOrderStatus(order.id, OrderStatus.CANCELLED, {
+        manualStatusChange: true,
+        cancellationReason: getCancelReasonLabel(),
+      });
+    } catch (error) {
+      console.error('Error cancelling order:', error);
+    } finally {
+      setIsCancelling(false);
+    }
+
+    if (!result?.success) {
+      Alert.alert('Erreur', result?.error || "Impossible d'annuler la commande");
+      return;
+    }
+
+    setShowCancelModal(false);
+    setOrder({ ...order, status: OrderStatus.CANCELLED });
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    // Le client n'est joignable que s'il a accepté les notifications : le dire
+    // franchement, sinon le restaurant croit le client prévenu et ne l'appelle pas.
+    setToast(
+      result.customerNotified
+        ? 'Commande annulée, le client a été prévenu par notification'
+        : 'Commande annulée. Le client n\'a pas pu être notifié : appelez-le'
     );
   };
 
@@ -1210,6 +1262,90 @@ export default function AdminOrderDetails() {
           </View>
         </Modal>
 
+        {/* Modal d'annulation de commande */}
+        <Modal
+          visible={showCancelModal}
+          transparent
+          animationType="fade"
+          onRequestClose={handleCloseCancelModal}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.flagModalOverlay}
+          >
+            <TouchableOpacity
+              style={styles.flagModalBackground}
+              activeOpacity={1}
+              onPress={handleCloseCancelModal}
+            />
+            <View style={styles.flagModalContainer}>
+              <View style={styles.cancelModalHeader}>
+                <Ionicons name="close-circle" size={22} color="#DC2626" />
+                <Text style={[styles.flagModalTitle, styles.cancelModalTitle]}>
+                  Annuler la commande #{order ? getOrderDisplayNumber(order) : ''}
+                </Text>
+              </View>
+              <Text style={styles.flagModalSubtitle}>
+                Le client recevra une notification l'informant de l'annulation, avec le motif
+                choisi. Les points de fidélité gagnés sur cette commande lui seront retirés, et
+                ceux dépensés en récompense lui seront rendus.
+              </Text>
+
+              <Text style={styles.cancelReasonLabel}>Motif (facultatif)</Text>
+              <View style={styles.flagReasonRow}>
+                {CANCEL_REASONS.map(reason => (
+                  <TouchableOpacity
+                    key={reason.key}
+                    style={[styles.flagReasonChip, cancelReason === reason.key && styles.flagReasonChipActive]}
+                    onPress={() => setCancelReason(cancelReason === reason.key ? null : reason.key)}
+                    disabled={isCancelling}
+                  >
+                    <Text style={[
+                      styles.flagReasonChipText,
+                      cancelReason === reason.key && styles.flagReasonChipTextActive
+                    ]}>
+                      {reason.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <TextInput
+                style={styles.flagNoteInput}
+                placeholder="Autre motif, en texte libre…"
+                placeholderTextColor={colors.neutral.gray400}
+                value={cancelNote}
+                onChangeText={setCancelNote}
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+                editable={!isCancelling}
+              />
+
+              <View style={styles.flagModalActions}>
+                <TouchableOpacity
+                  style={styles.flagModalCancelButton}
+                  onPress={handleCloseCancelModal}
+                  disabled={isCancelling}
+                >
+                  <Text style={styles.flagModalCancelText}>Retour</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.flagModalSubmitButton, isCancelling && styles.flagModalSubmitButtonDisabled]}
+                  onPress={handleConfirmCancelOrder}
+                  disabled={isCancelling}
+                >
+                  {isCancelling ? (
+                    <ActivityIndicator size="small" color={colors.neutral.white} />
+                  ) : (
+                    <Text style={styles.flagModalSubmitText}>Annuler la commande</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+
         {/* Modal de signalement client */}
         <Modal
           visible={showFlagModal}
@@ -1545,6 +1681,20 @@ const styles = StyleSheet.create({
     color: colors.neutral.gray600,
     marginTop: spacing.xs,
     marginBottom: spacing.md,
+  },
+  cancelModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  cancelModalTitle: {
+    flex: 1,
+  },
+  cancelReasonLabel: {
+    fontSize: typography.fontSizes.sm,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutral.gray700,
+    marginBottom: spacing.xs,
   },
   flagReasonRow: {
     flexDirection: 'row',

@@ -3,6 +3,7 @@ import {
   collection,
   doc,
   setDoc,
+  getDoc,
   getDocs,
   query,
   where,
@@ -225,6 +226,24 @@ class BroadcastNotificationService {
     }
   }
 
+  // Token push d'UN client précis.
+  //
+  // Indispensable pour joindre un client depuis la tablette du restaurant :
+  // le registre local (customerNotificationService) ne contient que les
+  // commandes passées depuis l'appareil lui-même, c'est-à-dire jamais celles
+  // du client quand on est côté admin.
+  async getCustomerToken(userId) {
+    if (!userId) return null;
+
+    try {
+      const snapshot = await getDoc(doc(db, this.collectionName, userId));
+      return snapshot.exists() ? (snapshot.data().token || null) : null;
+    } catch (error) {
+      console.error('❌ Erreur lecture token client:', error);
+      return null;
+    }
+  }
+
   // Supprimer un token (déconnexion client)
   async removeCustomerToken(userId) {
     try {
@@ -294,3 +313,5 @@ export const sendBroadcastToAllClients = (title, message, data) =>
   broadcastNotificationService.sendBroadcastNotification(title, message, data);
 export const removeCustomerFromBroadcast = (userId) =>
   broadcastNotificationService.removeCustomerToken(userId);
+export const getCustomerPushToken = (userId) =>
+  broadcastNotificationService.getCustomerToken(userId);

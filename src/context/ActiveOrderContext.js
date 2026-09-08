@@ -73,22 +73,30 @@ export const ActiveOrderProvider = ({ children }) => {
 
         const updatedActiveOrder = {
           ...activeOrder,
-          status: updatedOrder.status
+          status: updatedOrder.status,
+          // Motif d'annulation saisi par le restaurant : affiché au client sur
+          // le suivi de sa commande
+          cancellationReason: updatedOrder.cancellationReason || null,
         };
 
         setActiveOrder(updatedActiveOrder);
         saveActiveOrder(updatedActiveOrder);
 
         // Annulation par le restaurant : prévenir clairement le client.
-        // La notification est locale, déclenchée par le téléphone lui-même en
-        // voyant le statut changer dans Firestore : celles envoyées depuis la
-        // tablette ne peuvent pas l'atteindre, le token push du client n'étant
-        // enregistré que sur son propre appareil (voir customerNotificationService).
-        if (updatedOrder.status === OrderStatus.CANCELLED) {
+        //
+        // Le restaurant envoie désormais une vraie notification push (le token
+        // du client est porté par la commande, voir customerNotificationService).
+        // Cette notification locale ne sert donc plus que de filet pour les
+        // commandes sans token — passées avant cette version, ou notifications
+        // refusées — sinon le client en recevrait deux.
+        if (updatedOrder.status === OrderStatus.CANCELLED && !updatedOrder.pushToken) {
+          const reason = (updatedOrder.cancellationReason || '').trim();
           notificationService.sendLocalNotification(
             'Commande annulée ❌',
-            'Votre commande a été annulée par le restaurant. Appelez-le pour toute question.',
-            { type: 'order_cancelled', orderId: updatedOrder.id }
+            reason
+              ? `Votre commande a été annulée par le restaurant : ${reason}`
+              : 'Votre commande a été annulée par le restaurant. Appelez-le pour toute question.',
+            { type: 'order_cancelled', orderId: updatedOrder.id, ...(reason && { reason }) }
           );
         }
 

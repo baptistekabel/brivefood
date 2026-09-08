@@ -530,6 +530,10 @@ export const OrdersProvider = ({ children }) => {
         lastName: orderData.lastName || null,
         customerEmail: orderData.customerEmail || '',
         userId: orderData.userId || null,
+        // Token push de l'appareil qui commande : c'est lui qui permet au
+        // restaurant de joindre le client (annulation notamment), y compris
+        // quand la commande est passée sans compte
+        pushToken: orderData.pushToken || null,
         phone: orderData.phone || '',
         items: orderData.items,
         total: orderData.total,
@@ -644,12 +648,21 @@ export const OrdersProvider = ({ children }) => {
       // fonction cloud `autoAdvanceOrderStatus` de ne plus repositionner cette
       // commande sur son horaire théorique. `options.manualStatusChange` ne
       // pilote plus que le déclenchement de la demande d'avis client.
+      const cancelling = newStatus === OrderStatus.CANCELLED;
+      const cancellationReason = (options.cancellationReason || '').trim();
+
       const orderDoc = doc(db, 'orders', orderToUpdate.firestoreId);
       await updateDoc(orderDoc, {
         status: newStatus,
         updatedAt: serverTimestamp(),
         lastStatusChangeType: 'manual',
-        manualStatusChangeAt: serverTimestamp()
+        manualStatusChangeAt: serverTimestamp(),
+        // Motif d'annulation : affiché au client sur sa commande et repris
+        // dans la notification push
+        ...(cancelling && {
+          cancellationReason: cancellationReason || null,
+          cancelledAt: serverTimestamp(),
+        }),
       });
 
       console.log('✅ Order status updated in Firestore');
@@ -658,7 +671,6 @@ export const OrdersProvider = ({ children }) => {
       // Le calcul par recomptage des commandes s'en chargeait tout seul ;
       // avec un solde persistant, il faut débiter explicitement. Les drapeaux
       // évitent qu'un double passage retire les points deux fois.
-      const cancelling = newStatus === OrderStatus.CANCELLED;
       const pointsToRevoke = orderToUpdate.loyaltyPoints ?? getOrderPoints(orderToUpdate);
 
       if (cancelling && orderToUpdate.userId && !orderToUpdate.loyaltyRevoked && pointsToRevoke > 0) {
@@ -673,15 +685,25 @@ export const OrdersProvider = ({ children }) => {
         }
       }
 
-      // Notifier le client si nécessaire
+      // Notifier le client si nécessaire.
+      //
+      // `userId` et `pushToken` sont indispensables côté admin : ils permettent
+      // de retrouver le token du client, que la tablette du restaurant ne
+      // connaît évidemment pas. Le résultat est remonté à l'appelant pour que
+      // l'écran d'annulation puisse dire si le client a bien été prévenu.
+      let customerNotified = false;
       try {
-        await customerNotificationService.notifyCustomerStatusChange(
+        customerNotified = await customerNotificationService.notifyCustomerStatusChange(
           orderId,
           newStatus,
           {
             mode: orderToUpdate.mode,
             customerName: orderToUpdate.customerName,
-            estimatedTime: '15-30 min'
+            estimatedTime: '15-30 min',
+            userId: orderToUpdate.userId || null,
+            pushToken: orderToUpdate.pushToken || null,
+            orderNumber: orderToUpdate.orderNumber || null,
+            reason: cancellationReason,
           }
         );
       } catch (notificationError) {
@@ -689,7 +711,7 @@ export const OrdersProvider = ({ children }) => {
         // Ne pas faire échouer la mise à jour du statut si la notification échoue
       }
 
-      return { success: true };
+      return { success: true, customerNotified: customerNotified === true };
     } catch (error) {
       console.error('❌ Error updating order status in Firestore:', error);
       return { success: false, error: error.message };
