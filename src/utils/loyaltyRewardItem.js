@@ -135,7 +135,15 @@ export const buildRewardCartItem = (reward, getProductById, customizations = {})
       // Toutes les options d'un article offert sont gratuites : afficher leur
       // prix laisserait croire à un supplément alors que la ligne reste à 0 €
       options: (group.options || []).map(option => ({ ...option, price: 0 })),
-      ...(limit ? { minSelections: Math.min(getGroupMin(group), limit), maxSelections: limit } : {}),
+      // Le nombre de viandes n'est pas un maximum mais un dû : un tacos L
+      // offert se choisit avec ses 2 viandes, sinon la cuisine reçoit un
+      // « L (2 viandes) » à une seule viande.
+      ...(limit
+        ? {
+            minSelections: groupKey === 'viandes' ? limit : Math.min(getGroupMin(group), limit),
+            maxSelections: limit,
+          }
+        : {}),
     };
   });
 

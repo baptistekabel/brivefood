@@ -27,7 +27,7 @@ import { useProducts } from '../../src/context/ProductsContext';
 import productImages from '../../src/data/productImages';
 import categoryInfo from '../../src/data/categories';
 import ProductImage, { hasProductImage } from '../../src/components/common/ProductImage';
-import { calculateCustomizedPrice, isCustomizationComplete, getMissingCustomizations, formatMissingCustomizations, getSizeDisplayText, getProductQuantity, sortCustomizationEntries } from '../../src/utils/categoryUtils';
+import { calculateCustomizedPrice, isCustomizationComplete, getMissingCustomizations, formatMissingCustomizations, getSizeDisplayText, getProductQuantity, sortCustomizationEntries, getViandesCountForSize } from '../../src/utils/categoryUtils';
 import restaurantStatusService from '../../src/services/restaurantStatusService';
 import styles from '../../src/styles/CategoryScreen.styles';
 
@@ -547,7 +547,7 @@ export default function CategoryScreen() {
   // Alerte détaillant les sections obligatoires qu'il reste à remplir.
   // Renvoie true si la personnalisation est incomplète (et l'alerte affichée).
   const warnIfCustomizationIncomplete = (product) => {
-    const missingSections = getMissingCustomizations(product, customizations);
+    const missingSections = getMissingCustomizations(product, customizations, selectedSizes);
     if (missingSections.length === 0) return false;
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -616,16 +616,9 @@ export default function CategoryScreen() {
   };
 
 
-  // Nombre max de viandes autorisées selon la taille du tacos/pizza/bowl
-  const getViandesLimitForSize = (sizeKey, fallback = 4) => {
-    switch (sizeKey) {
-      case 'M': return 1;
-      case 'L': return 2;
-      case 'XL': return 3;
-      case 'XXL': return 4;
-      default: return fallback;
-    }
-  };
+  // Nombre de viandes imposé par la taille du tacos/pizza/bowl : c'est à la
+  // fois le maximum et le minimum obligatoire (voir categoryUtils).
+  const getViandesLimitForSize = (sizeKey, fallback = 4) => getViandesCountForSize(sizeKey, fallback);
 
   // Gérer la sélection des tailles
   const handleSizeSelection = (productId, sizeKey) => {
@@ -635,8 +628,10 @@ export default function CategoryScreen() {
     }));
 
     // Recalculer le prix basé sur la taille
-    const product = products.find(p => p.id === productId);
-    if (product && product.sizes && product.sizes[sizeKey]) {
+    const product = getProductById(productId);
+    // Seuls les produits dont la taille dicte le nombre de viandes sont à
+    // réajuster : ne pas créer une section « viandes » vide sur une pizza
+    if (product && product.sizes && product.sizes[sizeKey] && product.customizationOptions?.viandes) {
       // Ajuster les sélections de viandes selon la nouvelle taille
       setCustomizations(prev => {
         const currentCustomizations = prev[productId] || {};
@@ -878,7 +873,8 @@ export default function CategoryScreen() {
                       const maxViandes = getViandesLimitForSize(selectedSize);
                       return (
                         <Text style={styles.customizationHelperText}>
-                          Max {maxViandes} viande{maxViandes > 1 ? 's' : ''} pour la taille {selectedSize}
+                          {maxViandes} viande{maxViandes > 1 ? 's' : ''} à choisir pour la taille {selectedSize}
+                          {maxViandes > 1 ? ' (la même viande peut être prise plusieurs fois avec le +)' : ''}
                         </Text>
                       );
                     }
@@ -1087,7 +1083,7 @@ export default function CategoryScreen() {
             <TouchableOpacity
               style={[
                 styles.customizedAddToCartButton,
-                (!isCustomizationComplete(product, customizations) || isProductRestricted(product)) && styles.customizedAddToCartButtonDisabled
+                (!isCustomizationComplete(product, customizations, selectedSizes) || isProductRestricted(product)) && styles.customizedAddToCartButtonDisabled
               ]}
               onPress={() => {
                 if (isProductRestricted(product)) {
@@ -1104,7 +1100,7 @@ export default function CategoryScreen() {
                 colors={
                   isProductRestricted(product)
                     ? ['#6B7280', '#4B5563']
-                    : isCustomizationComplete(product, customizations)
+                    : isCustomizationComplete(product, customizations, selectedSizes)
                       ? ['#FF6B6B', '#FF8E53']
                       : ['#ccc', '#aaa']
                 }
@@ -1181,10 +1177,7 @@ export default function CategoryScreen() {
                   ]}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setSelectedSizes(prev => ({
-                      ...prev,
-                      [product.id]: size
-                    }));
+                    handleSizeSelection(product.id, size);
                   }}
                 >
                   <Text style={[
@@ -1301,10 +1294,7 @@ export default function CategoryScreen() {
                   ]}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setSelectedSizes(prev => ({
-                      ...prev,
-                      [product.id]: size
-                    }));
+                    handleSizeSelection(product.id, size);
                   }}
                 >
                   <Text style={[
@@ -1383,7 +1373,7 @@ export default function CategoryScreen() {
     if (!product) return null;
 
     const productCustomizations = customizations[product.id] || {};
-    const isComplete = isCustomizationComplete(product, customizations);
+    const isComplete = isCustomizationComplete(product, customizations, selectedSizes);
     const selectedSize = selectedSizes[product.id] || (product.sizes ? Object.keys(product.sizes)[0] : null);
     const currentPrice = product.sizes && selectedSize && product.sizes[selectedSize] ? product.sizes[selectedSize].price : product.price;
     const finalPrice = calculateCustomizedPrice(product, selectedSizes, customizations);
@@ -1450,10 +1440,7 @@ export default function CategoryScreen() {
                       ]}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        setSelectedSizes(prev => ({
-                          ...prev,
-                          [product.id]: size
-                        }));
+                        handleSizeSelection(product.id, size);
                       }}
                     >
                       <Text style={[

@@ -75,17 +75,46 @@ export const calculateCustomizedPrice = (product, selectedSizes = {}, customizat
   return basePrice + additionalPrice;
 };
 
+// Nombre de viandes qu'impose la taille d'un tacos / bowl : « L (2 viandes) »
+// veut dire deux viandes, ni une ni trois. Sert à la fois de maximum (on ne
+// peut pas en ajouter une de plus) et de minimum obligatoire, sinon la cuisine
+// reçoit un « L (2 viandes) » avec une seule viande sur le ticket.
+export const getViandesCountForSize = (sizeKey, fallback = 4) => {
+  switch (sizeKey) {
+    case 'M': return 1;
+    case 'L': return 2;
+    case 'XL': return 3;
+    case 'XXL': return 4;
+    default: return fallback;
+  }
+};
+
+// La section « viandes » d'un produit à tailles est la seule dont le nombre
+// requis dépend de la taille choisie.
+const isSizedMeatCategory = (product, categoryKey) =>
+  categoryKey === 'viandes' && !!product?.sizes;
+
+// Nombre de sélections obligatoires d'une section, taille comprise
+export const getRequiredSelections = (product, categoryKey, category, selectedSize) => {
+  const declared = category?.minSelections || 1;
+  if (isSizedMeatCategory(product, categoryKey) && selectedSize) {
+    return getViandesCountForSize(selectedSize, declared);
+  }
+  return declared;
+};
+
 // Lister les sections obligatoires encore incomplètes, dans l'ordre d'affichage
-export const getMissingCustomizations = (product, customizations = {}) => {
+export const getMissingCustomizations = (product, customizations = {}, selectedSizes = {}) => {
   if (!product.customizationOptions) return [];
 
   const productCustomizations = customizations[product.id] || {};
+  const selectedSize = selectedSizes[product.id] || product.selectedSize || null;
 
   return Object.entries(product.customizationOptions)
     .filter(([, category]) => category != null && category.required)
     .map(([categoryKey, category]) => {
       const selectedCount = (productCustomizations[categoryKey] || []).length;
-      const minSelections = category.minSelections || 1;
+      const minSelections = getRequiredSelections(product, categoryKey, category, selectedSize);
       const missing = minSelections - selectedCount;
 
       if (missing <= 0) return null;
@@ -95,23 +124,28 @@ export const getMissingCustomizations = (product, customizations = {}) => {
         title: category.title || categoryKey,
         missing,
         minSelections,
+        selectedCount,
       };
     })
     .filter(Boolean);
 };
 
 // Vérifier si toutes les options requises sont sélectionnées
-export const isCustomizationComplete = (product, customizations = {}) =>
-  getMissingCustomizations(product, customizations).length === 0;
+export const isCustomizationComplete = (product, customizations = {}, selectedSizes = {}) =>
+  getMissingCustomizations(product, customizations, selectedSizes).length === 0;
 
 // Message listant ce qu'il reste à choisir, pour l'alerte d'ajout au panier
 export const formatMissingCustomizations = (missing = []) => {
   return missing
-    .map(section => (
-      section.missing > 1
-        ? `•  ${section.title} : encore ${section.missing} à choisir`
-        : `•  ${section.title}`
-    ))
+    .map(section => {
+      // Une section déjà entamée (1 viande sur les 2 qu'impose la taille L)
+      // doit dire ce qu'il manque : sans le compte, le client croit avoir
+      // rempli la section et ne comprend pas le blocage.
+      if (section.missing > 1 || section.selectedCount > 0) {
+        return `•  ${section.title} : encore ${section.missing} à choisir`;
+      }
+      return `•  ${section.title}`;
+    })
     .join('\n');
 };
 
