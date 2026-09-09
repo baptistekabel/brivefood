@@ -47,7 +47,7 @@
       }
     },
     "android": {
-      "versionCode": 54,
+      "versionCode": 55,
       "package": "com.brivefood.app",
       "icon": "./assets/images/logoBrivefood.png",
       "adaptiveIcon": {
