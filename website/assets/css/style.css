@@ -1,5 +1,5 @@
 /* ==========================================================================
-   BRIVE FOOD — Site vitrine
+   BRIVE FOOD : site vitrine
    Design system : tokens, base, composants, sections, animations.
    Palette : fond violet profond, accents rose → violet (comme l'application).
    Règles de motion : ease-out sur les entrées, ease-in-out pour le mouvement
@@ -1633,6 +1633,8 @@ em.hero-line > span {
 
 .hours td:last-child {
   text-align: right;
+  white-space: nowrap;
+  padding-left: 12px;
   font-variant-numeric: tabular-nums;
   color: var(--cream-2);
 }
@@ -1647,7 +1649,7 @@ em.hero-line > span {
 }
 
 .hours tr.today td:first-child::after {
-  content: "aujourd'hui";
+  content: "aujourd’hui";
   margin-left: 10px;
   padding: 3px 8px;
   border-radius: var(--radius-pill);
@@ -2577,17 +2579,19 @@ em.hero-line > span {
 }
 
 .faq-a {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 260ms var(--ease-out);
+  display: none;
 }
 
 .faq-item[open] .faq-a {
-  grid-template-rows: 1fr;
+  display: block;
+  animation: faq-in 320ms var(--ease-out);
 }
 
-.faq-a > div {
-  overflow: hidden;
+@keyframes faq-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
 }
 
 .faq-a p {
@@ -2762,10 +2766,16 @@ em.hero-line > span {
   transition: color 200ms ease, background-color 200ms ease;
 }
 
-.legal-toc a.active,
-.legal-toc a:hover {
+.legal-toc a.active {
   color: var(--cream);
   background: rgba(255, 255, 255, 0.05);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .legal-toc a:hover {
+    color: var(--cream);
+    background: rgba(255, 255, 255, 0.05);
+  }
 }
 
 .prose {
@@ -3142,6 +3152,9 @@ em.hero-line > span {
     filter: none;
     clip-path: none;
     transition: opacity 400ms ease;
+  }
+  .faq-item[open] .faq-a {
+    animation: none;
   }
   .marquee-track {
     animation: none;
