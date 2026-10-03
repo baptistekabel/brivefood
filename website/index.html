@@ -1,0 +1,745 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Brive Food · Pizzas, burgers, tacos & pâtes à Brive-la-Gaillarde, jusqu’à 2h</title>
+  <meta name="description" content="Brive Food, restaurant à Brive-la-Gaillarde : pizzas, burgers, tacos, pâtes, lasagnes et desserts maison, préparés minute. Sur place, à emporter ou en livraison, tous les jours sauf mardi, de 11h à 1h50.">
+  <meta name="theme-color" content="#0c0b0a">
+  <link rel="canonical" href="https://www.brivefood.fr/">
+  <link rel="icon" type="image/png" href="assets/img/favicon.png">
+  <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+  <link rel="manifest" href="site.webmanifest">
+
+  <meta property="og:type" content="restaurant">
+  <meta property="og:locale" content="fr_FR">
+  <meta property="og:site_name" content="Brive Food">
+  <meta property="og:title" content="Brive Food · C’est toi le chef">
+  <meta property="og:description" content="Pizzas, burgers, tacos, pâtes et desserts maison, préparés minute à Brive-la-Gaillarde. Ouvert jusqu’à 1h50 du matin.">
+  <meta property="og:image" content="https://www.brivefood.fr/assets/img/og-image.jpg">
+  <meta property="og:url" content="https://www.brivefood.fr/">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="preload" as="image" href="assets/video/hero-poster.jpg">
+  <link rel="stylesheet" href="assets/css/style.css?v=9">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Restaurant",
+    "name": "Brive Food",
+    "image": "https://www.brivefood.fr/assets/img/og-image.jpg",
+    "url": "https://www.brivefood.fr/",
+    "telephone": "+33766881697",
+    "servesCuisine": ["Pizza", "Burger", "Tacos", "Pâtes", "Fast food"],
+    "priceRange": "€",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "23 bis avenue du Président Roosevelt",
+      "addressLocality": "Brive-la-Gaillarde",
+      "postalCode": "19100",
+      "addressCountry": "FR"
+    },
+    "geo": { "@type": "GeoCoordinates", "latitude": 45.157566, "longitude": 1.524584 },
+    "openingHoursSpecification": [
+      { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"], "opens": "11:00", "closes": "01:50" }
+    ],
+    "hasMenu": "https://www.brivefood.fr/#carte",
+    "acceptsReservations": "False"
+  }
+  </script>
+</head>
+<body>
+
+  <!-- ===== Header ===== -->
+  <header class="header">
+    <div class="container header-inner">
+      <a class="brand" href="#top" aria-label="Brive Food, retour en haut">
+        <img src="assets/img/logo.png" alt="" width="38" height="38">
+        <span>Brive Food</span>
+      </a>
+      <nav class="nav" aria-label="Navigation principale">
+        <a href="#carte">La carte</a>
+        <a href="#compose">Compose ton menu</a>
+        <a href="#restaurant">Le restaurant</a>
+        <a href="#acces">Horaires &amp; accès</a>
+        <a href="#app">L’application</a>
+      </nav>
+      <div class="header-cta">
+        <a class="btn btn-primary btn-sm" href="#commander">Commander</a>
+        <button class="menu-toggle" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="mobile-nav"><span></span></button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="mobile-nav" id="mobile-nav" aria-label="Navigation mobile">
+    <a href="#carte">La carte</a>
+    <a href="#compose">Compose ton menu</a>
+    <a href="#restaurant">Le restaurant</a>
+    <a href="#acces">Horaires &amp; accès</a>
+    <a href="#app">L’application</a>
+    <a class="btn btn-primary" href="#commander">Commander</a>
+  </nav>
+
+  <main id="top">
+
+    <!-- ===== Hero ===== -->
+    <section class="hero" aria-label="Bienvenue chez Brive Food">
+      <div class="hero-media" aria-hidden="true">
+        <!--
+          VIDÉO DE TEST (Mixkit, libre de droits). Remplacez assets/video/hero.mp4
+          par la vraie vidéo du restaurant, idéalement : 1920×1080, 10–20 s,
+          sans son, encodée H.264, < 8 Mo. Le poster est la première image.
+        -->
+        <video autoplay muted loop playsinline preload="metadata" poster="assets/video/hero-poster.jpg">
+          <source src="assets/video/hero.mp4" type="video/mp4">
+        </video>
+      </div>
+      <div class="hero-grain" aria-hidden="true"></div>
+
+      <div class="container hero-content">
+        <span class="eyebrow" data-enter style="--i:0">Brive-la-Gaillarde · Depuis 2020</span>
+        <h1 class="display h-xl" data-enter style="--i:1">C’est toi <em>le chef.</em></h1>
+        <p class="lead" data-enter style="--i:2">Pizzas, burgers, tacos, pâtes et desserts maison, préparés à la minute. Tu choisis la base, la viande, la sauce. On s’occupe du reste, jusqu’à 2h du matin.</p>
+        <div class="hero-actions" data-enter style="--i:3">
+          <a class="btn btn-primary" href="#commander">
+            Commander maintenant
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </a>
+          <a class="btn btn-ghost" href="#carte">Découvrir la carte</a>
+          <span class="status" data-status>
+            <i class="status-dot" aria-hidden="true"></i>
+            <span data-status-label>Ouvert · jusqu’à 1h50</span>
+          </span>
+        </div>
+        <div class="hero-footer" data-enter style="--i:4">
+          <div class="meta">
+            <span>23 bis av. du Président Roosevelt</span>
+            <span>Sur place · À emporter · Livraison</span>
+            <span>Fermé le mardi</span>
+          </div>
+          <a class="scroll-cue" href="#manifeste" aria-label="Faire défiler"><i aria-hidden="true"></i> Scroll</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Marquee ===== -->
+    <div class="marquee" aria-hidden="true">
+      <div class="marquee-track">
+        <div class="marquee-group">
+          <span>Pizzas</span><span>Burgers</span><span>Tacos</span><span>Pâtes</span><span>Lasagnes</span><span>Bowls</span><span>Pizzdwich</span><span>Tiramisu maison</span><span>Milkshakes</span><span>Frites cheddar bacon</span>
+        </div>
+        <div class="marquee-group">
+          <span>Pizzas</span><span>Burgers</span><span>Tacos</span><span>Pâtes</span><span>Lasagnes</span><span>Bowls</span><span>Pizzdwich</span><span>Tiramisu maison</span><span>Milkshakes</span><span>Frites cheddar bacon</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Manifeste ===== -->
+    <section class="manifesto" id="manifeste">
+      <div class="container">
+        <p class="manifesto-text">Ici, pas de menu figé. Tu composes ton tacos, ton bowl, ton sandwich comme tu l’aimes. Chaque plat part en cuisine <em>au moment où tu le commandes</em>, généreux, chaud, et prêt vite.</p>
+
+        <div class="pillars">
+          <article class="pillar" data-reveal style="--i:0">
+            <div class="pillar-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M4.9 4.9l2.8 2.8M2 12h4M4.9 19.1l2.8-2.8M12 22v-4M19.1 19.1l-2.8-2.8M22 12h-4M19.1 4.9l-2.8 2.8"/><circle cx="12" cy="12" r="3"/></svg>
+            </div>
+            <h3>Préparé à la minute</h3>
+            <p>Rien n’attend sous une lampe. Chaque commande est lancée quand elle arrive, et sort chaude.</p>
+          </article>
+          <article class="pillar" data-reveal style="--i:1">
+            <div class="pillar-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16M6 19V9a6 6 0 0 1 12 0v10M9 12h6"/></svg>
+            </div>
+            <h3>Généreux, vraiment</h3>
+            <p>Des tacos XL à trois viandes, des pizzas en 29 ou 33 cm, des burgers au steak de 120 g. On ne compte pas.</p>
+          </article>
+          <article class="pillar" data-reveal style="--i:2">
+            <div class="pillar-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            </div>
+            <h3>Jusqu’à 2h du matin</h3>
+            <p>Service continu de 11h à 1h50, six jours sur sept. Après le match, après la soirée, on est encore là.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Carte ===== -->
+    <section class="section" id="carte">
+      <div class="container">
+        <div class="section-head split">
+          <div>
+            <span class="eyebrow" data-reveal>Les incontournables</span>
+            <h2 class="display h-lg" data-reveal style="--i:1">Ce que tout Brive <em>commande</em> en premier.</h2>
+          </div>
+          <p class="lead" data-reveal style="--i:2">Une sélection de nos plats les plus demandés. La carte complète, avec toutes les options et suppléments, est dans l’application.</p>
+        </div>
+
+        <div class="menu-grid">
+          <article class="dish" data-reveal style="--i:0">
+            <div class="dish-media">
+              <span class="dish-tag hot">N°1 des ventes</span>
+              <img src="assets/img/tacos.jpg" alt="Menu tacos avec frites et boisson" loading="lazy" width="900" height="900">
+            </div>
+            <div class="dish-body">
+              <div class="dish-head"><h3>Tacos</h3><span class="dish-price"><small>dès</small>11,90 €</span></div>
+              <p>Sauce fromagère maison, de une à trois viandes, sauce au choix. En M, L ou XL.</p>
+            </div>
+          </article>
+
+          <article class="dish" data-reveal style="--i:1">
+            <div class="dish-media">
+              <span class="dish-tag">Pizza</span>
+              <img src="assets/img/pizza-fermiere.jpg" alt="Pizza Fermière" loading="lazy" width="900" height="900">
+            </div>
+            <div class="dish-body">
+              <div class="dish-head"><h3>Pizza Fermière</h3><span class="dish-price"><small>dès</small>11,50 €</span></div>
+              <p>Crème fraîche, poulet rôti, pommes de terre, champignons frais, origan et mozzarella.</p>
+            </div>
+          </article>
+
+          <article class="dish" data-reveal style="--i:2">
+            <div class="dish-media">
+              <span class="dish-tag">Burger</span>
+              <img src="assets/img/chicken-burger.jpg" alt="Chicken Burger" loading="lazy" width="900" height="900">
+            </div>
+            <div class="dish-body">
+              <div class="dish-head"><h3>Chicken Burger</h3><span class="dish-price">13,50 €</span></div>
+              <p>Poulet croustillant, salade, tomate fraîche, emmental et sauce au choix.</p>
+            </div>
+          </article>
+
+          <article class="dish" data-reveal style="--i:3">
+            <div class="dish-media">
+              <span class="dish-tag hot">Épicé</span>
+              <img src="assets/img/spicy-burger.jpg" alt="Spicy Burger" loading="lazy" width="900" height="900">
+            </div>
+            <div class="dish-body">
+              <div class="dish-head"><h3>Spicy Burger</h3><span class="dish-price">13,50 €</span></div>
+              <p>Steak épicé 120 g, tomate, oignon rouge et poivron grillés, salade, sauce au choix.</p>
+            </div>
+          </article>
+
+          <article class="dish" data-reveal style="--i:4">
+            <div class="dish-media">
+              <span class="dish-tag">Pâtes</span>
+              <img src="assets/img/pates-forestiere.jpg" alt="Pâtes forestière" loading="lazy" width="900" height="900">
+            </div>
+            <div class="dish-body">
+              <div class="dish-head"><h3>Pâtes forestière</h3><span class="dish-price"><small>dès</small>10,50 €</span></div>
+              <p>Penne, crème fraîche, poulet rôti et champignons de Paris frais.</p>
+            </div>
+          </article>
+
+          <article class="dish" data-reveal style="--i:5">
+            <div class="dish-media">
+              <span class="dish-tag">Signature</span>
+              <img src="assets/img/pizzdwich.jpg" alt="Pizzdwich" loading="lazy" width="900" height="900">
+            </div>
+            <div class="dish-body">
+              <div class="dish-head"><h3>Pizzdwich</h3><span class="dish-price"><small>dès</small>7,50 €</span></div>
+              <p>Une pâte à pizza pliée, garnie comme un sandwich : sauce et crudités au choix. De M à XXL.</p>
+            </div>
+          </article>
+
+          <article class="dish" data-reveal style="--i:6">
+            <div class="dish-media">
+              <span class="dish-tag">Lasagnes</span>
+              <img src="assets/img/lasagne.jpg" alt="Lasagne bolognaise" loading="lazy" width="900" height="900">
+            </div>
+            <div class="dish-body">
+              <div class="dish-head"><h3>Lasagne bolognaise</h3><span class="dish-price">10,50 €</span></div>
+              <p>Sauce bolognaise maison, béchamel maison et mozzarella gratinée.</p>
+            </div>
+          </article>
+
+          <article class="dish" data-reveal style="--i:7">
+            <div class="dish-media">
+              <span class="dish-tag">Dessert</span>
+              <img src="assets/img/tiramisu.jpg" alt="Tiramisu maison" loading="lazy" width="900" height="900">
+            </div>
+            <div class="dish-body">
+              <div class="dish-head"><h3>Tiramisu du moment</h3><span class="dish-price">3,50 €</span></div>
+              <p>Fait maison. Nutella-spéculoos, Oreo, spéculoos-caramel ou chocolat blanc.</p>
+            </div>
+          </article>
+
+          <article class="dish" data-reveal style="--i:8">
+            <div class="dish-media">
+              <span class="dish-tag">Frais</span>
+              <img src="assets/img/milkshake.jpg" alt="Milkshake" loading="lazy" width="900" height="900">
+            </div>
+            <div class="dish-body">
+              <div class="dish-head"><h3>Milkshake</h3><span class="dish-price">5,00 €</span></div>
+              <p>Onctueux, préparé minute avec la base de ton choix.</p>
+            </div>
+          </article>
+        </div>
+
+        <div class="menu-foot" data-reveal>
+          <span>Prix TTC indicatifs. Bruschettas, salades, tex-mex, frites garnies, menu kids et boissons dans l’application.</span>
+          <a class="btn btn-ghost btn-sm" href="#app">Voir toute la carte dans l’app</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Compose ===== -->
+    <section class="section compose" id="compose">
+      <div class="container compose-layout">
+        <div class="compose-sticky">
+          <span class="eyebrow" data-reveal>Compose ton menu</span>
+          <h2 class="display h-lg" data-reveal style="--i:1">Quatre choix. <em>Zéro compromis.</em></h2>
+          <p class="lead" data-reveal style="--i:2">Tacos, bowl, sandwich ou pizza : on part de ta base, et tu construis le reste. Le plat qui sort est exactement celui que tu voulais.</p>
+        </div>
+
+        <div class="steps">
+          <div class="step" data-reveal style="--i:0">
+            <span class="step-num" aria-hidden="true">01</span>
+            <div>
+              <h3>Choisis ta base</h3>
+              <p>Le format qui te ressemble, de la petite faim à la très grosse faim.</p>
+              <div class="chips">
+                <span class="chip accent">Tacos M · L · XL</span><span class="chip">Bowl</span><span class="chip">Sandwich américain</span><span class="chip">Pizzdwich</span><span class="chip">Pizza 29 / 33 cm</span>
+              </div>
+            </div>
+          </div>
+          <div class="step" data-reveal style="--i:1">
+            <span class="step-num" aria-hidden="true">02</span>
+            <div>
+              <h3>Ta viande</h3>
+              <p>Une, deux ou trois selon la taille. Toutes préparées sur place.</p>
+              <div class="chips">
+                <span class="chip accent">Poulet</span><span class="chip accent">Kebab</span><span class="chip">Tenders</span><span class="chip">Nuggets</span><span class="chip">Cordon bleu</span><span class="chip">Merguez</span><span class="chip">Viande hachée</span><span class="chip">Escalope</span><span class="chip">Falafel</span>
+              </div>
+            </div>
+          </div>
+          <div class="step" data-reveal style="--i:2">
+            <span class="step-num" aria-hidden="true">03</span>
+            <div>
+              <h3>Ta sauce</h3>
+              <p>La fromagère est dans le tacos. Le reste, c’est toi qui décides.</p>
+              <div class="chips">
+                <span class="chip accent">Samouraï</span><span class="chip accent">Biggy</span><span class="chip">Blanche</span><span class="chip">Algérienne</span><span class="chip">Andalouse</span><span class="chip">Barbecue</span><span class="chip">Curry</span><span class="chip">Harissa</span><span class="chip">Boursin</span>
+              </div>
+            </div>
+          </div>
+          <div class="step" data-reveal style="--i:3">
+            <span class="step-num" aria-hidden="true">04</span>
+            <div>
+              <h3>L’accompagnement</h3>
+              <p>Des frites, ou des frites qui ont vraiment quelque chose à dire.</p>
+              <div class="chips">
+                <span class="chip">Frites maison</span><span class="chip accent">Frites cheddar bacon</span><span class="chip">Frites fromagère</span><span class="chip">Oignons frits</span><span class="chip">Tenders x3</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Formules ===== -->
+    <section class="section" id="formules">
+      <div class="container">
+        <div class="section-head split">
+          <div>
+            <span class="eyebrow" data-reveal>Formules</span>
+            <h2 class="display h-lg" data-reveal style="--i:1">Pour deux, pour trois, <em>pour la table.</em></h2>
+          </div>
+          <p class="lead" data-reveal style="--i:2">Les soirs où tout le monde a faim en même temps.</p>
+        </div>
+
+        <div class="formules">
+          <article class="formule" data-reveal style="--i:0">
+            <span class="formule-kicker">Formule</span>
+            <h3>Pizza Duo</h3>
+            <div class="formule-price">25<sup>€</sup></div>
+            <ul>
+              <li>2 pizzas taille M au choix</li>
+              <li>1 grande bouteille au choix</li>
+              <li>Idéal à deux, ou pour un très grand appétit</li>
+            </ul>
+          </article>
+          <article class="formule featured" data-reveal style="--i:1">
+            <span class="formule-kicker">La plus demandée</span>
+            <h3>Pizza Trio</h3>
+            <div class="formule-price">31<sup>€50</sup></div>
+            <ul>
+              <li>3 pizzas taille M au choix</li>
+              <li>1 grande bouteille au choix</li>
+              <li>La soirée entre amis, réglée</li>
+            </ul>
+          </article>
+          <article class="formule" data-reveal style="--i:2">
+            <span class="formule-kicker">Pour les petits</span>
+            <h3>Menu Kids</h3>
+            <div class="formule-price" style="font-size:clamp(1.6rem,3vw,2rem);line-height:1.2">Nuggets ou cheese</div>
+            <ul>
+              <li>Plat, frites et boisson</li>
+              <li>Portions pensées pour les enfants</li>
+              <li>Détail et prix dans l’application</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Restaurant ===== -->
+    <section class="section" id="restaurant">
+      <div class="container about-layout">
+        <div class="about-media" data-reveal="clip">
+          <img src="assets/img/og-image.jpg" alt="Les plats de Brive Food : burger, pizza, tacos, milkshake et bowl" loading="lazy" width="1200" height="960">
+          <span class="about-caption">Brive-la-Gaillarde · Avenue du Président Roosevelt</span>
+        </div>
+        <div class="about-copy">
+          <span class="eyebrow" data-reveal>Le restaurant</span>
+          <h2 class="display h-lg" data-reveal style="--i:1">Une cuisine de quartier, <em>ouverte tard.</em></h2>
+          <p data-reveal style="--i:2">Brive Food est né en 2020 à deux pas du centre-ville, avec une idée simple : un endroit où l’on mange bien, vite, et où l’on peut vraiment choisir ce qu’il y a dans son assiette.</p>
+          <p data-reveal style="--i:3">Depuis, la carte s’est étoffée. Pizzas, burgers, tacos, pâtes, lasagnes, bruschettas, bowls, desserts maison. Mais la règle n’a pas changé : tout est préparé à la commande, dans notre cuisine, par une équipe qui connaît ses habitués par leur prénom.</p>
+          <div class="stats" data-reveal style="--i:4">
+            <div class="stat"><b>2020</b><span>Ouverture à Brive</span></div>
+            <div class="stat"><b>6/7</b><span>Jours d’ouverture</span></div>
+            <div class="stat"><b>1h50</b><span>Fin de service</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Horaires & accès ===== -->
+    <section class="section visit" id="acces">
+      <div class="container">
+        <div class="section-head split">
+          <div>
+            <span class="eyebrow" data-reveal>Horaires &amp; accès</span>
+            <h2 class="display h-lg" data-reveal style="--i:1">On est là. <em>Presque tout le temps.</em></h2>
+          </div>
+          <p class="lead" data-reveal style="--i:2">Service continu, midi et soir, jusqu’au cœur de la nuit. Fermé le mardi pour souffler.</p>
+        </div>
+
+        <div class="visit-layout">
+          <div class="card card-pad" data-reveal>
+            <span class="status" data-status>
+              <i class="status-dot" aria-hidden="true"></i>
+              <span data-status-label>Ouvert · jusqu’à 1h50</span>
+            </span>
+            <table class="hours">
+              <caption class="sr-only">Horaires d’ouverture</caption>
+              <tbody>
+                <tr data-day="1"><td>Lundi</td><td>11h00 – 01h50</td></tr>
+                <tr data-day="2" class="closed"><td>Mardi</td><td>Fermé</td></tr>
+                <tr data-day="3"><td>Mercredi</td><td>11h00 – 01h50</td></tr>
+                <tr data-day="4"><td>Jeudi</td><td>11h00 – 01h50</td></tr>
+                <tr data-day="5"><td>Vendredi</td><td>11h00 – 01h50</td></tr>
+                <tr data-day="6"><td>Samedi</td><td>11h00 – 01h50</td></tr>
+                <tr data-day="0"><td>Dimanche</td><td>11h00 – 01h50</td></tr>
+              </tbody>
+            </table>
+            <p class="hours-note">Les commandes en ligne ferment à 1h50. Jusqu’à 2h, on prend encore les commandes par téléphone, selon ce qu’il reste en cuisine.</p>
+
+            <div class="contact-list">
+              <a class="contact-item" href="tel:+33766881697">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>
+                <div><span>Téléphone</span><b>07 66 88 16 97</b></div>
+              </a>
+              <a class="contact-item" href="https://www.google.com/maps/dir/?api=1&destination=45.157566,1.524584" target="_blank" rel="noopener">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                <div><span>Adresse</span><b>23 bis av. du Président Roosevelt, 19100 Brive</b></div>
+              </a>
+            </div>
+          </div>
+
+          <div class="card map" data-reveal style="--i:1">
+            <div class="map-controls" role="group" aria-label="Affichage de la carte">
+              <button type="button" class="map-btn" data-map-view="map" aria-pressed="false">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2zM9 4v14M15 6v14"/></svg>
+                Plan
+              </button>
+              <button type="button" class="map-btn is-active" data-map-view="street" aria-pressed="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                Vue 3D
+              </button>
+              <a class="map-btn map-btn-go" href="https://www.google.com/maps/dir/?api=1&destination=45.157566,1.524584" target="_blank" rel="noopener">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-8-8 18-2-8z"/></svg>
+                Itinéraire
+              </a>
+            </div>
+
+            <div class="map-view" data-map-panel="street">
+              <!--
+                Vue 3D : Google Street View devant le restaurant (comme sur le site Brunch House).
+                La clé ci-dessous est celle du site Brunch House : autorisez le domaine brivefood.fr
+                (et localhost pour les tests) dans Google Cloud › Identifiants, ou remplacez-la.
+              -->
+              <iframe
+                title="Vue 3D : Brive Food, 23 bis avenue du Président Roosevelt, Brive-la-Gaillarde"
+                src="https://www.google.com/maps/embed/v1/streetview?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&location=45.157566,1.524584&pitch=8&fov=90&language=fr"
+                loading="lazy"
+                referrerpolicy="no-referrer-when-downgrade"
+                allowfullscreen></iframe>
+            </div>
+            <div class="map-view is-hidden" data-map-panel="map">
+              <iframe
+                title="Plan : Brive Food, 23 bis avenue du Président Roosevelt, Brive-la-Gaillarde"
+                data-src="https://www.google.com/maps?q=45.157566,1.524584&z=17&hl=fr&output=embed"
+                loading="lazy"
+                referrerpolicy="no-referrer-when-downgrade"
+                allowfullscreen></iframe>
+            </div>
+
+            <div class="map-overlay">
+              <address>
+                <b>Brive Food</b>
+                23 bis avenue du Président Roosevelt<br>19100 Brive-la-Gaillarde
+              </address>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Commander ===== -->
+    <section class="section" id="commander">
+      <div class="container">
+        <div class="section-head split">
+          <div>
+            <span class="eyebrow" data-reveal>Commander</span>
+            <h2 class="display h-lg" data-reveal style="--i:1">Comme tu veux, <em>où tu veux.</em></h2>
+          </div>
+          <p class="lead" data-reveal style="--i:2">Sur place, à emporter ou livré chez toi. L’application te permet de composer ton plat à la sauce près et de suivre ta commande en direct.</p>
+        </div>
+
+        <div class="order-grid">
+          <article class="order-card" data-reveal style="--i:0">
+            <div class="pillar-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>
+            </div>
+            <h3>Sur place</h3>
+            <p>Viens, installe-toi, commande au comptoir ou depuis l’application. Ton plat arrive chaud, à ta table.</p>
+          </article>
+          <article class="order-card" data-reveal style="--i:1">
+            <div class="pillar-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l1 13H5zM9 7V5a3 3 0 0 1 6 0v2"/></svg>
+            </div>
+            <h3>À emporter</h3>
+            <p>Commande depuis l’application, on te prévient quand c’est prêt. Tu passes, tu récupères, sans attendre.</p>
+          </article>
+          <article class="order-card" data-reveal style="--i:2">
+            <div class="pillar-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17" r="3"/><circle cx="18" cy="17" r="3"/><path d="M9 17h6M6 14l3-8h5l4 8M14 6h3l2 4"/></svg>
+            </div>
+            <h3>Livraison</h3>
+            <p>Livré chez toi jusqu’à 10 km autour du restaurant, avec suivi en direct dans l’application.</p>
+            <p class="fine">Frais de livraison dès 5 € selon la distance.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== L'application ===== -->
+    <section class="section app" id="app">
+      <div class="container app-layout">
+        <div>
+          <span class="eyebrow" data-reveal>L’application Brive Food</span>
+          <h2 class="display h-lg" data-reveal style="--i:1">Toute la carte <em>dans ta poche.</em></h2>
+          <p class="lead" data-reveal style="--i:2">Compose ton plat à la sauce près, paie, et suis ta commande en direct. Chaque commande te rapporte des points de fidélité.</p>
+
+          <ul class="app-features" data-reveal style="--i:3">
+            <li><i aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h7"/></svg></i>La carte complète, avec toutes les options et suppléments</li>
+            <li><i aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></i>Suivi de ta commande en temps réel, de la cuisine à ta porte</li>
+            <li><i aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9L6.7 19.5l1.1-6L3.4 9.3l6-.8z"/></svg></i>Points de fidélité à chaque commande, récompenses à débloquer</li>
+            <li><i aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0v5l2 3H4l2-3zM10 19a2 2 0 0 0 4 0"/></svg></i>Notification dès que ta commande est prête</li>
+          </ul>
+
+          <div class="store-badges" data-reveal style="--i:4">
+            <a class="store" href="https://apps.apple.com/fr/app/brivefood/id6752569193" target="_blank" rel="noopener" aria-label="Télécharger Brive Food sur l’App Store">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.6c0-2.5 2-3.6 2.1-3.7-1.2-1.7-3-1.9-3.6-2-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.9-1.7 0-3.2 1-4.1 2.5-1.8 3.1-.5 7.6 1.3 10.1.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.9-1.1-3-4.1zM14 5.3c.7-.8 1.2-2 1-3.1-1 0-2.2.7-2.9 1.5-.6.7-1.2 1.9-1 3 1.1.1 2.2-.6 2.9-1.4z"/></svg>
+              <div><small>Télécharger sur</small><b>App Store</b></div>
+            </a>
+            <a class="store" href="https://play.google.com/store/apps/details?id=com.brivefood.app&hl=fr" target="_blank" rel="noopener" aria-label="Télécharger Brive Food sur Google Play">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.6 2.4c-.3.3-.4.7-.4 1.2v16.8c0 .5.1.9.4 1.2l.1.1 9.4-9.4v-.2L3.7 2.3l-.1.1z"/><path d="M16.2 15.4l-3.1-3.1v-.2l3.1-3.1.1.1 3.7 2.1c1.1.6 1.1 1.6 0 2.2l-3.7 2.1-.1-.1z" opacity=".8"/><path d="M16.3 15.3L13.1 12l-9.5 9.5c.4.4.9.4 1.6 0l11.1-6.2" opacity=".6"/><path d="M16.3 8.7L5.2 2.5c-.7-.4-1.2-.3-1.6 0L13.1 12l3.2-3.3z" opacity=".9"/></svg>
+              <div><small>Disponible sur</small><b>Google Play</b></div>
+            </a>
+          </div>
+          <p class="app-note" data-reveal style="--i:5">Gratuite, sans engagement. Ou par téléphone au <a href="tel:+33766881697" style="text-decoration:underline;text-underline-offset:3px">07 66 88 16 97</a>.</p>
+        </div>
+
+        <div class="phone-stage" data-reveal aria-label="Aperçu de l’application Brive Food">
+          <div class="float float-1" aria-hidden="true"><img src="assets/img/tacos.jpg" alt="" loading="lazy"></div>
+          <div class="float float-2" aria-hidden="true"><img src="assets/img/pizza-fermiere.jpg" alt="" loading="lazy"></div>
+          <div class="float float-3" aria-hidden="true"><img src="assets/img/milkshake.jpg" alt="" loading="lazy"></div>
+
+          <div class="phone" data-reveal>
+            <div class="phone-screen">
+              <div class="phone-notch" aria-hidden="true"></div>
+              <div class="phone-status" aria-hidden="true"><span>09:22</span><i></i></div>
+              <div class="phone-bar" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+                <span>🍔 Burgers</span>
+              </div>
+              <div class="phone-list" aria-hidden="true">
+                <div class="phone-card">
+                  <div class="phone-card-media">
+                    <img src="assets/img/double-cheese.jpg" alt="" loading="lazy">
+                    <span class="phone-price">13.50 €</span>
+                    <div class="phone-card-title"><b>Double Cheese Burger</b><small>Buns, 2 steaks 120 g, double cheddar, cornichons, sauce au choix</small></div>
+                  </div>
+                  <div class="phone-card-action">Personnaliser votre burger <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></div>
+                </div>
+                <div class="phone-card">
+                  <div class="phone-card-media">
+                    <img src="assets/img/chicken-burger.jpg" alt="" loading="lazy">
+                    <span class="phone-price">13.50 €</span>
+                    <div class="phone-card-title"><b>Chicken Burger</b><small>Poulet croustillant, salade, tomate, emmental, sauce au choix</small></div>
+                  </div>
+                  <div class="phone-card-action">Personnaliser votre burger <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></div>
+                </div>
+              </div>
+              <div class="phone-cart" aria-hidden="true"><span>2</span> Voir le panier · 27.00 €</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== FAQ ===== -->
+    <section class="section" id="faq" style="padding-top:0">
+      <div class="container">
+        <div class="section-head" style="text-align:center;justify-items:center">
+          <span class="eyebrow" data-reveal style="margin-inline:auto">Questions fréquentes</span>
+          <h2 class="display h-lg" data-reveal style="--i:1">Tout ce qu’on nous <em>demande.</em></h2>
+        </div>
+        <div class="faq" data-reveal>
+          <div class="faq-item">
+            <button class="faq-q" type="button" aria-expanded="false">Jusqu’à quelle heure peut-on commander ?<i aria-hidden="true"></i></button>
+            <div class="faq-a"><div><p>Les commandes en ligne sont ouvertes de 11h à 1h50. Entre 1h50 et 2h, tu peux encore appeler le restaurant : on prépare ce qu’il reste de disponible en cuisine.</p></div></div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-q" type="button" aria-expanded="false">Livrez-vous chez moi ?<i aria-hidden="true"></i></button>
+            <div class="faq-a"><div><p>Oui, dans un rayon de 10 km autour du restaurant. Les frais dépendent de la distance, à partir de 5 €. L’application te donne le prix exact dès que tu saisis ton adresse.</p></div></div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-q" type="button" aria-expanded="false">Peut-on personnaliser un plat ?<i aria-hidden="true"></i></button>
+            <div class="faq-a"><div><p>C’est le principe de la maison. Tacos, bowls, sandwichs, pizzas : tu choisis la base, les viandes, la sauce, les suppléments. Tu peux aussi retirer un ingrédient que tu n’aimes pas.</p></div></div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-q" type="button" aria-expanded="false">Y a-t-il des options végétariennes ?<i aria-hidden="true"></i></button>
+            <div class="faq-a"><div><p>Oui : pizza Margherita, 4 fromages ou chèvre-miel, Veggie Burger, pâtes 3 fromages, salades, bruschettas, et le falafel comme protéine dans les tacos et bowls.</p></div></div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-q" type="button" aria-expanded="false">Comment fonctionne la fidélité ?<i aria-hidden="true"></i></button>
+            <div class="faq-a"><div><p>Chaque commande passée dans l’application te crédite des points, à échanger contre des récompenses directement depuis ton profil.</p></div></div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-q" type="button" aria-expanded="false">Peut-on réserver une table ?<i aria-hidden="true"></i></button>
+            <div class="faq-a"><div><p>Pas de réservation : on fonctionne au fil de l’eau. Pour un groupe, un appel avant de venir nous aide à vous installer au mieux.</p></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Bandeau final ===== -->
+    <section class="final">
+      <div class="container">
+        <h2 class="display h-lg" data-reveal>Tu as faim ? <em>On est ouverts.</em></h2>
+        <div class="hero-actions" data-reveal style="--i:1">
+          <a class="btn btn-primary" href="#commander">Commander maintenant</a>
+          <a class="btn btn-ghost" href="tel:+33766881697">Appeler le restaurant</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===== Footer ===== -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a class="brand" href="#top"><img src="assets/img/logo.png" alt="" width="38" height="38"><span>Brive Food</span></a>
+          <p>Pizzas, burgers, tacos, pâtes et desserts maison, préparés à la minute à Brive-la-Gaillarde. C’est toi le chef.</p>
+          <div class="socials">
+            <a href="https://www.instagram.com/brivefood/" target="_blank" rel="noopener" aria-label="Instagram">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+            </a>
+            <a href="https://www.facebook.com/p/Brive-Food-100063692604285/" target="_blank" rel="noopener" aria-label="Facebook">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 8h3V4h-3c-2.8 0-4.5 1.7-4.5 4.5V11H7v4h2.5v7h4v-7h3l.5-4h-3.5V8.8c0-.5.3-.8.5-.8z"/></svg>
+            </a>
+            <a href="https://www.snapchat.com/add/brive-food" target="_blank" rel="noopener" aria-label="Snapchat">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c3 0 5 2.3 5 5.2v2.3c.6.2 1.4-.2 1.7 0 .4.3-.3 1-1.4 1.5.5 1.6 2 3 3.7 3.3-.4.9-1.7.9-2.4 1.1-.2.6-.1 1.2-.7 1.2-.8 0-1.5-.4-2.5.1-.9.5-1.8 1.6-3.4 1.6s-2.5-1.1-3.4-1.6c-1-.5-1.7-.1-2.5-.1-.6 0-.5-.6-.7-1.2-.7-.2-2-.2-2.4-1.1 1.7-.3 3.2-1.7 3.7-3.3C5.6 11.5 4.9 10.8 5.3 10.5c.3-.2 1.1.2 1.7 0V8.2C7 5.3 9 3 12 3z"/></svg>
+            </a>
+          </div>
+        </div>
+        <div>
+          <h4>Le restaurant</h4>
+          <ul>
+            <li><a href="#carte">La carte</a></li>
+            <li><a href="#compose">Compose ton menu</a></li>
+            <li><a href="#formules">Formules</a></li>
+            <li><a href="#acces">Horaires &amp; accès</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Commander</h4>
+          <ul>
+            <li><a href="#commander">Sur place, à emporter, livraison</a></li>
+            <li><a href="#app">Télécharger l’application</a></li>
+            <li><a href="tel:+33766881697">07 66 88 16 97</a></li>
+            <li><a href="#faq">Questions fréquentes</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Informations</h4>
+          <ul>
+            <li><a href="mentions-legales.html">Mentions légales</a></li>
+            <li><a href="confidentialite.html">Politique de confidentialité</a></li>
+            <li><a href="cgv.html">Conditions générales de vente</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© <span data-year>2026</span> Brive Food SARL · 23 bis avenue du Président Roosevelt, 19100 Brive-la-Gaillarde</span>
+        <span>SIREN 887 843 522 · RCS Brive</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ===== Pop-up d'accueil : l'application ===== -->
+  <div class="modal" id="app-modal" role="dialog" aria-modal="true" aria-labelledby="app-modal-title" hidden>
+    <div class="modal-backdrop" data-modal-close></div>
+    <div class="modal-card" tabindex="-1">
+      <button type="button" class="modal-close" aria-label="Fermer" data-modal-close>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <div class="modal-visual" aria-hidden="true">
+        <img class="modal-logo" src="assets/img/logo.png" alt="" width="72" height="72">
+        <div class="modal-shots">
+          <img src="assets/img/tacos.jpg" alt="">
+          <img src="assets/img/chicken-burger.jpg" alt="">
+          <img src="assets/img/pizza-fermiere.jpg" alt="">
+        </div>
+      </div>
+      <div class="modal-body">
+        <span class="eyebrow">L’application Brive Food</span>
+        <h2 class="display h-md" id="app-modal-title">Commande en 2 minutes, <em>depuis ton téléphone.</em></h2>
+        <p>Toute la carte, tes plats personnalisés à la sauce près, le suivi en direct et des points de fidélité à chaque commande.</p>
+        <div class="store-badges">
+          <a class="store" href="https://apps.apple.com/fr/app/brivefood/id6752569193" target="_blank" rel="noopener" aria-label="Télécharger Brive Food sur l’App Store">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.6c0-2.5 2-3.6 2.1-3.7-1.2-1.7-3-1.9-3.6-2-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.9-1.7 0-3.2 1-4.1 2.5-1.8 3.1-.5 7.6 1.3 10.1.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.9-1.1-3-4.1zM14 5.3c.7-.8 1.2-2 1-3.1-1 0-2.2.7-2.9 1.5-.6.7-1.2 1.9-1 3 1.1.1 2.2-.6 2.9-1.4z"/></svg>
+            <div><small>Télécharger sur</small><b>App Store</b></div>
+          </a>
+          <a class="store" href="https://play.google.com/store/apps/details?id=com.brivefood.app&hl=fr" target="_blank" rel="noopener" aria-label="Télécharger Brive Food sur Google Play">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.6 2.4c-.3.3-.4.7-.4 1.2v16.8c0 .5.1.9.4 1.2l.1.1 9.4-9.4v-.2L3.7 2.3l-.1.1z"/><path d="M16.2 15.4l-3.1-3.1v-.2l3.1-3.1.1.1 3.7 2.1c1.1.6 1.1 1.6 0 2.2l-3.7 2.1-.1-.1z" opacity=".8"/><path d="M16.3 15.3L13.1 12l-9.5 9.5c.4.4.9.4 1.6 0l11.1-6.2" opacity=".6"/><path d="M16.3 8.7L5.2 2.5c-.7-.4-1.2-.3-1.6 0L13.1 12l3.2-3.3z" opacity=".9"/></svg>
+            <div><small>Disponible sur</small><b>Google Play</b></div>
+          </a>
+        </div>
+        <button type="button" class="modal-skip" data-modal-close>Continuer sur le site</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/main.js?v=9" defer></script>
+</body>
+</html>

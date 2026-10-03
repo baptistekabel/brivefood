@@ -1,0 +1,14 @@
+{
+  "name": "Brive Food",
+  "short_name": "Brive Food",
+  "description": "Pizzas, burgers, tacos et pâtes à Brive-la-Gaillarde, jusqu’à 2h.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0c0b0a",
+  "theme_color": "#0c0b0a",
+  "lang": "fr",
+  "icons": [
+    { "src": "assets/img/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "assets/img/logo.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
