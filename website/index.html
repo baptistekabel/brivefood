@@ -22,9 +22,11 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="preload" as="image" href="assets/video/hero-poster.jpg">
-  <link rel="stylesheet" href="assets/css/style.css?v=9">
+  <link rel="stylesheet" href="assets/css/style.css?v=34">
+  <!-- L'entrée du haut de page attend la fermeture de la pop-up (classe retirée par main.js) -->
+  <script>document.documentElement.classList.add('intro-wait');</script>
 
   <script type="application/ld+json">
   {
@@ -63,7 +65,6 @@
       </a>
       <nav class="nav" aria-label="Navigation principale">
         <a href="#carte">La carte</a>
-        <a href="#compose">Compose ton menu</a>
         <a href="#restaurant">Le restaurant</a>
         <a href="#acces">Horaires &amp; accès</a>
         <a href="#app">L’application</a>
@@ -77,7 +78,6 @@
 
   <nav class="mobile-nav" id="mobile-nav" aria-label="Navigation mobile">
     <a href="#carte">La carte</a>
-    <a href="#compose">Compose ton menu</a>
     <a href="#restaurant">Le restaurant</a>
     <a href="#acces">Horaires &amp; accès</a>
     <a href="#app">L’application</a>
@@ -101,27 +101,53 @@
       <div class="hero-grain" aria-hidden="true"></div>
 
       <div class="container hero-content">
-        <span class="eyebrow" data-enter style="--i:0">Brive-la-Gaillarde · Depuis 2020</span>
-        <h1 class="display h-xl" data-enter style="--i:1">C’est toi <em>le chef.</em></h1>
-        <p class="lead" data-enter style="--i:2">Pizzas, burgers, tacos, pâtes et desserts maison, préparés à la minute. Tu choisis la base, la viande, la sauce. On s’occupe du reste, jusqu’à 2h du matin.</p>
-        <div class="hero-actions" data-enter style="--i:3">
-          <a class="btn btn-primary" href="#commander">
-            Commander maintenant
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-          </a>
-          <a class="btn btn-ghost" href="#carte">Découvrir la carte</a>
-          <span class="status" data-status>
-            <i class="status-dot" aria-hidden="true"></i>
-            <span data-status-label>Ouvert · jusqu’à 1h50</span>
-          </span>
+        <div class="hero-main">
+          <h1 class="display hero-title"><span class="hero-line"><span>C’est toi</span></span> <em class="hero-line"><span>le chef.</span></em></h1>
+          <div class="hero-side" data-enter style="--i:4">
+            <p class="lead">Pizzas, burgers, tacos, pâtes et desserts maison, préparés à la minute. Tu choisis la base, la viande, la sauce.</p>
+            <div class="hero-actions">
+              <a class="btn btn-primary" href="#carte">
+                Découvrir la carte
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </a>
+              <span class="status" data-status>
+                <i class="status-dot" aria-hidden="true"></i>
+                <span data-status-label>Ouvert · jusqu’à 1h50</span>
+              </span>
         </div>
-        <div class="hero-footer" data-enter style="--i:4">
-          <div class="meta">
-            <span>23 bis av. du Président Roosevelt</span>
-            <span>Sur place · À emporter · Livraison</span>
-            <span>Fermé le mardi</span>
           </div>
-          <a class="scroll-cue" href="#manifeste" aria-label="Faire défiler"><i aria-hidden="true"></i> Scroll</a>
+        </div>
+        <div class="hero-footer" data-enter style="--i:6">
+          <ul class="hero-info">
+            <li>
+              <a class="hero-info-cell" href="https://www.google.com/maps/dir/?api=1&destination=45.157566,1.524584" target="_blank" rel="noopener">
+                <span class="hero-info-text">
+                  <small>Adresse</small>
+                  <b>23 bis av. du Président Roosevelt</b>
+                </span>
+                <span class="hero-info-go" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg>
+                </span>
+              </a>
+            </li>
+            <li>
+              <div class="hero-info-cell">
+                <span class="hero-info-text">
+                  <small>Service</small>
+                  <b>Sur place <i>/</i> À emporter <i>/</i> Livraison</b>
+                </span>
+              </div>
+            </li>
+            <li>
+              <div class="hero-info-cell">
+                <span class="hero-info-text">
+                  <small>Horaires</small>
+                  <b>11h – 1h50 <em>Fermé le mardi</em></b>
+                </span>
+              </div>
+            </li>
+          </ul>
+          <a class="scroll-cue" href="#carte" aria-label="Faire défiler"><i aria-hidden="true"></i> Scroll</a>
         </div>
       </div>
     </section>
@@ -137,37 +163,6 @@
         </div>
       </div>
     </div>
-
-    <!-- ===== Manifeste ===== -->
-    <section class="manifesto" id="manifeste">
-      <div class="container">
-        <p class="manifesto-text">Ici, pas de menu figé. Tu composes ton tacos, ton bowl, ton sandwich comme tu l’aimes. Chaque plat part en cuisine <em>au moment où tu le commandes</em>, généreux, chaud, et prêt vite.</p>
-
-        <div class="pillars">
-          <article class="pillar" data-reveal style="--i:0">
-            <div class="pillar-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M4.9 4.9l2.8 2.8M2 12h4M4.9 19.1l2.8-2.8M12 22v-4M19.1 19.1l-2.8-2.8M22 12h-4M19.1 4.9l-2.8 2.8"/><circle cx="12" cy="12" r="3"/></svg>
-            </div>
-            <h3>Préparé à la minute</h3>
-            <p>Rien n’attend sous une lampe. Chaque commande est lancée quand elle arrive, et sort chaude.</p>
-          </article>
-          <article class="pillar" data-reveal style="--i:1">
-            <div class="pillar-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16M6 19V9a6 6 0 0 1 12 0v10M9 12h6"/></svg>
-            </div>
-            <h3>Généreux, vraiment</h3>
-            <p>Des tacos XL à trois viandes, des pizzas en 29 ou 33 cm, des burgers au steak de 120 g. On ne compte pas.</p>
-          </article>
-          <article class="pillar" data-reveal style="--i:2">
-            <div class="pillar-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-            </div>
-            <h3>Jusqu’à 2h du matin</h3>
-            <p>Service continu de 11h à 1h50, six jours sur sept. Après le match, après la soirée, on est encore là.</p>
-          </article>
-        </div>
-      </div>
-    </section>
 
     <!-- ===== Carte ===== -->
     <section class="section" id="carte">
@@ -246,144 +241,11 @@
               <p>Une pâte à pizza pliée, garnie comme un sandwich : sauce et crudités au choix. De M à XXL.</p>
             </div>
           </article>
-
-          <article class="dish" data-reveal style="--i:6">
-            <div class="dish-media">
-              <span class="dish-tag">Lasagnes</span>
-              <img src="assets/img/lasagne.jpg" alt="Lasagne bolognaise" loading="lazy" width="900" height="900">
-            </div>
-            <div class="dish-body">
-              <div class="dish-head"><h3>Lasagne bolognaise</h3><span class="dish-price">10,50 €</span></div>
-              <p>Sauce bolognaise maison, béchamel maison et mozzarella gratinée.</p>
-            </div>
-          </article>
-
-          <article class="dish" data-reveal style="--i:7">
-            <div class="dish-media">
-              <span class="dish-tag">Dessert</span>
-              <img src="assets/img/tiramisu.jpg" alt="Tiramisu maison" loading="lazy" width="900" height="900">
-            </div>
-            <div class="dish-body">
-              <div class="dish-head"><h3>Tiramisu du moment</h3><span class="dish-price">3,50 €</span></div>
-              <p>Fait maison. Nutella-spéculoos, Oreo, spéculoos-caramel ou chocolat blanc.</p>
-            </div>
-          </article>
-
-          <article class="dish" data-reveal style="--i:8">
-            <div class="dish-media">
-              <span class="dish-tag">Frais</span>
-              <img src="assets/img/milkshake.jpg" alt="Milkshake" loading="lazy" width="900" height="900">
-            </div>
-            <div class="dish-body">
-              <div class="dish-head"><h3>Milkshake</h3><span class="dish-price">5,00 €</span></div>
-              <p>Onctueux, préparé minute avec la base de ton choix.</p>
-            </div>
-          </article>
         </div>
 
         <div class="menu-foot" data-reveal>
-          <span>Prix TTC indicatifs. Bruschettas, salades, tex-mex, frites garnies, menu kids et boissons dans l’application.</span>
+          <span>* Prix TTC indicatifs. Bruschettas, salades, tex-mex, frites garnies, menu kids et boissons dans l’application.</span>
           <a class="btn btn-ghost btn-sm" href="#app">Voir toute la carte dans l’app</a>
-        </div>
-      </div>
-    </section>
-
-    <!-- ===== Compose ===== -->
-    <section class="section compose" id="compose">
-      <div class="container compose-layout">
-        <div class="compose-sticky">
-          <span class="eyebrow" data-reveal>Compose ton menu</span>
-          <h2 class="display h-lg" data-reveal style="--i:1">Quatre choix. <em>Zéro compromis.</em></h2>
-          <p class="lead" data-reveal style="--i:2">Tacos, bowl, sandwich ou pizza : on part de ta base, et tu construis le reste. Le plat qui sort est exactement celui que tu voulais.</p>
-        </div>
-
-        <div class="steps">
-          <div class="step" data-reveal style="--i:0">
-            <span class="step-num" aria-hidden="true">01</span>
-            <div>
-              <h3>Choisis ta base</h3>
-              <p>Le format qui te ressemble, de la petite faim à la très grosse faim.</p>
-              <div class="chips">
-                <span class="chip accent">Tacos M · L · XL</span><span class="chip">Bowl</span><span class="chip">Sandwich américain</span><span class="chip">Pizzdwich</span><span class="chip">Pizza 29 / 33 cm</span>
-              </div>
-            </div>
-          </div>
-          <div class="step" data-reveal style="--i:1">
-            <span class="step-num" aria-hidden="true">02</span>
-            <div>
-              <h3>Ta viande</h3>
-              <p>Une, deux ou trois selon la taille. Toutes préparées sur place.</p>
-              <div class="chips">
-                <span class="chip accent">Poulet</span><span class="chip accent">Kebab</span><span class="chip">Tenders</span><span class="chip">Nuggets</span><span class="chip">Cordon bleu</span><span class="chip">Merguez</span><span class="chip">Viande hachée</span><span class="chip">Escalope</span><span class="chip">Falafel</span>
-              </div>
-            </div>
-          </div>
-          <div class="step" data-reveal style="--i:2">
-            <span class="step-num" aria-hidden="true">03</span>
-            <div>
-              <h3>Ta sauce</h3>
-              <p>La fromagère est dans le tacos. Le reste, c’est toi qui décides.</p>
-              <div class="chips">
-                <span class="chip accent">Samouraï</span><span class="chip accent">Biggy</span><span class="chip">Blanche</span><span class="chip">Algérienne</span><span class="chip">Andalouse</span><span class="chip">Barbecue</span><span class="chip">Curry</span><span class="chip">Harissa</span><span class="chip">Boursin</span>
-              </div>
-            </div>
-          </div>
-          <div class="step" data-reveal style="--i:3">
-            <span class="step-num" aria-hidden="true">04</span>
-            <div>
-              <h3>L’accompagnement</h3>
-              <p>Des frites, ou des frites qui ont vraiment quelque chose à dire.</p>
-              <div class="chips">
-                <span class="chip">Frites maison</span><span class="chip accent">Frites cheddar bacon</span><span class="chip">Frites fromagère</span><span class="chip">Oignons frits</span><span class="chip">Tenders x3</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ===== Formules ===== -->
-    <section class="section" id="formules">
-      <div class="container">
-        <div class="section-head split">
-          <div>
-            <span class="eyebrow" data-reveal>Formules</span>
-            <h2 class="display h-lg" data-reveal style="--i:1">Pour deux, pour trois, <em>pour la table.</em></h2>
-          </div>
-          <p class="lead" data-reveal style="--i:2">Les soirs où tout le monde a faim en même temps.</p>
-        </div>
-
-        <div class="formules">
-          <article class="formule" data-reveal style="--i:0">
-            <span class="formule-kicker">Formule</span>
-            <h3>Pizza Duo</h3>
-            <div class="formule-price">25<sup>€</sup></div>
-            <ul>
-              <li>2 pizzas taille M au choix</li>
-              <li>1 grande bouteille au choix</li>
-              <li>Idéal à deux, ou pour un très grand appétit</li>
-            </ul>
-          </article>
-          <article class="formule featured" data-reveal style="--i:1">
-            <span class="formule-kicker">La plus demandée</span>
-            <h3>Pizza Trio</h3>
-            <div class="formule-price">31<sup>€50</sup></div>
-            <ul>
-              <li>3 pizzas taille M au choix</li>
-              <li>1 grande bouteille au choix</li>
-              <li>La soirée entre amis, réglée</li>
-            </ul>
-          </article>
-          <article class="formule" data-reveal style="--i:2">
-            <span class="formule-kicker">Pour les petits</span>
-            <h3>Menu Kids</h3>
-            <div class="formule-price" style="font-size:clamp(1.6rem,3vw,2rem);line-height:1.2">Nuggets ou cheese</div>
-            <ul>
-              <li>Plat, frites et boisson</li>
-              <li>Portions pensées pour les enfants</li>
-              <li>Détail et prix dans l’application</li>
-            </ul>
-          </article>
         </div>
       </div>
     </section>
@@ -391,9 +253,25 @@
     <!-- ===== Restaurant ===== -->
     <section class="section" id="restaurant">
       <div class="container about-layout">
-        <div class="about-media" data-reveal="clip">
-          <img src="assets/img/og-image.jpg" alt="Les plats de Brive Food : burger, pizza, tacos, milkshake et bowl" loading="lazy" width="1200" height="960">
-          <span class="about-caption">Brive-la-Gaillarde · Avenue du Président Roosevelt</span>
+        <div class="about-visual" data-reveal>
+          <div class="about-media">
+            <img src="assets/img/og-image.jpg" alt="Les plats de Brive Food : burger, pizza, tacos, milkshake et bowl" loading="lazy" width="1200" height="960">
+          </div>
+          <figure class="about-snap about-snap-1" aria-hidden="true">
+            <img src="assets/img/tacos.jpg" alt="" loading="lazy" width="900" height="900">
+            <figcaption>Tacos, sauce au choix</figcaption>
+          </figure>
+          <figure class="about-snap about-snap-2" aria-hidden="true">
+            <img src="assets/img/tiramisu.jpg" alt="" loading="lazy" width="900" height="900">
+            <figcaption>Tiramisu maison</figcaption>
+          </figure>
+          <div class="about-stamp" aria-hidden="true">
+            <svg viewBox="0 0 120 120">
+              <defs><path id="stamp-circle" d="M60 60m-44 0a44 44 0 1 1 88 0a44 44 0 1 1 -88 0"/></defs>
+              <text><textPath href="#stamp-circle" textLength="270">BRIVE-LA-GAILLARDE · DEPUIS 2020 · </textPath></text>
+            </svg>
+            <img src="assets/img/logo.png" alt="" width="52" height="52">
+          </div>
         </div>
         <div class="about-copy">
           <span class="eyebrow" data-reveal>Le restaurant</span>
@@ -438,7 +316,7 @@
                 <tr data-day="0"><td>Dimanche</td><td>11h00 – 01h50</td></tr>
               </tbody>
             </table>
-            <p class="hours-note">Les commandes en ligne ferment à 1h50. Jusqu’à 2h, on prend encore les commandes par téléphone, selon ce qu’il reste en cuisine.</p>
+            <p class="hours-note">Les commandes en ligne ferment à 1h50.</p>
 
             <div class="contact-list">
               <a class="contact-item" href="tel:+33766881697">
@@ -476,7 +354,7 @@
               -->
               <iframe
                 title="Vue 3D : Brive Food, 23 bis avenue du Président Roosevelt, Brive-la-Gaillarde"
-                src="https://www.google.com/maps/embed/v1/streetview?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&location=45.157566,1.524584&pitch=8&fov=90&language=fr"
+                src="https://www.google.com/maps/embed/v1/streetview?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&location=45.157566,1.524584&heading=147&pitch=8&fov=90&language=fr"
                 loading="lazy"
                 referrerpolicy="no-referrer-when-downgrade"
                 allowfullscreen></iframe>
@@ -514,26 +392,43 @@
 
         <div class="order-grid">
           <article class="order-card" data-reveal style="--i:0">
-            <div class="pillar-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>
+            <div class="ticket">
+              <div class="ticket-paper">
+                <div class="ticket-top"><span>Brive Food</span><span>N° 01</span></div>
+                <h3>Sur place</h3>
+                <p>Viens, installe-toi, commande au comptoir ou depuis l’application. Ton plat arrive chaud, à ta table.</p>
+                <dl class="ticket-lines">
+                  <div><dt>Commande</dt><dd>Comptoir ou appli</dd></div>
+                  <div><dt>Service</dt><dd>À ta table</dd></div>
+                </dl>
+              </div>
             </div>
-            <h3>Sur place</h3>
-            <p>Viens, installe-toi, commande au comptoir ou depuis l’application. Ton plat arrive chaud, à ta table.</p>
           </article>
           <article class="order-card" data-reveal style="--i:1">
-            <div class="pillar-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l1 13H5zM9 7V5a3 3 0 0 1 6 0v2"/></svg>
+            <div class="ticket">
+              <div class="ticket-paper">
+                <div class="ticket-top"><span>Brive Food</span><span>N° 02</span></div>
+                <h3>À emporter</h3>
+                <p>Commande depuis l’application, on te prévient quand c’est prêt. Tu passes, tu récupères, sans attendre.</p>
+                <dl class="ticket-lines">
+                  <div><dt>Commande</dt><dd>Dans l’appli</dd></div>
+                  <div><dt>Retrait</dt><dd>Dès que c’est prêt</dd></div>
+                </dl>
+              </div>
             </div>
-            <h3>À emporter</h3>
-            <p>Commande depuis l’application, on te prévient quand c’est prêt. Tu passes, tu récupères, sans attendre.</p>
           </article>
           <article class="order-card" data-reveal style="--i:2">
-            <div class="pillar-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17" r="3"/><circle cx="18" cy="17" r="3"/><path d="M9 17h6M6 14l3-8h5l4 8M14 6h3l2 4"/></svg>
+            <div class="ticket">
+              <div class="ticket-paper">
+                <div class="ticket-top"><span>Brive Food</span><span>N° 03</span></div>
+                <h3>Livraison</h3>
+                <p>Livré chez toi jusqu’à 10 km autour du restaurant, avec suivi en direct dans l’application.</p>
+                <dl class="ticket-lines">
+                  <div><dt>Zone</dt><dd>10 km autour</dd></div>
+                  <div><dt>Frais</dt><dd>Dès 5 €, selon la distance</dd></div>
+                </dl>
+              </div>
             </div>
-            <h3>Livraison</h3>
-            <p>Livré chez toi jusqu’à 10 km autour du restaurant, avec suivi en direct dans l’application.</p>
-            <p class="fine">Frais de livraison dès 5 € selon la distance.</p>
           </article>
         </div>
       </div>
@@ -572,7 +467,8 @@
           <div class="float float-2" aria-hidden="true"><img src="assets/img/pizza-fermiere.jpg" alt="" loading="lazy"></div>
           <div class="float float-3" aria-hidden="true"><img src="assets/img/milkshake.jpg" alt="" loading="lazy"></div>
 
-          <div class="phone" data-reveal>
+          <div class="phone-tilt">
+          <div class="phone">
             <div class="phone-screen">
               <div class="phone-notch" aria-hidden="true"></div>
               <div class="phone-status" aria-hidden="true"><span>09:22</span><i></i></div>
@@ -601,16 +497,18 @@
               <div class="phone-cart" aria-hidden="true"><span>2</span> Voir le panier · 27.00 €</div>
             </div>
           </div>
+          </div>
         </div>
       </div>
     </section>
 
     <!-- ===== FAQ ===== -->
-    <section class="section" id="faq" style="padding-top:0">
-      <div class="container">
-        <div class="section-head" style="text-align:center;justify-items:center">
-          <span class="eyebrow" data-reveal style="margin-inline:auto">Questions fréquentes</span>
+    <section class="section" id="faq">
+      <div class="container faq-layout">
+        <div class="section-head faq-head">
+          <span class="eyebrow" data-reveal>Questions fréquentes</span>
           <h2 class="display h-lg" data-reveal style="--i:1">Tout ce qu’on nous <em>demande.</em></h2>
+          <p class="faq-contact" data-reveal style="--i:2">Une autre question ? Appelle-nous au <a href="tel:+33766881697">07 66 88 16 97</a>.</p>
         </div>
         <div class="faq" data-reveal>
           <div class="faq-item">
@@ -644,7 +542,7 @@
     <!-- ===== Bandeau final ===== -->
     <section class="final">
       <div class="container">
-        <h2 class="display h-lg" data-reveal>Tu as faim ? <em>On est ouverts.</em></h2>
+        <h2 class="display h-lg" data-reveal>Une petite faim ? <em>On s’en occupe.</em></h2>
         <div class="hero-actions" data-reveal style="--i:1">
           <a class="btn btn-primary" href="#commander">Commander maintenant</a>
           <a class="btn btn-ghost" href="tel:+33766881697">Appeler le restaurant</a>
@@ -676,8 +574,6 @@
           <h4>Le restaurant</h4>
           <ul>
             <li><a href="#carte">La carte</a></li>
-            <li><a href="#compose">Compose ton menu</a></li>
-            <li><a href="#formules">Formules</a></li>
             <li><a href="#acces">Horaires &amp; accès</a></li>
           </ul>
         </div>
@@ -706,6 +602,18 @@
     </div>
   </footer>
 
+  <!-- ===== Accès permanent à l'application (reste visible au défilement) ===== -->
+  <aside class="app-dock" aria-label="Télécharger l’application Brive Food">
+    <img src="assets/img/logo.png" alt="" width="28" height="28">
+    <span class="app-dock-label">L’appli</span>
+    <a class="app-dock-btn" href="https://apps.apple.com/fr/app/brivefood/id6752569193" target="_blank" rel="noopener" aria-label="Télécharger sur l’App Store" title="App Store">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.6c0-2.5 2-3.6 2.1-3.7-1.2-1.7-3-1.9-3.6-2-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.9-1.7 0-3.2 1-4.1 2.5-1.8 3.1-.5 7.6 1.3 10.1.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.9-1.1-3-4.1zM14 5.3c.7-.8 1.2-2 1-3.1-1 0-2.2.7-2.9 1.5-.6.7-1.2 1.9-1 3 1.1.1 2.2-.6 2.9-1.4z"/></svg>
+    </a>
+    <a class="app-dock-btn" href="https://play.google.com/store/apps/details?id=com.brivefood.app&hl=fr" target="_blank" rel="noopener" aria-label="Télécharger sur Google Play" title="Google Play">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.6 2.4c-.3.3-.4.7-.4 1.2v16.8c0 .5.1.9.4 1.2l.1.1 9.4-9.4v-.2L3.7 2.3l-.1.1z"/><path d="M16.2 15.4l-3.1-3.1v-.2l3.1-3.1.1.1 3.7 2.1c1.1.6 1.1 1.6 0 2.2l-3.7 2.1-.1-.1z" opacity=".8"/><path d="M16.3 15.3L13.1 12l-9.5 9.5c.4.4.9.4 1.6 0l11.1-6.2" opacity=".6"/><path d="M16.3 8.7L5.2 2.5c-.7-.4-1.2-.3-1.6 0L13.1 12l3.2-3.3z" opacity=".9"/></svg>
+    </a>
+  </aside>
+
   <!-- ===== Pop-up d'accueil : l'application ===== -->
   <div class="modal" id="app-modal" role="dialog" aria-modal="true" aria-labelledby="app-modal-title" hidden>
     <div class="modal-backdrop" data-modal-close></div>
@@ -714,11 +622,36 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
       <div class="modal-visual" aria-hidden="true">
-        <img class="modal-logo" src="assets/img/logo.png" alt="" width="72" height="72">
-        <div class="modal-shots">
-          <img src="assets/img/tacos.jpg" alt="">
-          <img src="assets/img/chicken-burger.jpg" alt="">
-          <img src="assets/img/pizza-fermiere.jpg" alt="">
+        <div class="modal-phone">
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-notch" aria-hidden="true"></div>
+            <div class="phone-status" aria-hidden="true"><span>09:22</span><i></i></div>
+            <div class="phone-bar" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+              <span>🍔 Burgers</span>
+            </div>
+            <div class="phone-list" aria-hidden="true">
+              <div class="phone-card">
+                <div class="phone-card-media">
+                  <img src="assets/img/double-cheese.jpg" alt="" loading="lazy">
+                  <span class="phone-price">13.50 €</span>
+                  <div class="phone-card-title"><b>Double Cheese Burger</b><small>Buns, 2 steaks 120 g, double cheddar, cornichons, sauce au choix</small></div>
+                </div>
+                <div class="phone-card-action">Personnaliser votre burger <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></div>
+              </div>
+              <div class="phone-card">
+                <div class="phone-card-media">
+                  <img src="assets/img/chicken-burger.jpg" alt="" loading="lazy">
+                  <span class="phone-price">13.50 €</span>
+                  <div class="phone-card-title"><b>Chicken Burger</b><small>Poulet croustillant, salade, tomate, emmental, sauce au choix</small></div>
+                </div>
+                <div class="phone-card-action">Personnaliser votre burger <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></div>
+              </div>
+            </div>
+            <div class="phone-cart" aria-hidden="true"><span>2</span> Voir le panier · 27.00 €</div>
+          </div>
+        </div>
         </div>
       </div>
       <div class="modal-body">
@@ -740,6 +673,6 @@
     </div>
   </div>
 
-  <script src="assets/js/main.js?v=9" defer></script>
+  <script src="assets/js/main.js?v=10" defer></script>
 </body>
 </html>

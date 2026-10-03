@@ -334,6 +334,11 @@
       });
     };
     var closeModal = function () {
+      // Lance l'entrée du haut de page (voir .intro-wait dans style.css)
+      if (document.documentElement.classList.contains('intro-wait')) {
+        document.documentElement.classList.remove('intro-wait');
+        document.documentElement.classList.add('intro-play');
+      }
       appModal.classList.remove('is-open');
       document.body.style.overflow = '';
       window.setTimeout(function () { appModal.hidden = true; }, 300);
@@ -346,6 +351,8 @@
       if (e.key === 'Escape' && !appModal.hidden) closeModal();
     });
     window.setTimeout(openModal, 900);
+  } else {
+    document.documentElement.classList.remove('intro-wait');
   }
 
   /* ---------- Année du footer ---------- */
