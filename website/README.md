@@ -52,7 +52,7 @@ website/
 
 - Adresse : 23 bis avenue du Président Roosevelt, 19100 Brive-la-Gaillarde (45.157566, 1.524584)
 - Téléphone : 07 66 88 16 97
-- Horaires : 11h00 – 01h50, fermé le mardi (le statut « ouvert / fermé » est calculé en direct, heure de Paris)
+- Horaires : 11h à 1h50, fermé le mardi (le statut « ouvert / fermé » est calculé en direct, heure de Paris)
 - Société : BRIVE FOOD SARL, capital 10 000 €, RCS Brive 887 843 522, SIRET 887 843 522 00046, TVA FR12887843522
 - Prix : ceux de `src/data/products.js` au 29/09/2026
 
