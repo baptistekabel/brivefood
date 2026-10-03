@@ -1970,17 +1970,19 @@ h4 {
 }
 
 .faq-a {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 260ms var(--ease-out);
+  display: none;
 }
 
 .faq-item[open] .faq-a {
-  grid-template-rows: 1fr;
+  display: block;
+  animation: faq-in 320ms var(--ease-out);
 }
 
-.faq-a > div {
-  overflow: hidden;
+@keyframes faq-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
 }
 
 .faq-a p {
@@ -2145,10 +2147,16 @@ h4 {
   transition: color 200ms ease, background-color 200ms ease;
 }
 
-.legal-toc a.active,
-.legal-toc a:hover {
+.legal-toc a.active {
   color: var(--cream);
   background: rgba(255, 255, 255, 0.05);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .legal-toc a:hover {
+    color: var(--cream);
+    background: rgba(255, 255, 255, 0.05);
+  }
 }
 
 .prose {
@@ -2436,15 +2444,12 @@ h4 {
 }
 
 [data-reveal="clip"] {
-  transform: none;
-  clip-path: inset(0 0 100% 0);
-  transition: clip-path 800ms var(--ease-in-out), opacity 400ms ease;
+  transform: scale(0.96);
 }
 
 [data-reveal].is-visible {
   opacity: 1;
-  transform: translateY(0);
-  clip-path: inset(0 0 0 0);
+  transform: none;
 }
 
 /* ---------- Reduced motion ---------- */
@@ -2462,8 +2467,10 @@ h4 {
   [data-reveal],
   [data-reveal="clip"] {
     transform: none;
-    clip-path: none;
     transition: opacity 400ms ease;
+  }
+  .faq-item[open] .faq-a {
+    animation: none;
   }
   .marquee-track {
     animation: none;
